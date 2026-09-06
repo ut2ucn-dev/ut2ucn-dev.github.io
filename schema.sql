@@ -93,13 +93,16 @@ create policy "students_select_admin" on students
   for select using (public.is_admin());
 
 -- lessons
+-- Викладач може лише переглядати своє власне заняття (розклад формує адміністратор).
 drop policy if exists "lessons_all_own" on lessons;
-create policy "lessons_all_own" on lessons
-  for all using (owner_id = auth.uid()) with check (owner_id = auth.uid());
+drop policy if exists "lessons_select_own" on lessons;
+create policy "lessons_select_own" on lessons
+  for select using (owner_id = auth.uid());
 
 drop policy if exists "lessons_select_admin" on lessons;
-create policy "lessons_select_admin" on lessons
-  for select using (public.is_admin());
+drop policy if exists "lessons_admin_all" on lessons;
+create policy "lessons_admin_all" on lessons
+  for all using (public.is_admin()) with check (public.is_admin());
 
 -- works
 drop policy if exists "works_all_own" on works;
@@ -109,6 +112,41 @@ create policy "works_all_own" on works
 drop policy if exists "works_select_admin" on works;
 create policy "works_select_admin" on works
   for select using (public.is_admin());
+
+-- ============================================================
+-- Сховище фото: замість збереження фото прямо в базі (base64),
+-- фото завантажуються у Supabase Storage, а в таблиці works
+-- зберігається лише посилання на файл.
+-- ============================================================
+
+insert into storage.buckets (id, name, public)
+values ('works-photos', 'works-photos', true)
+on conflict (id) do nothing;
+
+alter table storage.objects enable row level security;
+
+-- викладач може завантажувати/оновлювати/видаляти лише файли у своїй папці
+-- (папка = його user id, це перевіряється по шляху файлу)
+drop policy if exists "works_photos_insert_own" on storage.objects;
+create policy "works_photos_insert_own" on storage.objects
+  for insert to authenticated
+  with check (bucket_id = 'works-photos' and (storage.foldername(name))[1] = auth.uid()::text);
+
+drop policy if exists "works_photos_update_own" on storage.objects;
+create policy "works_photos_update_own" on storage.objects
+  for update to authenticated
+  using (bucket_id = 'works-photos' and (storage.foldername(name))[1] = auth.uid()::text);
+
+drop policy if exists "works_photos_delete_own" on storage.objects;
+create policy "works_photos_delete_own" on storage.objects
+  for delete to authenticated
+  using (bucket_id = 'works-photos' and (storage.foldername(name))[1] = auth.uid()::text);
+
+-- фото читає будь-хто, у кого є посилання (бакет публічний, потрібно для показу
+-- фото в інтерфейсі адміну та на прев'ю); самі назви файлів невгадувані
+drop policy if exists "works_photos_public_read" on storage.objects;
+create policy "works_photos_public_read" on storage.objects
+  for select using (bucket_id = 'works-photos');
 
 -- ============================================================
 -- Готово. Останній крок — зробити СЕБЕ суперадміністратором:
