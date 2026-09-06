@@ -123,7 +123,9 @@ insert into storage.buckets (id, name, public)
 values ('works-photos', 'works-photos', true)
 on conflict (id) do nothing;
 
-alter table storage.objects enable row level security;
+-- RLS на storage.objects вже увімкнено в Supabase за замовчуванням,
+-- тому окремий ALTER TABLE тут не потрібен (і навіть викличе помилку
+-- прав доступу, якщо спробувати).
 
 -- викладач може завантажувати/оновлювати/видаляти лише файли у своїй папці
 -- (папка = його user id, це перевіряється по шляху файлу)
