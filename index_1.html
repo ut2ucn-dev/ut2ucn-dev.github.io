@@ -1,0 +1,1319 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Stemik · облік моделей</title>
+<style>
+
+  html,body{ margin:0; padding:0; background:#F8F6F2; }
+  #root{ min-height:100vh; }
+  @media (prefers-reduced-motion: reduce){
+    *{ animation-duration:0.001ms !important; animation-iteration-count:1 !important; transition-duration:0.001ms !important; }
+  }
+  @keyframes fadeInUp{ from{ opacity:0; transform:translateY(6px); } to{ opacity:1; transform:translateY(0); } }
+  @keyframes fadeIn{ from{ opacity:0; } to{ opacity:1; } }
+  @keyframes modalIn{ from{ opacity:0; transform:translateY(10px) scale(0.97); } to{ opacity:1; transform:translateY(0) scale(1); } }
+  @keyframes softPulse{ 0%,100%{ box-shadow:0 0 0 0 rgba(224,142,69,0.32); } 50%{ box-shadow:0 0 0 5px rgba(224,142,69,0); } }
+  @keyframes dotPulse{ 0%,100%{ opacity:1; transform:scale(1); } 50%{ opacity:0.45; transform:scale(0.8); } }
+  @keyframes floaty{ 0%,100%{ transform:translateY(0); } 50%{ transform:translateY(-5px); } }
+  @keyframes shake{
+    10%,90%{ transform:translateX(-1px); } 20%,80%{ transform:translateX(2px); }
+    30%,50%,70%{ transform:translateX(-4px); } 40%,60%{ transform:translateX(4px); }
+  }
+  .studio-app{
+    --ink:#05263F; --ink-soft:#5C7386; --paper:#F8F6F2; --card:#FFFFFF;
+    --line:#EBE6DC; --line-strong:#DAD2C2;
+    --brand:#5CA7C9; --brand-dark:#3D84A6; --brand-soft:#E9F3F7; --brand-text:#2E6E8E;
+    --sand:#E3DFD6; --sand-text:#8A7F6C;
+    --alert:#E08E45; --alert-soft:#FBEADA; --alert-text:#A15D1D;
+    --font-display:'Segoe UI','Helvetica Neue',Arial,sans-serif;
+    --font-body:'Segoe UI',Arial,sans-serif;
+    --font-mono:'Consolas','Courier New',monospace;
+    font-family:var(--font-body); color:var(--ink); background:var(--paper);
+    min-height:100vh; width:100%; box-sizing:border-box; position:relative;
+  }
+  .studio-app *{ box-sizing:border-box; }
+  .studio-app .bg-grid{
+    position:absolute; inset:0; pointer-events:none; opacity:0.6;
+    background-image:radial-gradient(circle, var(--line-strong) 1px, transparent 1px);
+    background-size:26px 26px; mask-image:linear-gradient(to bottom, black, transparent 380px);
+  }
+  .studio-shell{ position:relative; display:flex; min-height:100vh; max-width:1120px; margin:0 auto; }
+  .studio-sidebar{
+    width:206px; flex-shrink:0; padding:22px 14px; display:flex; flex-direction:column; gap:4px;
+    border-right:1px solid var(--line);
+  }
+  .studio-brand{ padding:2px 6px 18px; display:flex; align-items:center; gap:10px; }
+  .studio-brand-title{ font-family:var(--font-display); font-weight:700; font-size:18px; letter-spacing:-0.01em; line-height:1.15; color:var(--ink); }
+  .studio-brand-sub{ font-family:var(--font-mono); font-size:9.5px; color:var(--ink-soft); margin-top:3px; letter-spacing:0.02em; text-transform:uppercase; }
+  .section-switch{ display:flex; flex-direction:column; gap:2px; border:1px solid var(--line); border-radius:9px; padding:3px; margin-bottom:14px; background:var(--card); }
+  .section-switch button{
+    font-family:var(--font-body); font-size:12.5px; font-weight:500; border:none; background:transparent; color:var(--ink-soft);
+    padding:7px 10px; border-radius:7px; cursor:pointer; text-align:left; display:flex; align-items:center; gap:6px; transition:background .15s ease, color .15s ease;
+  }
+  .section-switch button.active{ background:var(--ink); color:#fff; }
+  .nav-group{ display:flex; flex-direction:column; gap:4px; }
+  .studio-nav-btn{
+    display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:8px; border:none; background:transparent;
+    font-family:var(--font-body); font-size:13.5px; font-weight:500; color:var(--ink-soft); cursor:pointer; text-align:left;
+    width:100%; transition:background .15s ease, color .15s ease, transform .15s ease;
+  }
+  .studio-nav-btn:hover{ background:var(--brand-soft); color:var(--brand-text); }
+  .studio-nav-btn.active{ background:var(--brand); color:#fff; box-shadow:0 3px 10px rgba(92,167,201,0.35); }
+  .studio-nav-badge{
+    margin-left:auto; font-family:var(--font-mono); font-size:10.5px; background:var(--alert); color:#fff;
+    border-radius:20px; padding:1px 6px; min-width:18px; text-align:center; line-height:1.4;
+  }
+  .studio-nav-btn.active .studio-nav-badge{ background:rgba(255,255,255,0.3); }
+  .studio-sync{ margin-top:auto; padding:10px 8px 2px; font-family:var(--font-mono); font-size:10px; color:var(--ink-soft); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:flex; align-items:center; gap:6px; }
+  .studio-sync-dot{ width:6px; height:6px; border-radius:50%; background:var(--brand); flex-shrink:0; transition:background .2s ease; }
+  .studio-sync-dot.error{ background:var(--alert); }
+  .studio-sync-dot.pulsing{ animation:dotPulse 1s ease-in-out infinite; }
+  .logout-btn{ margin:2px 8px 0; justify-content:flex-start; color:var(--ink-soft); }
+  .logout-btn:hover{ color:var(--alert-text); background:var(--alert-soft); }
+  .studio-main{ flex:1; min-width:0; padding:26px 30px 60px; overflow:hidden; }
+  .tab-fade{ animation:fadeInUp .28s cubic-bezier(.22,.8,.32,1) both; }
+  .studio-page-head{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom:20px; gap:12px; flex-wrap:wrap; }
+  .studio-page-title{ font-family:var(--font-display); font-size:22px; font-weight:700; letter-spacing:-0.01em; }
+  .studio-btn{
+    font-family:var(--font-body); font-size:13px; font-weight:500; border-radius:8px; padding:8px 14px;
+    border:1px solid var(--line-strong); background:var(--card); color:var(--ink); cursor:pointer;
+    display:inline-flex; align-items:center; gap:6px; transition:border-color .15s ease, background .15s ease, transform .12s ease, box-shadow .15s ease;
+  }
+  .studio-btn:hover{ border-color:var(--brand); transform:translateY(-1px); }
+  .studio-btn:active{ transform:translateY(0); }
+  .studio-btn.primary{ background:var(--brand); border-color:var(--brand); color:#fff; }
+  .studio-btn.primary:hover{ background:var(--brand-dark); border-color:var(--brand-dark); box-shadow:0 4px 12px rgba(92,167,201,0.38); }
+  .studio-btn.danger{ color:var(--alert-text); border-color:var(--alert-soft); background:var(--alert-soft); }
+  .studio-btn.danger:hover{ border-color:var(--alert); }
+  .studio-btn.ghost{ border-color:transparent; background:transparent; padding:6px 8px; }
+  .studio-btn.ghost:hover{ background:var(--brand-soft); transform:none; }
+  .studio-btn:disabled{ opacity:0.45; cursor:not-allowed; transform:none; }
+  .studio-segmented{ display:inline-flex; border:1px solid var(--line-strong); border-radius:9px; padding:2px; background:var(--card); }
+  .studio-segmented button{
+    font-family:var(--font-body); font-size:12.5px; font-weight:500; border:none; background:transparent; color:var(--ink-soft);
+    padding:6px 12px; border-radius:7px; cursor:pointer; transition:background .15s ease, color .15s ease;
+  }
+  .studio-segmented button.active{ background:var(--brand-soft); color:var(--brand-text); }
+  .studio-hero{
+    border:1px solid var(--line); background:linear-gradient(135deg, var(--brand-soft), var(--card) 60%); border-radius:12px;
+    padding:16px 18px; margin-bottom:22px; display:flex; gap:16px; align-items:flex-start; position:relative; overflow:hidden;
+  }
+  .studio-hero::before{ content:''; position:absolute; left:0; top:0; bottom:0; width:4px; background:linear-gradient(180deg, var(--brand), var(--sand)); }
+  .studio-hero-label{ font-family:var(--font-mono); font-size:10.5px; color:var(--brand-text); letter-spacing:0.03em; margin-bottom:4px; text-transform:uppercase; }
+  .studio-hero-theme{ font-family:var(--font-display); font-size:17px; font-weight:700; }
+  .studio-hero-date{ font-family:var(--font-body); font-size:13px; color:var(--ink-soft); margin-top:2px; }
+  .datecard{ width:60px; flex-shrink:0; border-radius:8px; overflow:hidden; border:1px solid var(--line-strong); background:var(--card); }
+  .datecard.big{ width:68px; }
+  .datecard.big .datecard-day{ font-size:25px; }
+  .datecard-top{ background:var(--ink); color:#fff; text-align:center; font-family:var(--font-mono); font-size:9.5px; padding:3px 0; letter-spacing:0.05em; }
+  .datecard-body{ text-align:center; padding:6px 0 8px; }
+  .datecard-day{ font-family:var(--font-display); font-size:22px; font-weight:700; line-height:1; color:var(--ink); }
+  .datecard-weekday{ font-family:var(--font-mono); font-size:9px; color:var(--ink-soft); margin-top:3px; letter-spacing:0.04em; }
+  .lesson-card{
+    border:1px solid var(--line); background:var(--card); border-radius:14px; padding:16px 18px; margin-bottom:14px;
+    display:flex; gap:16px; animation:fadeInUp .3s ease both; transition:border-color .15s ease, box-shadow .15s ease;
+  }
+  .lesson-card:hover{ border-color:var(--line-strong); box-shadow:0 4px 16px rgba(5,38,63,0.07); }
+  .lesson-card.past{ opacity:0.6; }
+  .lesson-main{ flex:1; min-width:0; }
+  .lesson-top{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+  .lesson-heading{ min-width:0; }
+  .lesson-theme{ font-family:var(--font-display); font-size:16.5px; font-weight:700; line-height:1.3; }
+  .lesson-meta-row{ display:flex; align-items:center; flex-wrap:wrap; gap:10px; margin-top:5px; }
+  .lesson-time{ font-family:var(--font-mono); font-size:11.5px; color:var(--ink-soft); display:inline-flex; align-items:center; gap:4px; }
+  .lesson-progress{ font-family:var(--font-mono); font-size:10.5px; color:var(--brand-text); background:var(--brand-soft); border-radius:20px; padding:2px 8px; }
+  .lesson-actions{ display:flex; gap:2px; flex-shrink:0; }
+  .lesson-series-tag{ display:inline-flex; align-items:center; gap:4px; font-family:var(--font-mono); font-size:10px; color:var(--brand-text); }
+  .student-panel{ margin-top:14px; background:var(--paper); border-radius:10px; padding:6px 12px; }
+  .student-row{ display:flex; align-items:center; gap:10px; padding:9px 0; border-top:1px solid var(--line); flex-wrap:wrap; }
+  .student-row:first-child{ border-top:none; }
+  .student-name{ font-size:13.5px; font-weight:500; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .info-banner{
+    display:flex; align-items:center; gap:8px; background:var(--brand-soft); color:var(--brand-text); font-size:12.5px; font-weight:500;
+    border-radius:10px; padding:10px 14px; margin-bottom:18px;
+  }
+  .thumb-spinner{
+    width:14px; height:14px; border-radius:50%; border:2px solid var(--brand-soft); border-top-color:var(--brand);
+    animation:spin .7s linear infinite;
+  }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+  .thumb-slot{
+    width:34px; height:34px; border-radius:8px; border:1.5px dashed var(--line-strong); background:var(--paper);
+    display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; overflow:hidden; position:relative;
+    transition:border-color .15s ease, transform .15s ease;
+  }
+  .thumb-slot img{ width:100%; height:100%; object-fit:cover; }
+  .thumb-slot:hover{ border-color:var(--brand); transform:scale(1.05); }
+  .thumb-slot.readonly{ cursor:default; }
+  .thumb-slot.readonly:hover{ border-color:var(--line-strong); transform:none; }
+  .due-flag{
+    display:inline-flex; align-items:center; gap:5px; background:var(--alert-soft); color:var(--alert-text);
+    border-radius:20px; padding:4px 9px 4px 5px; font-size:11px; font-weight:600; cursor:pointer; border:none; flex-shrink:0;
+    animation:softPulse 2.4s ease-in-out infinite;
+  }
+  .due-flag img{ width:20px; height:20px; border-radius:5px; object-fit:cover; }
+  .printed-pill{ font-family:var(--font-mono); font-size:10px; color:var(--brand-text); background:var(--brand-soft); border-radius:20px; padding:3px 8px; flex-shrink:0; display:inline-flex; align-items:center; gap:4px; border:none; cursor:pointer; transition:transform .12s ease; }
+  .printed-pill:active{ transform:scale(0.95); }
+  .printed-pill.off{ color:var(--ink-soft); background:var(--paper); border:1px solid var(--line-strong); }
+  .printed-by{ font-family:var(--font-mono); font-size:9.5px; color:var(--ink-soft); flex-basis:100%; padding-left:2px; }
+  .chip{
+    display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:20px; border:1px solid var(--line-strong);
+    background:var(--card); font-size:12.5px; cursor:pointer; user-select:none; color:var(--ink-soft);
+    transition:background .15s ease, color .15s ease, border-color .15s ease, transform .12s ease;
+  }
+  .chip.selected{ background:var(--brand); color:#fff; border-color:var(--brand); transform:scale(1.03); }
+  .empty-state{ border:1.5px dashed var(--line-strong); border-radius:12px; padding:30px 20px 34px; text-align:center; color:var(--ink-soft); animation:fadeIn .3s ease both; }
+  .empty-mascot{ display:flex; justify-content:center; margin-bottom:10px; font-size:34px; }
+  .empty-state-title{ font-family:var(--font-display); font-size:15px; font-weight:700; color:var(--ink); margin-bottom:4px; }
+  .empty-state-sub{ font-size:13px; max-width:320px; margin:0 auto; }
+  .students-list{ border:1px solid var(--line); border-radius:12px; overflow:hidden; background:var(--card); }
+  .students-row{ display:flex; align-items:center; gap:12px; padding:11px 14px; border-bottom:1px solid var(--line); animation:fadeInUp .25s ease both; transition:background .15s ease; }
+  .students-row:hover{ background:var(--paper); }
+  .students-row:last-child{ border-bottom:none; }
+  .admin-row{ cursor:pointer; }
+  .role-badge{ font-family:var(--font-mono); font-size:9px; text-transform:uppercase; background:var(--ink); color:#fff; border-radius:20px; padding:2px 7px; letter-spacing:0.03em; }
+  .role-badge.me{ background:var(--brand); }
+  .avatar{
+    width:32px; height:32px; border-radius:50%; background:linear-gradient(135deg, var(--brand-soft), var(--sand)); color:var(--brand-text);
+    display:flex; align-items:center; justify-content:center; font-family:var(--font-display); font-weight:700; font-size:13px; flex-shrink:0; overflow:hidden;
+  }
+  .avatar img{ width:100%; height:100%; object-fit:cover; }
+  .avatar.lg{ width:56px; height:56px; font-size:20px; }
+  .students-meta{ font-family:var(--font-mono); font-size:11px; color:var(--ink-soft); }
+  .students-sub{ font-size:12px; color:var(--ink-soft); margin-top:1px; }
+  .print-item{ display:flex; gap:12px; align-items:center; border:1px solid var(--line); background:var(--card); border-radius:12px; padding:12px 14px; margin-bottom:10px; animation:fadeInUp .3s ease both; transition:box-shadow .15s ease; flex-wrap:wrap; }
+  .print-item:hover{ box-shadow:0 3px 14px rgba(5,38,63,0.06); }
+  .print-thumb{ width:52px; height:52px; border-radius:8px; object-fit:cover; flex-shrink:0; cursor:pointer; border:1px solid var(--line); transition:transform .15s ease; background:var(--paper); }
+  .print-thumb:hover{ transform:scale(1.06); }
+  .print-item-name{ font-weight:700; font-size:14px; }
+  .print-item-origin{ font-size:12px; color:var(--ink-soft); margin-top:1px; }
+  .print-item-due{ font-family:var(--font-mono); font-size:11px; color:var(--alert-text); margin-top:3px; display:flex; align-items:center; gap:4px; }
+  .overlay{ position:fixed; inset:0; background:rgba(5,38,63,0.5); display:flex; align-items:center; justify-content:center; padding:20px; z-index:50; animation:fadeIn .18s ease both; }
+  .modal{ background:var(--card); border-radius:16px; padding:22px; width:100%; max-width:440px; max-height:88vh; overflow-y:auto; animation:modalIn .22s cubic-bezier(.22,.9,.36,1) both; }
+  .modal-title{ font-family:var(--font-display); font-size:17px; font-weight:700; margin-bottom:16px; display:flex; align-items:center; justify-content:space-between; }
+  .field-label{ font-size:12px; font-weight:500; color:var(--ink-soft); margin-bottom:5px; display:block; }
+  .field{ margin-bottom:14px; }
+  .field-row{ display:flex; gap:10px; }
+  .field-row .field{ flex:1; }
+  .field input[type=text], .field input[type=date], .field input[type=time], .field input[type=number], .field input[type=password], .field input[type=email], .field input[type=tel]{
+    width:100%; border:1px solid var(--line-strong); border-radius:8px; padding:9px 10px; font-family:var(--font-body); font-size:13.5px; background:var(--paper); color:var(--ink);
+    transition:border-color .15s ease, box-shadow .15s ease;
+  }
+  .field input:focus{ outline:none; border-color:var(--brand); box-shadow:0 0 0 3px var(--brand-soft); }
+  .chip-wrap{ display:flex; flex-wrap:wrap; gap:6px; }
+  .modal-actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:18px; }
+  .preview-img{ max-width:100%; max-height:60vh; border-radius:10px; display:block; margin:0 auto; }
+  .hint{ font-size:11.5px; color:var(--ink-soft); margin-top:5px; }
+  .loading-block{ padding:60px 20px; text-align:center; color:var(--ink-soft); font-size:13.5px; }
+  .photo-field{ display:flex; align-items:center; gap:12px; }
+
+  .admin-view-bar{ display:flex; align-items:center; gap:14px; padding:0 0 18px; flex-wrap:wrap; }
+  .admin-view-title{ font-family:var(--font-mono); font-size:11.5px; color:var(--ink-soft); display:flex; align-items:center; gap:6px; }
+
+  .login-app{ display:flex; align-items:center; justify-content:center; }
+  .login-wrap{ position:relative; width:100%; display:flex; justify-content:center; padding:20px; }
+  .login-card{
+    background:var(--card); border:1px solid var(--line); border-radius:18px; padding:30px 30px 28px;
+    width:100%; max-width:380px; text-align:center; box-shadow:0 12px 34px rgba(5,38,63,0.09);
+    animation:modalIn .32s cubic-bezier(.22,.9,.36,1) both;
+  }
+  .login-card.shake{ animation:shake .42s ease; }
+  .login-mascot{ font-size:40px; margin-bottom:4px; }
+  .login-title{ font-family:var(--font-display); font-size:21px; font-weight:700; color:var(--ink); }
+  .login-sub{ font-family:var(--font-mono); font-size:10px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:0.03em; margin-top:3px; margin-bottom:14px; }
+  .login-tabs{ display:flex; border:1px solid var(--line-strong); border-radius:9px; padding:2px; background:var(--paper); margin-bottom:16px; }
+  .login-tabs button{
+    flex:1; font-family:var(--font-body); font-size:12.5px; font-weight:600; border:none; background:transparent; color:var(--ink-soft);
+    padding:7px 10px; border-radius:7px; cursor:pointer; transition:background .15s ease, color .15s ease;
+  }
+  .login-tabs button.active{ background:var(--card); color:var(--ink); box-shadow:0 1px 4px rgba(5,38,63,0.08); }
+  .login-card .field{ text-align:left; }
+  .login-error{
+    display:flex; align-items:center; gap:6px; justify-content:center; background:var(--alert-soft); color:var(--alert-text);
+    font-size:12px; font-weight:500; border-radius:8px; padding:8px 10px; margin-bottom:12px; animation:fadeIn .2s ease both;
+  }
+  .login-info{
+    display:flex; align-items:center; gap:6px; justify-content:center; background:var(--brand-soft); color:var(--brand-text);
+    font-size:12px; font-weight:500; border-radius:8px; padding:8px 10px; margin-bottom:12px; animation:fadeIn .2s ease both; text-align:left;
+  }
+  .login-btn{ width:100%; justify-content:center; padding:10px 14px; font-size:14px; margin-top:4px; }
+
+  @media (max-width: 760px){
+    .studio-shell{ flex-direction:column; }
+    .studio-sidebar{ width:100%; padding:10px 12px; gap:4px; border-right:none; border-bottom:1px solid var(--line); }
+    .studio-brand{ padding-bottom:10px; }
+    .nav-group{ flex-direction:row; flex-wrap:wrap; }
+    .studio-nav-btn{ flex:1; justify-content:center; }
+    .studio-sync{ display:none; }
+    .section-switch{ flex-direction:row; }
+    .studio-main{ padding:18px 16px 40px; }
+    .admin-view-bar{ padding:14px 0 0; }
+  }
+
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="config.js"></script>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin></script>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useMemo, useRef, useCallback } = React;
+
+const sb = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+
+// ---------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------
+
+const MONTHS = ["січня","лютого","березня","квітня","травня","червня","липня","серпня","вересня","жовтня","листопада","грудня"];
+const WEEKDAYS = ["неділя","понеділок","вівторок","середа","четвер","п'ятниця","субота"];
+const WEEKDAYS_SHORT = ["НД","ПН","ВТ","СР","ЧТ","ПТ","СБ"];
+
+function parseDate(d){
+  const [y,m,day] = d.split("-").map(Number);
+  return new Date(y, m-1, day);
+}
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+function addDays(d, n){ const dt = parseDate(d); dt.setDate(dt.getDate()+n); return dt.toISOString().slice(0,10); }
+function formatDateLong(d){
+  const dt = parseDate(d);
+  return `${dt.getDate()} ${MONTHS[dt.getMonth()]} ${dt.getFullYear()} · ${WEEKDAYS[dt.getDay()]}`;
+}
+function dateCardParts(d){
+  const dt = parseDate(d);
+  return { day: dt.getDate(), month: MONTHS[dt.getMonth()].slice(0,3), weekday: WEEKDAYS_SHORT[dt.getDay()] };
+}
+function isPast(d){ return d < todayStr(); }
+
+function fullName(p){
+  if (!p) return "";
+  const n = `${p.last_name || ""} ${p.first_name || ""}`.trim();
+  return n || p.email || "";
+}
+function initials(p){
+  if (!p) return "?";
+  if (p.last_name) return p.last_name[0].toUpperCase();
+  if (p.email) return p.email[0].toUpperCase();
+  return "?";
+}
+function initialsFromName(name){
+  if (!name) return "?";
+  return name.trim()[0]?.toUpperCase() || "?";
+}
+
+function compressImage(file, maxSize, quality){
+  maxSize = maxSize || 900; quality = quality || 0.75;
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("read-failed"));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("image-failed"));
+      img.onload = () => {
+        let w = img.width, h = img.height;
+        if (w > h) { if (w > maxSize) { h = Math.round(h * (maxSize / w)); w = maxSize; } }
+        else { if (h > maxSize) { w = Math.round(w * (maxSize / h)); h = maxSize; } }
+        const canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+        canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error("blob-failed")), "image/jpeg", quality);
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function uploadPhoto(bucket, path, file){
+  const blob = await compressImage(file);
+  const { error } = await sb.storage.from(bucket).upload(path, blob, { upsert: true, contentType: "image/jpeg" });
+  if (error) throw error;
+  const { data } = sb.storage.from(bucket).getPublicUrl(path);
+  return data.publicUrl + "?v=" + Date.now();
+}
+
+// ---------------------------------------------------------------
+// Icons
+// ---------------------------------------------------------------
+
+function Icon({ name, size, style }){
+  size = size || 16;
+  const p = { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor",
+    strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round", style };
+  switch(name){
+    case "calendar": return <svg {...p}><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>;
+    case "users": return <svg {...p}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>;
+    case "printer": return <svg {...p}><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>;
+    case "shield": return <svg {...p}><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z"/></svg>;
+    case "plus": return <svg {...p}><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>;
+    case "edit": return <svg {...p}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>;
+    case "trash": return <svg {...p}><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>;
+    case "logout": return <svg {...p}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>;
+    case "back": return <svg {...p}><polyline points="15 18 9 12 15 6"/></svg>;
+    case "camera": return <svg {...p}><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>;
+    case "x": return <svg {...p}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>;
+    case "check": return <svg {...p}><polyline points="20 6 9 17 4 12"/></svg>;
+    case "phone": return <svg {...p}><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>;
+    case "user": return <svg {...p}><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>;
+    case "image": return <svg {...p}><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>;
+    case "repeat": return <svg {...p}><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>;
+    default: return null;
+  }
+}
+
+// ---------------------------------------------------------------
+// Login screen
+// ---------------------------------------------------------------
+
+function LoginScreen(){
+  const [tab, setTab] = useState("in");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [shake, setShake] = useState(false);
+
+  function fail(msg){
+    setError(msg); setInfo(""); setShake(true);
+    setTimeout(() => setShake(false), 450);
+  }
+
+  async function submit(e){
+    e.preventDefault();
+    setError(""); setInfo("");
+    if (!email || !password) return fail("Заповніть email і пароль");
+    setBusy(true);
+    try{
+      if (tab === "in"){
+        const { error } = await sb.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+      } else {
+        if (!lastName.trim() || !firstName.trim()) { setBusy(false); return fail("Вкажіть прізвище та ім'я"); }
+        const { data, error } = await sb.auth.signUp({
+          email, password,
+          options: { data: { last_name: lastName.trim(), first_name: firstName.trim() } }
+        });
+        if (error) throw error;
+        if (!data.session){
+          setInfo("Реєстрація успішна. Перевірте пошту й підтвердьте email, потім увійдіть.");
+          setTab("in");
+        }
+      }
+    } catch(err){
+      const msg = (err && err.message) || "Сталася помилка";
+      fail(msg.includes("Invalid login") ? "Невірний email або пароль" : msg);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="studio-app login-app">
+      <div className="bg-grid"></div>
+      <div className="login-wrap">
+        <div className={"login-card" + (shake ? " shake" : "")}>
+          <div className="login-mascot">🧵</div>
+          <div className="login-title">Stemik</div>
+          <div className="login-sub">Облік моделей</div>
+          <div className="login-tabs">
+            <button className={tab === "in" ? "active" : ""} onClick={() => { setTab("in"); setError(""); setInfo(""); }}>Вхід</button>
+            <button className={tab === "up" ? "active" : ""} onClick={() => { setTab("up"); setError(""); setInfo(""); }}>Реєстрація</button>
+          </div>
+          {error && <div className="login-error"><Icon name="x" size={14}/>{error}</div>}
+          {info && <div className="login-info"><Icon name="check" size={14}/>{info}</div>}
+          <form onSubmit={submit}>
+            {tab === "up" && (
+              <div className="field-row">
+                <div className="field">
+                  <label className="field-label">Прізвище</label>
+                  <input type="text" value={lastName} onChange={e => setLastName(e.target.value)} placeholder="Іванова" />
+                </div>
+                <div className="field">
+                  <label className="field-label">Ім'я</label>
+                  <input type="text" value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="Олена" />
+                </div>
+              </div>
+            )}
+            <div className="field">
+              <label className="field-label">Email</label>
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" autoComplete="username" />
+            </div>
+            <div className="field">
+              <label className="field-label">Пароль</label>
+              <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" autoComplete={tab === "in" ? "current-password" : "new-password"} />
+            </div>
+            <button className="studio-btn primary login-btn" disabled={busy} type="submit">
+              {busy ? "Зачекайте…" : (tab === "in" ? "Увійти" : "Створити акаунт")}
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------
+// Profile edit modal (used for own profile, and by admin for others)
+// ---------------------------------------------------------------
+
+function ProfileModal({ target, isAdminEditing, onClose, onSaved }){
+  const [lastName, setLastName] = useState(target.last_name || "");
+  const [firstName, setFirstName] = useState(target.first_name || "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  async function save(){
+    setSaving(true); setError("");
+    const { error } = await sb.from("profiles")
+      .update({ last_name: lastName.trim(), first_name: firstName.trim() })
+      .eq("id", target.id);
+    setSaving(false);
+    if (error) { setError(error.message); return; }
+    onSaved({ ...target, last_name: lastName.trim(), first_name: firstName.trim() });
+  }
+
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-title">
+          {isAdminEditing ? "Профіль викладача" : "Мій профіль"}
+          <button className="studio-btn ghost" onClick={onClose}><Icon name="x"/></button>
+        </div>
+        {error && <div className="login-error">{error}</div>}
+        <div className="field-row">
+          <div className="field">
+            <label className="field-label">Прізвище</label>
+            <input type="text" value={lastName} onChange={e => setLastName(e.target.value)} />
+          </div>
+          <div className="field">
+            <label className="field-label">Ім'я</label>
+            <input type="text" value={firstName} onChange={e => setFirstName(e.target.value)} />
+          </div>
+        </div>
+        <div className="field">
+          <label className="field-label">Email</label>
+          <input type="text" value={target.email || ""} disabled />
+          <div className="hint">Email не можна змінити тут.</div>
+        </div>
+        <div className="modal-actions">
+          <button className="studio-btn" onClick={onClose}>Скасувати</button>
+          <button className="studio-btn primary" disabled={saving} onClick={save}>{saving ? "Збереження…" : "Зберегти"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------
+// Student edit modal (add / edit). Photo field only shown for admins.
+// ---------------------------------------------------------------
+
+function StudentModal({ ownerId, student, showPhoto, onClose, onSaved }){
+  const [name, setName] = useState(student ? student.name : "");
+  const [phone, setPhone] = useState(student ? student.phone || "" : "");
+  const [parentLast, setParentLast] = useState(student ? student.parent_last_name || "" : "");
+  const [parentFirst, setParentFirst] = useState(student ? student.parent_first_name || "" : "");
+  const [photo, setPhoto] = useState(student ? student.photo || "" : "");
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const fileRef = useRef(null);
+
+  async function handlePhoto(e){
+    const file = e.target.files[0];
+    if (!file) return;
+    setUploadingPhoto(true);
+    try {
+      const path = `${ownerId}/${student ? student.id : "new_" + Date.now()}.jpg`;
+      const url = await uploadPhoto("student-photos", path, file);
+      setPhoto(url);
+    } catch(err){
+      setError("Не вдалося завантажити фото: " + err.message);
+    } finally {
+      setUploadingPhoto(false);
+    }
+  }
+
+  async function save(){
+    if (!name.trim()) { setError("Вкажіть ім'я дитини"); return; }
+    setSaving(true); setError("");
+    const payload = {
+      owner_id: ownerId,
+      name: name.trim(),
+      phone: phone.trim(),
+      parent_last_name: parentLast.trim(),
+      parent_first_name: parentFirst.trim(),
+      photo: photo || null
+    };
+    let res;
+    if (student) res = await sb.from("students").update(payload).eq("id", student.id).select().single();
+    else res = await sb.from("students").insert(payload).select().single();
+    setSaving(false);
+    if (res.error) { setError(res.error.message); return; }
+    onSaved(res.data);
+  }
+
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-title">
+          {student ? "Редагувати учня" : "Новий учень"}
+          <button className="studio-btn ghost" onClick={onClose}><Icon name="x"/></button>
+        </div>
+        {error && <div className="login-error">{error}</div>}
+        {showPhoto && (
+          <div className="field photo-field">
+            <div className="avatar lg">
+              {photo ? <img src={photo} /> : (uploadingPhoto ? <div className="thumb-spinner"/> : <Icon name="camera" size={22}/>)}
+            </div>
+            <div>
+              <button type="button" className="studio-btn" onClick={() => fileRef.current.click()}>
+                {photo ? "Замінити фото" : "Додати фото"}
+              </button>
+              <input ref={fileRef} type="file" accept="image/*" style={{display:"none"}} onChange={handlePhoto} />
+              <div className="hint">Фото дитини бачить лише адміністратор.</div>
+            </div>
+          </div>
+        )}
+        <div className="field">
+          <label className="field-label">Ім'я дитини</label>
+          <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Марійка" />
+        </div>
+        <div className="field">
+          <label className="field-label">Телефон</label>
+          <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+380 XX XXX XX XX" />
+        </div>
+        <div className="field-row">
+          <div className="field">
+            <label className="field-label">Прізвище батьків</label>
+            <input type="text" value={parentLast} onChange={e => setParentLast(e.target.value)} />
+          </div>
+          <div className="field">
+            <label className="field-label">Ім'я батьків</label>
+            <input type="text" value={parentFirst} onChange={e => setParentFirst(e.target.value)} />
+          </div>
+        </div>
+        <div className="modal-actions">
+          <button className="studio-btn" onClick={onClose}>Скасувати</button>
+          <button className="studio-btn primary" disabled={saving} onClick={save}>{saving ? "Збереження…" : "Зберегти"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------
+// Lesson edit modal (admin only)
+// ---------------------------------------------------------------
+
+function LessonModal({ ownerId, students, lesson, onClose, onSaved }){
+  const [date, setDate] = useState(lesson ? lesson.date : todayStr());
+  const [time, setTime] = useState(lesson ? (lesson.time || "") : "");
+  const [theme, setTheme] = useState(lesson ? lesson.theme : "");
+  const [studentIds, setStudentIds] = useState(lesson ? lesson.student_ids : []);
+  const [repeatWeekly, setRepeatWeekly] = useState(false);
+  const [weeks, setWeeks] = useState(4);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  function toggleStudent(id){
+    setStudentIds(ids => ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]);
+  }
+
+  async function save(){
+    if (!theme.trim()) { setError("Вкажіть тему заняття"); return; }
+    if (!date) { setError("Вкажіть дату"); return; }
+    setSaving(true); setError("");
+    if (lesson){
+      const { error } = await sb.from("lessons")
+        .update({ date, time: time || null, theme: theme.trim(), student_ids: studentIds })
+        .eq("id", lesson.id);
+      setSaving(false);
+      if (error) { setError(error.message); return; }
+    } else {
+      const seriesId = repeatWeekly ? crypto.randomUUID() : null;
+      const count = repeatWeekly ? Math.max(1, Number(weeks) || 1) : 1;
+      const rows = [];
+      for (let i = 0; i < count; i++){
+        rows.push({
+          owner_id: ownerId, series_id: seriesId, date: addDays(date, i * 7),
+          time: time || null, theme: theme.trim(), student_ids: studentIds
+        });
+      }
+      const { error } = await sb.from("lessons").insert(rows);
+      setSaving(false);
+      if (error) { setError(error.message); return; }
+    }
+    onSaved();
+  }
+
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-title">
+          {lesson ? "Редагувати заняття" : "Нове заняття"}
+          <button className="studio-btn ghost" onClick={onClose}><Icon name="x"/></button>
+        </div>
+        {error && <div className="login-error">{error}</div>}
+        <div className="field">
+          <label className="field-label">Тема</label>
+          <input type="text" value={theme} onChange={e => setTheme(e.target.value)} placeholder="Друк брелока" />
+        </div>
+        <div className="field-row">
+          <div className="field">
+            <label className="field-label">Дата</label>
+            <input type="date" value={date} onChange={e => setDate(e.target.value)} />
+          </div>
+          <div className="field">
+            <label className="field-label">Час</label>
+            <input type="time" value={time} onChange={e => setTime(e.target.value)} />
+          </div>
+        </div>
+        <div className="field">
+          <label className="field-label">Учні на занятті</label>
+          <div className="chip-wrap">
+            {students.map(s => (
+              <div key={s.id} className={"chip" + (studentIds.includes(s.id) ? " selected" : "")} onClick={() => toggleStudent(s.id)}>
+                {studentIds.includes(s.id) && <Icon name="check" size={12}/>}
+                {s.name}
+              </div>
+            ))}
+            {students.length === 0 && <div className="hint">Спершу додайте учнів на вкладці «Учні».</div>}
+          </div>
+        </div>
+        {!lesson && (
+          <div className="field">
+            <label className="field-label">
+              <input type="checkbox" checked={repeatWeekly} onChange={e => setRepeatWeekly(e.target.checked)} style={{marginRight:6}} />
+              Повторювати щотижня
+            </label>
+            {repeatWeekly && (
+              <div style={{marginTop:8}}>
+                <label className="field-label">Кількість тижнів</label>
+                <input type="number" min="1" max="52" value={weeks} onChange={e => setWeeks(e.target.value)} />
+              </div>
+            )}
+          </div>
+        )}
+        <div className="modal-actions">
+          <button className="studio-btn" onClick={onClose}>Скасувати</button>
+          <button className="studio-btn primary" disabled={saving} onClick={save}>{saving ? "Збереження…" : "Зберегти"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------
+// Photo preview modal
+// ---------------------------------------------------------------
+
+function PreviewModal({ url, onClose }){
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()} style={{maxWidth: 520}}>
+        <div className="modal-title">Фото роботи<button className="studio-btn ghost" onClick={onClose}><Icon name="x"/></button></div>
+        <img className="preview-img" src={url} />
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------
+// Work helpers (shared by schedule + queue tabs)
+// ---------------------------------------------------------------
+
+function findWork(works, lessonId, studentId){
+  return works.find(w => w.lesson_id === lessonId && w.student_id === studentId) || null;
+}
+
+function useWorkActions(ownerId, works, setWorks, me){
+  const attachPhoto = useCallback(async (lessonId, studentId, file) => {
+    const existing = findWork(works, lessonId, studentId);
+    setWorks(ws => ws.map(w => w === existing ? { ...w, _uploading: true } : w));
+    try {
+      const path = `${ownerId}/${lessonId}_${studentId}.jpg`;
+      const url = await uploadPhoto("works-photos", path, file);
+      if (existing){
+        const { data, error } = await sb.from("works").update({ photo: url }).eq("id", existing.id).select().single();
+        if (error) throw error;
+        setWorks(ws => ws.map(w => w.id === existing.id ? data : w));
+      } else {
+        const { data, error } = await sb.from("works").insert({
+          owner_id: ownerId, lesson_id: lessonId, student_id: studentId, photo: url
+        }).select().single();
+        if (error) throw error;
+        setWorks(ws => [...ws, data]);
+      }
+    } catch(err){
+      alert("Не вдалося завантажити фото: " + err.message);
+      setWorks(ws => ws.map(w => w === existing ? { ...w, _uploading: false } : w));
+    }
+  }, [ownerId, works]);
+
+  const togglePrinted = useCallback(async (lessonId, studentId) => {
+    const existing = findWork(works, lessonId, studentId);
+    const nextPrinted = !(existing && existing.printed);
+    const printedByName = nextPrinted ? fullName(me) : null;
+    const printedAt = nextPrinted ? new Date().toISOString() : null;
+    if (existing){
+      const { data, error } = await sb.from("works")
+        .update({ printed: nextPrinted, printed_by_name: printedByName, printed_at: printedAt })
+        .eq("id", existing.id).select().single();
+      if (error) { alert(error.message); return; }
+      setWorks(ws => ws.map(w => w.id === existing.id ? data : w));
+    } else {
+      const { data, error } = await sb.from("works").insert({
+        owner_id: ownerId, lesson_id: lessonId, student_id: studentId,
+        printed: nextPrinted, printed_by_name: printedByName, printed_at: printedAt
+      }).select().single();
+      if (error) { alert(error.message); return; }
+      setWorks(ws => [...ws, data]);
+    }
+  }, [ownerId, works, me]);
+
+  return { attachPhoto, togglePrinted };
+}
+
+// ---------------------------------------------------------------
+// Schedule tab
+// ---------------------------------------------------------------
+
+function ScheduleTab({ ownerId, canEdit, students, me }){
+  const [lessons, setLessons] = useState([]);
+  const [works, setWorks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [modalLesson, setModalLesson] = useState(undefined); // undefined = closed, null = new
+  const [preview, setPreview] = useState(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const [lr, wr] = await Promise.all([
+      sb.from("lessons").select("*").eq("owner_id", ownerId).order("date", { ascending: true }),
+      sb.from("works").select("*").eq("owner_id", ownerId)
+    ]);
+    setLessons(lr.data || []);
+    setWorks(wr.data || []);
+    setLoading(false);
+  }, [ownerId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const { attachPhoto, togglePrinted } = useWorkActions(ownerId, works, setWorks, me);
+  const studentById = useMemo(() => Object.fromEntries(students.map(s => [s.id, s])), [students]);
+
+  async function deleteLesson(lesson){
+    if (!confirm(`Видалити заняття «${lesson.theme}»?`)) return;
+    const { error } = await sb.from("lessons").delete().eq("id", lesson.id);
+    if (error) { alert(error.message); return; }
+    setLessons(ls => ls.filter(l => l.id !== lesson.id));
+  }
+
+  if (loading) return <div className="loading-block">Завантаження розкладу…</div>;
+
+  const sorted = [...lessons].sort((a,b) => (a.date + (a.time||"")).localeCompare(b.date + (b.time||"")));
+  const next = sorted.find(l => !isPast(l.date));
+
+  return (
+    <div className="tab-fade">
+      <div className="studio-page-head">
+        <div className="studio-page-title">Розклад занять</div>
+        {canEdit && <button className="studio-btn primary" onClick={() => setModalLesson(null)}><Icon name="plus" size={14}/> Нове заняття</button>}
+      </div>
+
+      {next && (
+        <div className="studio-hero">
+          <div className="datecard big">
+            <div className="datecard-top">{dateCardParts(next.date).month}</div>
+            <div className="datecard-body">
+              <div className="datecard-day">{dateCardParts(next.date).day}</div>
+              <div className="datecard-weekday">{dateCardParts(next.date).weekday}</div>
+            </div>
+          </div>
+          <div>
+            <div className="studio-hero-label">Найближче заняття</div>
+            <div className="studio-hero-theme">{next.theme}</div>
+            <div className="studio-hero-date">{formatDateLong(next.date)}{next.time ? " · " + next.time : ""}</div>
+          </div>
+        </div>
+      )}
+
+      {sorted.length === 0 && (
+        <div className="empty-state">
+          <div className="empty-mascot">📅</div>
+          <div className="empty-state-title">Занять поки немає</div>
+          <div className="empty-state-sub">{canEdit ? "Додайте перше заняття кнопкою вище." : "Розклад формує адміністратор — тут з'являться заплановані заняття."}</div>
+        </div>
+      )}
+
+      {sorted.map(lesson => {
+        const present = (lesson.student_ids || []).map(id => studentById[id]).filter(Boolean);
+        const doneCount = present.filter(s => { const w = findWork(works, lesson.id, s.id); return w && w.printed; }).length;
+        return (
+          <div key={lesson.id} className={"lesson-card" + (isPast(lesson.date) ? " past" : "")}>
+            <div className="datecard">
+              <div className="datecard-top">{dateCardParts(lesson.date).month}</div>
+              <div className="datecard-body">
+                <div className="datecard-day">{dateCardParts(lesson.date).day}</div>
+                <div className="datecard-weekday">{dateCardParts(lesson.date).weekday}</div>
+              </div>
+            </div>
+            <div className="lesson-main">
+              <div className="lesson-top">
+                <div className="lesson-heading">
+                  <div className="lesson-theme">{lesson.theme}</div>
+                  <div className="lesson-meta-row">
+                    {lesson.time && <span className="lesson-time"><Icon name="calendar" size={12}/> {lesson.time}</span>}
+                    {present.length > 0 && <span className="lesson-progress">{doneCount}/{present.length} надруковано</span>}
+                    {lesson.series_id && <span className="lesson-series-tag"><Icon name="repeat" size={11}/> щотижня</span>}
+                  </div>
+                </div>
+                {canEdit && (
+                  <div className="lesson-actions">
+                    <button className="studio-btn ghost" onClick={() => setModalLesson(lesson)}><Icon name="edit" size={14}/></button>
+                    <button className="studio-btn ghost" onClick={() => deleteLesson(lesson)}><Icon name="trash" size={14}/></button>
+                  </div>
+                )}
+              </div>
+              {present.length > 0 && (
+                <div className="student-panel">
+                  {present.map(s => {
+                    const w = findWork(works, lesson.id, s.id);
+                    const printed = w && w.printed;
+                    return (
+                      <div key={s.id} className="student-row">
+                        <label className="thumb-slot" title="Прикріпити фото роботи">
+                          {w && w._uploading ? <div className="thumb-spinner"/> : (w && w.photo ? <img src={w.photo} onClick={ev => { ev.preventDefault(); setPreview(w.photo); }} /> : <Icon name="camera" size={15}/>)}
+                          <input type="file" accept="image/*" style={{display:"none"}} onChange={e => { const f = e.target.files[0]; if (f) attachPhoto(lesson.id, s.id, f); e.target.value=""; }} />
+                        </label>
+                        <div className="student-name">{s.name}</div>
+                        {(lesson.date <= todayStr()) && (!w || !w.photo) && !printed && (
+                          <span className="due-flag">Немає фото</span>
+                        )}
+                        <button className={"printed-pill" + (printed ? "" : " off")} onClick={() => togglePrinted(lesson.id, s.id)}>
+                          <Icon name="printer" size={11}/> {printed ? "Надруковано" : "Не надруковано"}
+                        </button>
+                        {printed && w.printed_by_name && (
+                          <span className="printed-by">Статус змінив: {w.printed_by_name}</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })}
+
+      {modalLesson !== undefined && (
+        <LessonModal
+          ownerId={ownerId}
+          students={students}
+          lesson={modalLesson}
+          onClose={() => setModalLesson(undefined)}
+          onSaved={() => { setModalLesson(undefined); load(); }}
+        />
+      )}
+      {preview && <PreviewModal url={preview} onClose={() => setPreview(null)} />}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------
+// Students tab
+// ---------------------------------------------------------------
+
+function StudentsTab({ ownerId, showPhoto, students, reload }){
+  const [modalStudent, setModalStudent] = useState(undefined);
+
+  async function del(s){
+    if (!confirm(`Видалити учня «${s.name}»? Це також видалить його роботи та прибере з усіх занять.`)) return;
+    const { error } = await sb.from("students").delete().eq("id", s.id);
+    if (error) { alert(error.message); return; }
+    reload();
+  }
+
+  return (
+    <div className="tab-fade">
+      <div className="studio-page-head">
+        <div className="studio-page-title">Учні</div>
+        <button className="studio-btn primary" onClick={() => setModalStudent(null)}><Icon name="plus" size={14}/> Новий учень</button>
+      </div>
+
+      {students.length === 0 ? (
+        <div className="empty-state">
+          <div className="empty-mascot">🧒</div>
+          <div className="empty-state-title">Учнів ще немає</div>
+          <div className="empty-state-sub">Додайте першого учня кнопкою вище.</div>
+        </div>
+      ) : (
+        <div className="students-list">
+          {students.map(s => (
+            <div key={s.id} className="students-row">
+              <div className="avatar">
+                {showPhoto && s.photo ? <img src={s.photo} /> : initialsFromName(s.name)}
+              </div>
+              <div style={{flex:1, minWidth:0}}>
+                <div className="student-name">{s.name}</div>
+                {(s.parent_last_name || s.parent_first_name || s.phone) && (
+                  <div className="students-sub">
+                    {[s.parent_last_name, s.parent_first_name].filter(Boolean).join(" ")}
+                    {s.phone ? (s.parent_last_name || s.parent_first_name ? " · " : "") + s.phone : ""}
+                  </div>
+                )}
+              </div>
+              <button className="studio-btn ghost" onClick={() => setModalStudent(s)}><Icon name="edit" size={14}/></button>
+              <button className="studio-btn ghost" onClick={() => del(s)}><Icon name="trash" size={14}/></button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {modalStudent !== undefined && (
+        <StudentModal
+          ownerId={ownerId}
+          student={modalStudent}
+          showPhoto={showPhoto}
+          onClose={() => setModalStudent(undefined)}
+          onSaved={() => { setModalStudent(undefined); reload(); }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------
+// Print queue tab
+// ---------------------------------------------------------------
+
+function QueueTab({ ownerId, students, me }){
+  const [lessons, setLessons] = useState([]);
+  const [works, setWorks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState("pending");
+  const [preview, setPreview] = useState(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const [lr, wr] = await Promise.all([
+      sb.from("lessons").select("*").eq("owner_id", ownerId),
+      sb.from("works").select("*").eq("owner_id", ownerId)
+    ]);
+    setLessons(lr.data || []);
+    setWorks(wr.data || []);
+    setLoading(false);
+  }, [ownerId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const { attachPhoto, togglePrinted } = useWorkActions(ownerId, works, setWorks, me);
+  const lessonById = useMemo(() => Object.fromEntries(lessons.map(l => [l.id, l])), [lessons]);
+  const studentById = useMemo(() => Object.fromEntries(students.map(s => [s.id, s])), [students]);
+
+  // build one row per (lesson, student) pair that has at least a scheduled presence
+  const rows = [];
+  lessons.forEach(lesson => {
+    (lesson.student_ids || []).forEach(sid => {
+      const student = studentById[sid];
+      if (!student) return;
+      const w = findWork(works, lesson.id, sid);
+      rows.push({ lesson, student, work: w });
+    });
+  });
+  rows.sort((a,b) => (b.lesson.date + (b.lesson.time||"")).localeCompare(a.lesson.date + (a.lesson.time||"")));
+  const filtered = rows.filter(r => filter === "all" ? true : !(r.work && r.work.printed));
+
+  if (loading) return <div className="loading-block">Завантаження черги друку…</div>;
+
+  return (
+    <div className="tab-fade">
+      <div className="studio-page-head">
+        <div className="studio-page-title">Черга друку</div>
+        <div className="studio-segmented">
+          <button className={filter === "pending" ? "active" : ""} onClick={() => setFilter("pending")}>Очікують</button>
+          <button className={filter === "all" ? "active" : ""} onClick={() => setFilter("all")}>Усі</button>
+        </div>
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="empty-state">
+          <div className="empty-mascot">🖨️</div>
+          <div className="empty-state-title">{filter === "pending" ? "Черга порожня" : "Записів немає"}</div>
+          <div className="empty-state-sub">Роботи з'являться тут після додавання фото на вкладці «Розклад».</div>
+        </div>
+      ) : filtered.map(({ lesson, student, work }) => {
+        const printed = work && work.printed;
+        return (
+          <div key={lesson.id + "_" + student.id} className="print-item">
+            <label className="print-thumb" style={{display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}>
+              {work && work._uploading ? <div className="thumb-spinner"/> : (work && work.photo ? <img className="print-thumb" src={work.photo} onClick={ev => { ev.preventDefault(); setPreview(work.photo); }} /> : <Icon name="camera" size={18}/>)}
+              <input type="file" accept="image/*" style={{display:"none"}} onChange={e => { const f = e.target.files[0]; if (f) attachPhoto(lesson.id, student.id, f); e.target.value=""; }} />
+            </label>
+            <div style={{flex:1, minWidth:160}}>
+              <div className="print-item-name">{student.name}</div>
+              <div className="print-item-origin">{lesson.theme} · {formatDateLong(lesson.date)}</div>
+            </div>
+            <button className={"printed-pill" + (printed ? "" : " off")} onClick={() => togglePrinted(lesson.id, student.id)}>
+              <Icon name="printer" size={11}/> {printed ? "Надруковано" : "Не надруковано"}
+            </button>
+            {printed && work.printed_by_name && (
+              <span className="printed-by">Статус змінив: {work.printed_by_name}</span>
+            )}
+          </div>
+        );
+      })}
+
+      {preview && <PreviewModal url={preview} onClose={() => setPreview(null)} />}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------
+// Workspace: schedule / students / queue for a given owner_id
+// ---------------------------------------------------------------
+
+// Renders the actual tab body in the main column for a given owner (self or,
+// for an admin, the teacher currently being viewed).
+function WorkspaceBody({ ownerId, canEditSchedule, showChildPhoto, me, tab, students, loadingStudents, reloadStudents }){
+  if (loadingStudents) return <div className="loading-block">Завантаження…</div>;
+  if (tab === "students") return <StudentsTab ownerId={ownerId} showPhoto={showChildPhoto} students={students} reload={reloadStudents} />;
+  if (tab === "queue") return <QueueTab ownerId={ownerId} students={students} me={me} />;
+  return <ScheduleTab ownerId={ownerId} canEdit={canEditSchedule} students={students} me={me} />;
+}
+
+// ---------------------------------------------------------------
+// Admin: list of teachers
+// ---------------------------------------------------------------
+
+function AdminTeacherList({ onSelect }){
+  const [teachers, setTeachers] = useState([]);
+  const [counts, setCounts] = useState({});
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      const { data } = await sb.from("profiles").select("*").eq("role", "teacher").order("last_name");
+      const list = data || [];
+      setTeachers(list);
+      setLoading(false);
+      const results = await Promise.all(list.map(async t => {
+        const [sRes, lRes, wRes] = await Promise.all([
+          sb.from("students").select("id", { count: "exact", head: true }).eq("owner_id", t.id),
+          sb.from("lessons").select("id", { count: "exact", head: true }).eq("owner_id", t.id),
+          sb.from("works").select("id", { count: "exact", head: true }).eq("owner_id", t.id).eq("printed", false)
+        ]);
+        return [t.id, { students: sRes.count || 0, lessons: lRes.count || 0, pending: wRes.count || 0 }];
+      }));
+      setCounts(Object.fromEntries(results));
+    })();
+  }, []);
+
+  if (loading) return <div className="loading-block">Завантаження викладачів…</div>;
+
+  return (
+    <div className="tab-fade">
+      <div className="studio-page-head">
+        <div className="studio-page-title">Викладачі</div>
+      </div>
+      {teachers.length === 0 ? (
+        <div className="empty-state">
+          <div className="empty-mascot">👩‍🏫</div>
+          <div className="empty-state-title">Викладачів ще немає</div>
+          <div className="empty-state-sub">Щойно хтось зареєструється за посиланням на сайт, він з'явиться тут.</div>
+        </div>
+      ) : (
+        <div className="students-list">
+          {teachers.map(t => {
+            const c = counts[t.id] || {};
+            return (
+              <div key={t.id} className="students-row admin-row" onClick={() => onSelect(t)}>
+                <div className="avatar">{initials(t)}</div>
+                <div style={{flex:1, minWidth:0}}>
+                  <div className="student-name">{fullName(t)}</div>
+                  <div className="students-sub">{t.email}</div>
+                </div>
+                <div className="students-meta">
+                  {c.students != null ? `${c.students} учнів · ${c.lessons} занять · ${c.pending} в черзі` : "…"}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------
+// Shell (post-login layout)
+// ---------------------------------------------------------------
+
+function Shell({ session, profile, setProfile }){
+  const isAdmin = profile.role === "admin";
+  const [section, setSection] = useState("workspace"); // 'workspace' | 'admin'
+  const [adminTeacher, setAdminTeacher] = useState(null);
+  const [tab, setTab] = useState("schedule");
+  const [profileModalTarget, setProfileModalTarget] = useState(null);
+
+  const targetOwnerId = (section === "admin" && adminTeacher) ? adminTeacher.id : profile.id;
+
+  const [students, setStudents] = useState([]);
+  const [loadingStudents, setLoadingStudents] = useState(true);
+  const reloadStudents = useCallback(async () => {
+    setLoadingStudents(true);
+    const { data } = await sb.from("students").select("*").eq("owner_id", targetOwnerId).order("name");
+    setStudents(data || []);
+    setLoadingStudents(false);
+  }, [targetOwnerId]);
+  useEffect(() => { reloadStudents(); }, [reloadStudents]);
+
+  function selectSection(s){
+    setSection(s);
+    setAdminTeacher(null);
+    setTab("schedule");
+  }
+  function selectTeacher(t){
+    setAdminTeacher(t);
+    setTab("schedule");
+  }
+
+  return (
+    <div className="studio-app">
+      <div className="bg-grid"></div>
+      <div className="studio-shell">
+        <div className="studio-sidebar">
+          <div className="studio-brand">
+            <div>
+              <div className="studio-brand-title">Stemik</div>
+              <div className="studio-brand-sub">Облік моделей</div>
+            </div>
+          </div>
+
+          <div
+            style={{display:"flex", alignItems:"center", gap:9, padding:"0 6px 16px", cursor:"pointer"}}
+            onClick={() => setProfileModalTarget(profile)}
+            title="Редагувати профіль"
+          >
+            <div className="avatar">{initials(profile)}</div>
+            <div style={{minWidth:0}}>
+              <div style={{fontSize:13, fontWeight:600, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>{fullName(profile)}</div>
+              <span className={"role-badge" + (isAdmin ? "" : " me")}>{isAdmin ? "Адмін" : "Викладач"}</span>
+            </div>
+          </div>
+
+          {isAdmin && (
+            <div className="section-switch">
+              <button className={section === "workspace" ? "active" : ""} onClick={() => selectSection("workspace")}><Icon name="user" size={13}/> Мій кабінет</button>
+              <button className={section === "admin" ? "active" : ""} onClick={() => selectSection("admin")}><Icon name="shield" size={13}/> Адмін</button>
+            </div>
+          )}
+
+          {(section === "workspace" || (section === "admin" && adminTeacher)) && (
+            <div className="nav-group" style={{marginBottom:14}}>
+              <button className={"studio-nav-btn" + (tab === "schedule" ? " active" : "")} onClick={() => setTab("schedule")}><Icon name="calendar" size={15}/> Розклад</button>
+              <button className={"studio-nav-btn" + (tab === "students" ? " active" : "")} onClick={() => setTab("students")}>
+                <Icon name="users" size={15}/> Учні
+                {students.length > 0 && <span className="studio-nav-badge">{students.length}</span>}
+              </button>
+              <button className={"studio-nav-btn" + (tab === "queue" ? " active" : "")} onClick={() => setTab("queue")}><Icon name="printer" size={15}/> Черга друку</button>
+            </div>
+          )}
+
+          <div className="studio-sync">
+            <span className="studio-sync-dot"></span> Supabase підключено
+          </div>
+          <button className="studio-nav-btn logout-btn" onClick={() => sb.auth.signOut()}><Icon name="logout" size={15}/> Вийти</button>
+        </div>
+
+        <div className="studio-main">
+          {section === "admin" && !adminTeacher && (
+            <AdminTeacherList onSelect={selectTeacher} />
+          )}
+
+          {section === "admin" && adminTeacher && (
+            <React.Fragment>
+              <div className="admin-view-bar">
+                <button className="studio-btn ghost" onClick={() => setAdminTeacher(null)}><Icon name="back" size={15}/></button>
+                <div className="admin-view-title">
+                  <Icon name="shield" size={13}/> Ви переглядаєте: <strong style={{color:"var(--ink)"}}>{fullName(adminTeacher)}</strong>
+                </div>
+                <button className="studio-btn ghost" onClick={() => setProfileModalTarget(adminTeacher)}><Icon name="edit" size={13}/> Профіль</button>
+              </div>
+              <WorkspaceBody
+                ownerId={targetOwnerId} canEditSchedule={true} showChildPhoto={true} me={profile}
+                tab={tab} students={students} loadingStudents={loadingStudents} reloadStudents={reloadStudents}
+              />
+            </React.Fragment>
+          )}
+
+          {section === "workspace" && (
+            <WorkspaceBody
+              ownerId={targetOwnerId} canEditSchedule={isAdmin} showChildPhoto={isAdmin} me={profile}
+              tab={tab} students={students} loadingStudents={loadingStudents} reloadStudents={reloadStudents}
+            />
+          )}
+        </div>
+      </div>
+
+      {profileModalTarget && (
+        <ProfileModal
+          target={profileModalTarget}
+          isAdminEditing={profileModalTarget.id !== profile.id}
+          onClose={() => setProfileModalTarget(null)}
+          onSaved={(updated) => {
+            setProfileModalTarget(null);
+            if (updated.id === profile.id) setProfile(updated);
+            if (adminTeacher && updated.id === adminTeacher.id) setAdminTeacher(updated);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------
+// App root: auth state + profile bootstrap
+// ---------------------------------------------------------------
+
+function App(){
+  const [session, setSession] = useState(undefined); // undefined = unknown yet
+  const [profile, setProfile] = useState(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+
+  useEffect(() => {
+    sb.auth.getSession().then(({ data }) => setSession(data.session));
+    const { data: sub } = sb.auth.onAuthStateChange((_event, sess) => setSession(sess));
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!session){ setProfile(null); return; }
+    setProfileLoading(true);
+    sb.from("profiles").select("*").eq("id", session.user.id).single().then(({ data }) => {
+      setProfile(data);
+      setProfileLoading(false);
+    });
+  }, [session]);
+
+  if (session === undefined) return <div className="loading-block">Завантаження…</div>;
+  if (!session) return <LoginScreen />;
+  if (profileLoading || !profile) return <div className="studio-app"><div className="loading-block">Завантаження профілю…</div></div>;
+
+  return <Shell session={session} profile={profile} setProfile={setProfile} />;
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
