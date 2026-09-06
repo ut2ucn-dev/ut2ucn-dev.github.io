@@ -4,5 +4,5 @@
 //
 // Цей файл можна редагувати прямо на GitHub, без будь-яких збірок.
 
-window.SUPABASE_URL = "https://ВАШ-ПРОЄКТ.supabase.co";
-window.SUPABASE_ANON_KEY = "ВАШ-ANON-КЛЮЧ";
+window.SUPABASE_URL = "https://smfwlbbjcfezmayvcofv.supabase.co";
+window.SUPABASE_ANON_KEY = "sb_secret_yu9KUu__4sBxnn0RnT-PZQ_NQgM4G4B";
