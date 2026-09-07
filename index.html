@@ -229,6 +229,41 @@
   .loading-block{ padding:60px 20px; text-align:center; color:var(--ink-soft); font-size:13.5px; }
   .photo-field{ display:flex; align-items:center; gap:12px; }
 
+  .confirm-modal{ max-width:380px; }
+  .confirm-message{ font-size:13.5px; color:var(--ink-soft); line-height:1.5; margin-bottom:4px; }
+  .studio-btn.danger:focus-visible{ outline:2px solid var(--alert); outline-offset:2px; }
+
+  .toast-stack{
+    position:fixed; left:50%; bottom:22px; transform:translateX(-50%); z-index:200;
+    display:flex; flex-direction:column-reverse; gap:8px; align-items:center; pointer-events:none;
+    width:100%; padding:0 16px;
+  }
+  .toast{
+    pointer-events:auto; cursor:pointer; display:inline-flex; align-items:center; gap:8px;
+    background:var(--card); color:var(--ink); border:1px solid var(--line-strong); border-radius:11px;
+    padding:10px 16px; font-size:13px; font-weight:500; box-shadow:0 10px 28px rgba(5,38,63,0.18);
+    animation:toastIn .22s cubic-bezier(.22,.9,.36,1) both; max-width:92vw;
+  }
+  .toast-success{ border-color:var(--brand); color:var(--brand-text); }
+  .toast-success svg{ color:var(--brand); flex-shrink:0; }
+  .toast-error{ border-color:var(--alert); color:var(--alert-text); }
+  .toast-error svg{ color:var(--alert); flex-shrink:0; }
+  @keyframes toastIn{ from{ opacity:0; transform:translateY(8px) scale(0.96); } to{ opacity:1; transform:translateY(0) scale(1); } }
+
+  .search-field{
+    display:flex; align-items:center; gap:8px; background:var(--card); border:1px solid var(--line-strong);
+    border-radius:10px; padding:8px 12px; margin-bottom:16px; color:var(--ink-soft);
+  }
+  .search-field input{
+    flex:1; border:none; background:transparent; outline:none; font-family:var(--font-body); font-size:13.5px; color:var(--ink);
+  }
+  .search-field input::placeholder{ color:var(--ink-soft); }
+  .search-clear{ border:none; background:transparent; color:var(--ink-soft); cursor:pointer; display:flex; padding:2px; border-radius:50%; }
+  .search-clear:hover{ background:var(--brand-soft); color:var(--brand-text); }
+
+  .tel-link{ color:var(--brand-text); text-decoration:none; display:inline-flex; align-items:center; gap:3px; }
+  .tel-link:hover{ text-decoration:underline; }
+
   .admin-view-bar{ display:flex; align-items:center; gap:14px; padding:0 0 18px; flex-wrap:wrap; }
   .admin-view-title{ font-family:var(--font-mono); font-size:11.5px; color:var(--ink-soft); display:flex; align-items:center; gap:6px; }
 
@@ -271,7 +306,40 @@
     .section-switch{ flex-direction:row; }
     .studio-main{ padding:18px 16px 40px; }
     .admin-view-bar{ padding:14px 0 0; }
+
+    /* Prevent iOS Safari's auto-zoom-on-focus (triggered by inputs under 16px),
+       which otherwise misaligns fixed-position modals right after a field is tapped. */
+    .field input[type=text], .field input[type=date], .field input[type=time],
+    .field input[type=number], .field input[type=password], .field input[type=email], .field input[type=tel]{
+      font-size:16px;
+    }
+
+    /* Modals become bottom sheets on mobile: full width, anchored to the bottom edge,
+       so they can never appear off-center or clipped at the top. */
+    .overlay{ align-items:flex-end; padding:0; }
+    .modal{ width:100%; max-width:100%; border-radius:18px 18px 0 0; max-height:85vh; animation:sheetUp .25s cubic-bezier(.22,.9,.36,1) both; padding-bottom:max(22px, env(safe-area-inset-bottom)); }
+    .confirm-modal{ max-width:100%; }
+
+    .studio-page-head{ align-items:center; }
+    .studio-page-title{ font-size:19px; }
+    .lesson-card{ flex-direction:column; gap:10px; }
+    .lesson-card .datecard{ flex-direction:row; width:auto; align-items:center; gap:8px; padding:2px 8px; }
+    .lesson-card .datecard-top{ padding:2px 6px; }
+    .lesson-card .datecard-body{ padding:0; }
+    .print-item{ flex-wrap:wrap; }
+    .toast-stack{ bottom:calc(14px + env(safe-area-inset-bottom)); }
   }
+
+  @media (max-width: 420px){
+    .studio-main{ padding:14px 12px 34px; }
+    .nav-group{ gap:6px; }
+    .studio-nav-btn{ font-size:12.5px; padding:8px 6px; }
+    .modal{ padding:18px; }
+    .field-row{ flex-direction:column; gap:0; }
+    .students-row{ flex-wrap:wrap; }
+  }
+
+  @keyframes sheetUp{ from{ opacity:0.4; transform:translateY(24px); } to{ opacity:1; transform:translateY(0); } }
 
 </style>
 </head>
@@ -302,6 +370,130 @@ const {
   useCallback
 } = React;
 const sb = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+
+// ---------------------------------------------------------------
+// Toast notifications (replaces native alert())
+// ---------------------------------------------------------------
+
+let toastListeners = [];
+let toastIdCounter = 0;
+function showToast(message, type) {
+  type = type || "success";
+  const id = ++toastIdCounter;
+  toastListeners.forEach(fn => fn({
+    id,
+    message,
+    type
+  }));
+}
+function ToastHost() {
+  const [toasts, setToasts] = useState([]);
+  useEffect(() => {
+    const listener = toast => {
+      setToasts(ts => [...ts, toast]);
+      setTimeout(() => setToasts(ts => ts.filter(t => t.id !== toast.id)), 3600);
+    };
+    toastListeners.push(listener);
+    return () => {
+      toastListeners = toastListeners.filter(l => l !== listener);
+    };
+  }, []);
+  function dismiss(id) {
+    setToasts(ts => ts.filter(t => t.id !== id));
+  }
+  return /*#__PURE__*/React.createElement("div", {
+    className: "toast-stack"
+  }, toasts.map(t => /*#__PURE__*/React.createElement("div", {
+    key: t.id,
+    className: "toast toast-" + t.type,
+    onClick: () => dismiss(t.id)
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: t.type === "error" ? "x" : "check",
+    size: 14
+  }), /*#__PURE__*/React.createElement("span", null, t.message))));
+}
+
+// ---------------------------------------------------------------
+// Confirm dialog (replaces native confirm())
+// ---------------------------------------------------------------
+
+let confirmResolver = null;
+let confirmListeners = [];
+function confirmDialog(message, opts) {
+  return new Promise(resolve => {
+    confirmResolver = resolve;
+    confirmListeners.forEach(fn => fn({
+      message,
+      opts: opts || {}
+    }));
+  });
+}
+function ConfirmHost() {
+  const [state, setState] = useState(null);
+  useEffect(() => {
+    const listener = s => setState(s);
+    confirmListeners.push(listener);
+    return () => {
+      confirmListeners = confirmListeners.filter(l => l !== listener);
+    };
+  }, []);
+  function respond(result) {
+    setState(null);
+    if (confirmResolver) {
+      confirmResolver(result);
+      confirmResolver = null;
+    }
+  }
+  useEscapeClose(state ? () => respond(false) : null);
+  useLockBodyScroll(!!state);
+  if (!state) return null;
+  return /*#__PURE__*/React.createElement("div", {
+    className: "overlay",
+    onClick: () => respond(false)
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "modal confirm-modal",
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "modal-title"
+  }, state.opts.title || "Підтвердження"), /*#__PURE__*/React.createElement("div", {
+    className: "confirm-message"
+  }, state.message), /*#__PURE__*/React.createElement("div", {
+    className: "modal-actions"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "studio-btn",
+    onClick: () => respond(false)
+  }, "Скасувати"), /*#__PURE__*/React.createElement("button", {
+    className: "studio-btn danger",
+    onClick: () => respond(true)
+  }, state.opts.confirmLabel || "Видалити"))));
+}
+
+// ---------------------------------------------------------------
+// Escape-to-close hook, used by every modal
+// ---------------------------------------------------------------
+
+function useEscapeClose(onClose) {
+  useEffect(() => {
+    if (!onClose) return;
+    function handler(e) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [onClose]);
+}
+let scrollLockCount = 0;
+function useLockBodyScroll(active) {
+  useEffect(() => {
+    if (active === false) return;
+    scrollLockCount++;
+    if (scrollLockCount === 1) document.body.style.overflow = "hidden";
+    return () => {
+      scrollLockCount--;
+      if (scrollLockCount === 0) document.body.style.overflow = "";
+    };
+  }, [active]);
+}
 
 // ---------------------------------------------------------------
 // Helpers
@@ -628,6 +820,17 @@ function Icon({
       return /*#__PURE__*/React.createElement("svg", p, /*#__PURE__*/React.createElement("path", {
         d: "M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"
       }));
+    case "search":
+      return /*#__PURE__*/React.createElement("svg", p, /*#__PURE__*/React.createElement("circle", {
+        cx: "11",
+        cy: "11",
+        r: "7"
+      }), /*#__PURE__*/React.createElement("line", {
+        x1: "21",
+        y1: "21",
+        x2: "16.65",
+        y2: "16.65"
+      }));
     default:
       return null;
   }
@@ -823,7 +1026,10 @@ function ProfileModal({
   const [firstName, setFirstName] = useState(target.first_name || "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  async function save() {
+  useEscapeClose(onClose);
+  useLockBodyScroll();
+  async function save(e) {
+    if (e) e.preventDefault();
     setSaving(true);
     setError("");
     const {
@@ -837,6 +1043,7 @@ function ProfileModal({
       setError(error.message);
       return;
     }
+    showToast("Профіль збережено");
     onSaved({
       ...target,
       last_name: lastName.trim(),
@@ -846,12 +1053,14 @@ function ProfileModal({
   return /*#__PURE__*/React.createElement("div", {
     className: "overlay",
     onClick: onClose
-  }, /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("form", {
     className: "modal",
-    onClick: e => e.stopPropagation()
+    onClick: e => e.stopPropagation(),
+    onSubmit: save
   }, /*#__PURE__*/React.createElement("div", {
     className: "modal-title"
   }, isAdminEditing ? "Профіль викладача" : "Мій профіль", /*#__PURE__*/React.createElement("button", {
+    type: "button",
     className: "studio-btn ghost",
     onClick: onClose
   }, /*#__PURE__*/React.createElement(Icon, {
@@ -867,7 +1076,8 @@ function ProfileModal({
   }, "Прізвище"), /*#__PURE__*/React.createElement("input", {
     type: "text",
     value: lastName,
-    onChange: e => setLastName(e.target.value)
+    onChange: e => setLastName(e.target.value),
+    autoFocus: true
   })), /*#__PURE__*/React.createElement("div", {
     className: "field"
   }, /*#__PURE__*/React.createElement("label", {
@@ -889,12 +1099,13 @@ function ProfileModal({
   }, "Email не можна змінити тут.")), /*#__PURE__*/React.createElement("div", {
     className: "modal-actions"
   }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
     className: "studio-btn",
     onClick: onClose
   }, "Скасувати"), /*#__PURE__*/React.createElement("button", {
+    type: "submit",
     className: "studio-btn primary",
-    disabled: saving,
-    onClick: save
+    disabled: saving
   }, saving ? "Збереження…" : "Зберегти"))));
 }
 
@@ -918,6 +1129,8 @@ function StudentModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const fileRef = useRef(null);
+  useEscapeClose(onClose);
+  useLockBodyScroll();
   async function handlePhoto(e) {
     const file = e.target.files[0];
     if (!file) return;
@@ -932,7 +1145,8 @@ function StudentModal({
       setUploadingPhoto(false);
     }
   }
-  async function save() {
+  async function save(e) {
+    if (e) e.preventDefault();
     if (!name.trim()) {
       setError("Вкажіть ім'я дитини");
       return;
@@ -954,17 +1168,20 @@ function StudentModal({
       setError(res.error.message);
       return;
     }
+    showToast(student ? "Учня оновлено" : "Учня додано");
     onSaved(res.data);
   }
   return /*#__PURE__*/React.createElement("div", {
     className: "overlay",
     onClick: onClose
-  }, /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("form", {
     className: "modal",
-    onClick: e => e.stopPropagation()
+    onClick: e => e.stopPropagation(),
+    onSubmit: save
   }, /*#__PURE__*/React.createElement("div", {
     className: "modal-title"
   }, student ? "Редагувати учня" : "Новий учень", /*#__PURE__*/React.createElement("button", {
+    type: "button",
     className: "studio-btn ghost",
     onClick: onClose
   }, /*#__PURE__*/React.createElement(Icon, {
@@ -1004,7 +1221,8 @@ function StudentModal({
     type: "text",
     value: name,
     onChange: e => setName(e.target.value),
-    placeholder: "Марійка"
+    placeholder: "Марійка",
+    autoFocus: true
   })), /*#__PURE__*/React.createElement("div", {
     className: "field"
   }, /*#__PURE__*/React.createElement("label", {
@@ -1035,12 +1253,13 @@ function StudentModal({
   }))), /*#__PURE__*/React.createElement("div", {
     className: "modal-actions"
   }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
     className: "studio-btn",
     onClick: onClose
   }, "Скасувати"), /*#__PURE__*/React.createElement("button", {
+    type: "submit",
     className: "studio-btn primary",
-    disabled: saving,
-    onClick: save
+    disabled: saving
   }, saving ? "Збереження…" : "Зберегти"))));
 }
 
@@ -1063,10 +1282,13 @@ function LessonModal({
   const [weeks, setWeeks] = useState(4);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  useEscapeClose(onClose);
+  useLockBodyScroll();
   function toggleStudent(id) {
     setStudentIds(ids => ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]);
   }
-  async function save() {
+  async function save(e) {
+    if (e) e.preventDefault();
     if (!theme.trim()) {
       setError("Вкажіть тему заняття");
       return;
@@ -1114,17 +1336,20 @@ function LessonModal({
         return;
       }
     }
+    showToast(lesson ? "Заняття оновлено" : "Заняття додано");
     onSaved();
   }
   return /*#__PURE__*/React.createElement("div", {
     className: "overlay",
     onClick: onClose
-  }, /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("form", {
     className: "modal",
-    onClick: e => e.stopPropagation()
+    onClick: e => e.stopPropagation(),
+    onSubmit: save
   }, /*#__PURE__*/React.createElement("div", {
     className: "modal-title"
   }, lesson ? "Редагувати заняття" : "Нове заняття", /*#__PURE__*/React.createElement("button", {
+    type: "button",
     className: "studio-btn ghost",
     onClick: onClose
   }, /*#__PURE__*/React.createElement(Icon, {
@@ -1139,7 +1364,8 @@ function LessonModal({
     type: "text",
     value: theme,
     onChange: e => setTheme(e.target.value),
-    placeholder: "Друк брелока"
+    placeholder: "Друк брелока",
+    autoFocus: true
   })), /*#__PURE__*/React.createElement("div", {
     className: "field-row"
   }, /*#__PURE__*/React.createElement("div", {
@@ -1199,12 +1425,13 @@ function LessonModal({
   }))), /*#__PURE__*/React.createElement("div", {
     className: "modal-actions"
   }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
     className: "studio-btn",
     onClick: onClose
   }, "Скасувати"), /*#__PURE__*/React.createElement("button", {
+    type: "submit",
     className: "studio-btn primary",
-    disabled: saving,
-    onClick: save
+    disabled: saving
   }, saving ? "Збереження…" : "Зберегти"))));
 }
 
@@ -1216,6 +1443,8 @@ function PreviewModal({
   url,
   onClose
 }) {
+  useEscapeClose(onClose);
+  useLockBodyScroll();
   return /*#__PURE__*/React.createElement("div", {
     className: "overlay",
     onClick: onClose
@@ -1278,7 +1507,7 @@ function useWorkActions(ownerId, works, setWorks, me) {
         setWorks(ws => [...ws, data]);
       }
     } catch (err) {
-      alert("Не вдалося завантажити фото: " + err.message);
+      showToast("Не вдалося завантажити фото: " + err.message, "error");
       setWorks(ws => ws.map(w => w === existing ? {
         ...w,
         _uploading: false
@@ -1300,7 +1529,7 @@ function useWorkActions(ownerId, works, setWorks, me) {
         printed_at: printedAt
       }).eq("id", existing.id).select().single();
       if (error) {
-        alert(error.message);
+        showToast(error.message, "error");
         return;
       }
       setWorks(ws => ws.map(w => w.id === existing.id ? data : w));
@@ -1317,7 +1546,7 @@ function useWorkActions(ownerId, works, setWorks, me) {
         printed_at: printedAt
       }).select().single();
       if (error) {
-        alert(error.message);
+        showToast(error.message, "error");
         return;
       }
       setWorks(ws => [...ws, data]);
@@ -1362,15 +1591,19 @@ function ScheduleTab({
   } = useWorkActions(ownerId, works, setWorks, me);
   const studentById = useMemo(() => Object.fromEntries(students.map(s => [s.id, s])), [students]);
   async function deleteLesson(lesson) {
-    if (!confirm(`Видалити заняття «${lesson.theme}»?`)) return;
+    const ok = await confirmDialog(`Видалити заняття «${lesson.theme}»?`, {
+      title: "Видалити заняття"
+    });
+    if (!ok) return;
     const {
       error
     } = await sb.from("lessons").delete().eq("id", lesson.id);
     if (error) {
-      alert(error.message);
+      showToast(error.message, "error");
       return;
     }
     setLessons(ls => ls.filter(l => l.id !== lesson.id));
+    showToast("Заняття видалено");
   }
   if (loading) return /*#__PURE__*/React.createElement("div", {
     className: "loading-block"
@@ -1555,17 +1788,30 @@ function StudentsTab({
   reload
 }) {
   const [modalStudent, setModalStudent] = useState(undefined);
+  const [query, setQuery] = useState("");
   async function del(s) {
-    if (!confirm(`Видалити учня «${s.name}»? Це також видалить його роботи та прибере з усіх занять.`)) return;
+    const ok = await confirmDialog(`Видалити учня «${s.name}»? Це також видалить його роботи та прибере з усіх занять.`, {
+      title: "Видалити учня"
+    });
+    if (!ok) return;
     const {
       error
     } = await sb.from("students").delete().eq("id", s.id);
     if (error) {
-      alert(error.message);
+      showToast(error.message, "error");
       return;
     }
     reload();
+    showToast("Учня видалено");
   }
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return students;
+    return students.filter(s => {
+      const hay = [s.name, s.phone, s.parent_last_name, s.parent_first_name].filter(Boolean).join(" ").toLowerCase();
+      return hay.includes(q);
+    });
+  }, [students, query]);
   return /*#__PURE__*/React.createElement("div", {
     className: "tab-fade"
   }, /*#__PURE__*/React.createElement("div", {
@@ -1578,7 +1824,23 @@ function StudentsTab({
   }, /*#__PURE__*/React.createElement(Icon, {
     name: "plus",
     size: 14
-  }), " Новий учень")), students.length === 0 ? /*#__PURE__*/React.createElement("div", {
+  }), " Новий учень")), students.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "search-field"
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "search",
+    size: 14
+  }), /*#__PURE__*/React.createElement("input", {
+    type: "text",
+    placeholder: "Пошук за ім'ям, телефоном, батьками…",
+    value: query,
+    onChange: e => setQuery(e.target.value)
+  }), query && /*#__PURE__*/React.createElement("button", {
+    className: "search-clear",
+    onClick: () => setQuery("")
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "x",
+    size: 12
+  }))), students.length === 0 ? /*#__PURE__*/React.createElement("div", {
     className: "empty-state"
   }, /*#__PURE__*/React.createElement("div", {
     className: "empty-mascot"
@@ -1586,9 +1848,17 @@ function StudentsTab({
     className: "empty-state-title"
   }, "Учнів ще немає"), /*#__PURE__*/React.createElement("div", {
     className: "empty-state-sub"
-  }, "Додайте першого учня кнопкою вище.")) : /*#__PURE__*/React.createElement("div", {
+  }, "Додайте першого учня кнопкою вище.")) : filtered.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    className: "empty-state"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "empty-mascot"
+  }, "🔍"), /*#__PURE__*/React.createElement("div", {
+    className: "empty-state-title"
+  }, "Нічого не знайдено"), /*#__PURE__*/React.createElement("div", {
+    className: "empty-state-sub"
+  }, "Спробуйте інший запит.")) : /*#__PURE__*/React.createElement("div", {
     className: "students-list"
-  }, students.map(s => /*#__PURE__*/React.createElement("div", {
+  }, filtered.map(s => /*#__PURE__*/React.createElement("div", {
     key: s.id,
     className: "students-row"
   }, /*#__PURE__*/React.createElement("div", {
@@ -1604,7 +1874,14 @@ function StudentsTab({
     className: "student-name"
   }, s.name), (s.parent_last_name || s.parent_first_name || s.phone) && /*#__PURE__*/React.createElement("div", {
     className: "students-sub"
-  }, [s.parent_last_name, s.parent_first_name].filter(Boolean).join(" "), s.phone ? (s.parent_last_name || s.parent_first_name ? " · " : "") + s.phone : "")), /*#__PURE__*/React.createElement("button", {
+  }, [s.parent_last_name, s.parent_first_name].filter(Boolean).join(" "), s.phone && /*#__PURE__*/React.createElement(React.Fragment, null, s.parent_last_name || s.parent_first_name ? " · " : "", /*#__PURE__*/React.createElement("a", {
+    className: "tel-link",
+    href: "tel:" + s.phone.replace(/\s+/g, ""),
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "phone",
+    size: 11
+  }), " ", s.phone)))), /*#__PURE__*/React.createElement("button", {
     className: "studio-btn ghost",
     onClick: () => setModalStudent(s)
   }, /*#__PURE__*/React.createElement(Icon, {
@@ -2121,27 +2398,27 @@ function App() {
       setProfileLoading(false);
     });
   }, [session]);
-  if (session === undefined) return /*#__PURE__*/React.createElement("div", {
+  if (session === undefined) return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     className: "studio-app"
   }, /*#__PURE__*/React.createElement("div", {
     className: "loading-block"
-  }, "Завантаження…"));
-  if (!session) return /*#__PURE__*/React.createElement(LoginScreen, {
+  }, "Завантаження…")), /*#__PURE__*/React.createElement(ToastHost, null), /*#__PURE__*/React.createElement(ConfirmHost, null));
+  if (!session) return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(LoginScreen, {
     theme: theme,
     onToggleTheme: toggleTheme
-  });
-  if (profileLoading || !profile) return /*#__PURE__*/React.createElement("div", {
+  }), /*#__PURE__*/React.createElement(ToastHost, null), /*#__PURE__*/React.createElement(ConfirmHost, null));
+  if (profileLoading || !profile) return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     className: "studio-app"
   }, /*#__PURE__*/React.createElement("div", {
     className: "loading-block"
-  }, "Завантаження профілю…"));
-  return /*#__PURE__*/React.createElement(Shell, {
+  }, "Завантаження профілю…")), /*#__PURE__*/React.createElement(ToastHost, null), /*#__PURE__*/React.createElement(ConfirmHost, null));
+  return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Shell, {
     session: session,
     profile: profile,
     setProfile: setProfile,
     theme: theme,
     onToggleTheme: toggleTheme
-  });
+  }), /*#__PURE__*/React.createElement(ToastHost, null), /*#__PURE__*/React.createElement(ConfirmHost, null));
 }
 ReactDOM.createRoot(document.getElementById("root")).render(/*#__PURE__*/React.createElement(App, null));
 </script>
