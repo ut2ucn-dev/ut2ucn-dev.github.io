@@ -166,8 +166,15 @@
   }
   .thumb-slot img{ width:100%; height:100%; object-fit:cover; }
   .thumb-slot:hover{ border-color:var(--brand); transform:scale(1.05); }
+  .thumb-slot.has-photo{ border-style:solid; }
   .thumb-slot.readonly{ cursor:default; }
   .thumb-slot.readonly:hover{ border-color:var(--line-strong); transform:none; }
+  .thumb-replace{
+    position:absolute; right:-3px; bottom:-3px; width:16px; height:16px; border-radius:50%;
+    background:var(--brand); color:#fff; border:1.5px solid var(--card); display:flex; align-items:center; justify-content:center;
+    cursor:pointer; padding:0; transition:transform .12s ease, background .15s ease;
+  }
+  .thumb-replace:hover{ background:var(--brand-dark); transform:scale(1.12); }
   .due-flag{
     display:inline-flex; align-items:center; gap:5px; background:var(--alert-soft); color:var(--alert-text);
     border-radius:20px; padding:4px 9px 4px 5px; font-size:11px; font-weight:600; cursor:pointer; border:none; flex-shrink:0;
@@ -205,8 +212,14 @@
   .students-sub{ font-size:12px; color:var(--ink-soft); margin-top:1px; }
   .print-item{ display:flex; gap:12px; align-items:center; border:1px solid var(--line); background:var(--card); border-radius:12px; padding:12px 14px; margin-bottom:10px; animation:fadeInUp .3s ease both; transition:box-shadow .15s ease; flex-wrap:wrap; }
   .print-item:hover{ box-shadow:0 3px 14px rgba(5,38,63,0.06); }
-  .print-thumb{ width:52px; height:52px; border-radius:8px; object-fit:cover; flex-shrink:0; cursor:pointer; border:1px solid var(--line); transition:transform .15s ease; background:var(--paper); }
-  .print-thumb:hover{ transform:scale(1.06); }
+  .print-thumb{
+    width:52px; height:52px; border-radius:8px; flex-shrink:0; cursor:pointer; border:1.5px dashed var(--line-strong);
+    transition:transform .15s ease, border-color .15s ease; background:var(--paper); position:relative; overflow:hidden;
+    display:flex; align-items:center; justify-content:center; color:var(--ink-soft);
+  }
+  .print-thumb img{ width:100%; height:100%; object-fit:cover; }
+  .print-thumb:hover{ transform:scale(1.06); border-color:var(--brand); }
+  .print-thumb.has-photo{ border-style:solid; }
   .print-item-name{ font-weight:700; font-size:14px; }
   .print-item-origin{ font-size:12px; color:var(--ink-soft); margin-top:1px; }
   .print-item-due{ font-family:var(--font-mono); font-size:11px; color:var(--alert-text); margin-top:3px; display:flex; align-items:center; gap:4px; }
@@ -1076,8 +1089,7 @@ function ProfileModal({
   }, "Прізвище"), /*#__PURE__*/React.createElement("input", {
     type: "text",
     value: lastName,
-    onChange: e => setLastName(e.target.value),
-    autoFocus: true
+    onChange: e => setLastName(e.target.value)
   })), /*#__PURE__*/React.createElement("div", {
     className: "field"
   }, /*#__PURE__*/React.createElement("label", {
@@ -1221,8 +1233,7 @@ function StudentModal({
     type: "text",
     value: name,
     onChange: e => setName(e.target.value),
-    placeholder: "Марійка",
-    autoFocus: true
+    placeholder: "Марійка"
   })), /*#__PURE__*/React.createElement("div", {
     className: "field"
   }, /*#__PURE__*/React.createElement("label", {
@@ -1364,8 +1375,7 @@ function LessonModal({
     type: "text",
     value: theme,
     onChange: e => setTheme(e.target.value),
-    placeholder: "Друк брелока",
-    autoFocus: true
+    placeholder: "Друк брелока"
   })), /*#__PURE__*/React.createElement("div", {
     className: "field-row"
   }, /*#__PURE__*/React.createElement("div", {
@@ -1471,6 +1481,60 @@ function PreviewModal({
 // Work helpers (shared by schedule + queue tabs)
 // ---------------------------------------------------------------
 
+// A photo slot cleanly separates "view" (tap the photo to preview it) from
+// "replace" (tap the small camera badge to pick a new file) so the two
+// actions never fight over the same click — unlike a <label> wrapping both
+// an <img> and a hidden file input, which unreliably forwards clicks to the
+// file picker even when the image itself has its own click handler.
+function PhotoSlot({
+  url,
+  uploading,
+  size,
+  onUpload,
+  onPreview,
+  className
+}) {
+  const fileRef = useRef(null);
+  function pick(e) {
+    if (e) e.stopPropagation();
+    fileRef.current.click();
+  }
+  function handleChange(e) {
+    const f = e.target.files[0];
+    if (f) onUpload(f);
+    e.target.value = "";
+  }
+  return /*#__PURE__*/React.createElement("div", {
+    className: (className || "thumb-slot") + (url ? " has-photo" : ""),
+    onClick: () => {
+      if (url) onPreview(url);else pick();
+    },
+    title: url ? "Переглянути фото" : "Прикріпити фото роботи"
+  }, uploading ? /*#__PURE__*/React.createElement("div", {
+    className: "thumb-spinner"
+  }) : url ? /*#__PURE__*/React.createElement("img", {
+    src: url
+  }) : /*#__PURE__*/React.createElement(Icon, {
+    name: "camera",
+    size: size || 15
+  }), url && /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "thumb-replace",
+    onClick: pick,
+    title: "Замінити фото"
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "camera",
+    size: 10
+  })), /*#__PURE__*/React.createElement("input", {
+    ref: fileRef,
+    type: "file",
+    accept: "image/*",
+    style: {
+      display: "none"
+    },
+    onChange: handleChange
+  }));
+}
 function findWork(works, lessonId, studentId) {
   return works.find(w => w.lesson_id === lessonId && w.student_id === studentId) || null;
 }
@@ -1711,32 +1775,13 @@ function ScheduleTab({
       return /*#__PURE__*/React.createElement("div", {
         key: s.id,
         className: "student-row"
-      }, /*#__PURE__*/React.createElement("label", {
-        className: "thumb-slot",
-        title: "Прикріпити фото роботи"
-      }, w && w._uploading ? /*#__PURE__*/React.createElement("div", {
-        className: "thumb-spinner"
-      }) : w && w.photo ? /*#__PURE__*/React.createElement("img", {
-        src: w.photo,
-        onClick: ev => {
-          ev.preventDefault();
-          setPreview(w.photo);
-        }
-      }) : /*#__PURE__*/React.createElement(Icon, {
-        name: "camera",
-        size: 15
-      }), /*#__PURE__*/React.createElement("input", {
-        type: "file",
-        accept: "image/*",
-        style: {
-          display: "none"
-        },
-        onChange: e => {
-          const f = e.target.files[0];
-          if (f) attachPhoto(lesson.id, s.id, f);
-          e.target.value = "";
-        }
-      })), /*#__PURE__*/React.createElement("div", {
+      }, /*#__PURE__*/React.createElement(PhotoSlot, {
+        url: w && w.photo,
+        uploading: w && w._uploading,
+        size: 15,
+        onUpload: f => attachPhoto(lesson.id, s.id, f),
+        onPreview: setPreview
+      }), /*#__PURE__*/React.createElement("div", {
         className: "student-name"
       }, s.name), lesson.date <= todayStr() && (!w || !w.photo) && !printed && /*#__PURE__*/React.createElement("label", {
         className: "due-flag",
@@ -1986,38 +2031,14 @@ function QueueTab({
     return /*#__PURE__*/React.createElement("div", {
       key: lesson.id + "_" + student.id,
       className: "print-item"
-    }, /*#__PURE__*/React.createElement("label", {
+    }, /*#__PURE__*/React.createElement(PhotoSlot, {
+      url: work && work.photo,
+      uploading: work && work._uploading,
+      size: 18,
       className: "print-thumb",
-      style: {
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        cursor: "pointer"
-      }
-    }, work && work._uploading ? /*#__PURE__*/React.createElement("div", {
-      className: "thumb-spinner"
-    }) : work && work.photo ? /*#__PURE__*/React.createElement("img", {
-      className: "print-thumb",
-      src: work.photo,
-      onClick: ev => {
-        ev.preventDefault();
-        setPreview(work.photo);
-      }
-    }) : /*#__PURE__*/React.createElement(Icon, {
-      name: "camera",
-      size: 18
-    }), /*#__PURE__*/React.createElement("input", {
-      type: "file",
-      accept: "image/*",
-      style: {
-        display: "none"
-      },
-      onChange: e => {
-        const f = e.target.files[0];
-        if (f) attachPhoto(lesson.id, student.id, f);
-        e.target.value = "";
-      }
-    })), /*#__PURE__*/React.createElement("div", {
+      onUpload: f => attachPhoto(lesson.id, student.id, f),
+      onPreview: setPreview
+    }), /*#__PURE__*/React.createElement("div", {
       style: {
         flex: 1,
         minWidth: 160
