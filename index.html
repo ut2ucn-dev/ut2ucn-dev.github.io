@@ -6,8 +6,29 @@
 <title>Stemik · облік моделей</title>
 <style>
 
-  html,body{ margin:0; padding:0; background:#F8F6F2; }
+  html,body{ margin:0; padding:0; background:var(--paper, #F8F6F2); }
   #root{ min-height:100vh; }
+  :root{
+    --ink:#05263F; --ink-soft:#5C7386; --paper:#F8F6F2; --card:#FFFFFF;
+    --line:#EBE6DC; --line-strong:#DAD2C2;
+    --brand:#5CA7C9; --brand-dark:#3D84A6; --brand-soft:#E9F3F7; --brand-text:#2E6E8E;
+    --sand:#E3DFD6; --sand-text:#8A7F6C;
+    --alert:#E08E45; --alert-soft:#FBEADA; --alert-text:#A15D1D;
+    --navy:#0B2436;
+    color-scheme: light;
+    --font-display:'Segoe UI','Helvetica Neue',Arial,sans-serif;
+    --font-body:'Segoe UI',Arial,sans-serif;
+    --font-mono:'Consolas','Courier New',monospace;
+  }
+  :root.theme-dark{
+    --ink:#EAF0F4; --ink-soft:#8FA2B3; --paper:#0D1620; --card:#16212C;
+    --line:#233240; --line-strong:#32485C;
+    --brand:#6FB8D8; --brand-dark:#8FD0EC; --brand-soft:rgba(111,184,216,0.16); --brand-text:#8FD0EC;
+    --sand:#3A3226; --sand-text:#C9BFA8;
+    --alert:#F0A25E; --alert-soft:rgba(240,162,94,0.16); --alert-text:#F5B879;
+    --navy:#0B2436;
+    color-scheme: dark;
+  }
   @media (prefers-reduced-motion: reduce){
     *{ animation-duration:0.001ms !important; animation-iteration-count:1 !important; transition-duration:0.001ms !important; }
   }
@@ -22,16 +43,9 @@
     30%,50%,70%{ transform:translateX(-4px); } 40%,60%{ transform:translateX(4px); }
   }
   .studio-app{
-    --ink:#05263F; --ink-soft:#5C7386; --paper:#F8F6F2; --card:#FFFFFF;
-    --line:#EBE6DC; --line-strong:#DAD2C2;
-    --brand:#5CA7C9; --brand-dark:#3D84A6; --brand-soft:#E9F3F7; --brand-text:#2E6E8E;
-    --sand:#E3DFD6; --sand-text:#8A7F6C;
-    --alert:#E08E45; --alert-soft:#FBEADA; --alert-text:#A15D1D;
-    --font-display:'Segoe UI','Helvetica Neue',Arial,sans-serif;
-    --font-body:'Segoe UI',Arial,sans-serif;
-    --font-mono:'Consolas','Courier New',monospace;
     font-family:var(--font-body); color:var(--ink); background:var(--paper);
     min-height:100vh; width:100%; box-sizing:border-box; position:relative;
+    transition:background-color .2s ease, color .2s ease;
   }
   .studio-app *{ box-sizing:border-box; }
   .studio-app .bg-grid{
@@ -52,7 +66,7 @@
     font-family:var(--font-body); font-size:12.5px; font-weight:500; border:none; background:transparent; color:var(--ink-soft);
     padding:7px 10px; border-radius:7px; cursor:pointer; text-align:left; display:flex; align-items:center; gap:6px; transition:background .15s ease, color .15s ease;
   }
-  .section-switch button.active{ background:var(--ink); color:#fff; }
+  .section-switch button.active{ background:var(--navy); color:#fff; }
   .nav-group{ display:flex; flex-direction:column; gap:4px; }
   .studio-nav-btn{
     display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:8px; border:none; background:transparent;
@@ -90,6 +104,12 @@
   .studio-btn.ghost{ border-color:transparent; background:transparent; padding:6px 8px; }
   .studio-btn.ghost:hover{ background:var(--brand-soft); transform:none; }
   .studio-btn:disabled{ opacity:0.45; cursor:not-allowed; transform:none; }
+  .theme-toggle{
+    width:32px; height:32px; border-radius:50%; border:1px solid var(--line-strong); background:var(--card);
+    display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--ink-soft); flex-shrink:0;
+    transition:background .15s ease, color .15s ease, border-color .15s ease, transform .2s ease;
+  }
+  .theme-toggle:hover{ border-color:var(--brand); color:var(--brand-text); transform:rotate(18deg); }
   .studio-segmented{ display:inline-flex; border:1px solid var(--line-strong); border-radius:9px; padding:2px; background:var(--card); }
   .studio-segmented button{
     font-family:var(--font-body); font-size:12.5px; font-weight:500; border:none; background:transparent; color:var(--ink-soft);
@@ -107,7 +127,7 @@
   .datecard{ width:60px; flex-shrink:0; border-radius:8px; overflow:hidden; border:1px solid var(--line-strong); background:var(--card); }
   .datecard.big{ width:68px; }
   .datecard.big .datecard-day{ font-size:25px; }
-  .datecard-top{ background:var(--ink); color:#fff; text-align:center; font-family:var(--font-mono); font-size:9.5px; padding:3px 0; letter-spacing:0.05em; }
+  .datecard-top{ background:var(--navy); color:#fff; text-align:center; font-family:var(--font-mono); font-size:9.5px; padding:3px 0; letter-spacing:0.05em; }
   .datecard-body{ text-align:center; padding:6px 0 8px; }
   .datecard-day{ font-family:var(--font-display); font-size:22px; font-weight:700; line-height:1; color:var(--ink); }
   .datecard-weekday{ font-family:var(--font-mono); font-size:9px; color:var(--ink-soft); margin-top:3px; letter-spacing:0.04em; }
@@ -173,7 +193,7 @@
   .students-row:hover{ background:var(--paper); }
   .students-row:last-child{ border-bottom:none; }
   .admin-row{ cursor:pointer; }
-  .role-badge{ font-family:var(--font-mono); font-size:9px; text-transform:uppercase; background:var(--ink); color:#fff; border-radius:20px; padding:2px 7px; letter-spacing:0.03em; }
+  .role-badge{ font-family:var(--font-mono); font-size:9px; text-transform:uppercase; background:var(--navy); color:#fff; border-radius:20px; padding:2px 7px; letter-spacing:0.03em; }
   .role-badge.me{ background:var(--brand); }
   .avatar{
     width:32px; height:32px; border-radius:50%; background:linear-gradient(135deg, var(--brand-soft), var(--sand)); color:var(--brand-text);
@@ -213,6 +233,7 @@
   .admin-view-title{ font-family:var(--font-mono); font-size:11.5px; color:var(--ink-soft); display:flex; align-items:center; gap:6px; }
 
   .login-app{ display:flex; align-items:center; justify-content:center; }
+  .login-theme-toggle{ position:absolute; top:18px; right:18px; z-index:2; }
   .login-wrap{ position:relative; width:100%; display:flex; justify-content:center; padding:20px; }
   .login-card{
     background:var(--card); border:1px solid var(--line); border-radius:18px; padding:30px 30px 28px;
@@ -255,6 +276,17 @@
 </style>
 </head>
 <body>
+<script>
+(function(){
+  try {
+    var t = localStorage.getItem("stemik-theme");
+    if (t !== "light" && t !== "dark"){
+      t = (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "light";
+    }
+    if (t === "dark") document.documentElement.classList.add("theme-dark");
+  } catch(e){}
+})();
+</script>
 <div id="root"></div>
 <script src="config.js"></script>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
@@ -546,16 +578,83 @@ function Icon({
       }), /*#__PURE__*/React.createElement("path", {
         d: "M21 13v2a4 4 0 0 1-4 4H3"
       }));
+    case "sun":
+      return /*#__PURE__*/React.createElement("svg", p, /*#__PURE__*/React.createElement("circle", {
+        cx: "12",
+        cy: "12",
+        r: "4"
+      }), /*#__PURE__*/React.createElement("line", {
+        x1: "12",
+        y1: "1",
+        x2: "12",
+        y2: "3"
+      }), /*#__PURE__*/React.createElement("line", {
+        x1: "12",
+        y1: "21",
+        x2: "12",
+        y2: "23"
+      }), /*#__PURE__*/React.createElement("line", {
+        x1: "4.22",
+        y1: "4.22",
+        x2: "5.64",
+        y2: "5.64"
+      }), /*#__PURE__*/React.createElement("line", {
+        x1: "18.36",
+        y1: "18.36",
+        x2: "19.78",
+        y2: "19.78"
+      }), /*#__PURE__*/React.createElement("line", {
+        x1: "1",
+        y1: "12",
+        x2: "3",
+        y2: "12"
+      }), /*#__PURE__*/React.createElement("line", {
+        x1: "21",
+        y1: "12",
+        x2: "23",
+        y2: "12"
+      }), /*#__PURE__*/React.createElement("line", {
+        x1: "4.22",
+        y1: "19.78",
+        x2: "5.64",
+        y2: "18.36"
+      }), /*#__PURE__*/React.createElement("line", {
+        x1: "18.36",
+        y1: "5.64",
+        x2: "19.78",
+        y2: "4.22"
+      }));
+    case "moon":
+      return /*#__PURE__*/React.createElement("svg", p, /*#__PURE__*/React.createElement("path", {
+        d: "M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"
+      }));
     default:
       return null;
   }
+}
+function ThemeToggle({
+  theme,
+  onToggle,
+  className
+}) {
+  return /*#__PURE__*/React.createElement("button", {
+    className: "theme-toggle" + (className ? " " + className : ""),
+    onClick: onToggle,
+    title: theme === "dark" ? "Світла тема" : "Темна тема"
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: theme === "dark" ? "sun" : "moon",
+    size: 16
+  }));
 }
 
 // ---------------------------------------------------------------
 // Login screen
 // ---------------------------------------------------------------
 
-function LoginScreen() {
+function LoginScreen({
+  theme,
+  onToggleTheme
+}) {
   const [tab, setTab] = useState("in");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -621,6 +720,10 @@ function LoginScreen() {
     className: "studio-app login-app"
   }, /*#__PURE__*/React.createElement("div", {
     className: "bg-grid"
+  }), /*#__PURE__*/React.createElement(ThemeToggle, {
+    theme: theme,
+    onToggle: onToggleTheme,
+    className: "login-theme-toggle"
   }), /*#__PURE__*/React.createElement("div", {
     className: "login-wrap"
   }, /*#__PURE__*/React.createElement("div", {
@@ -1402,9 +1505,21 @@ function ScheduleTab({
         }
       })), /*#__PURE__*/React.createElement("div", {
         className: "student-name"
-      }, s.name), lesson.date <= todayStr() && (!w || !w.photo) && !printed && /*#__PURE__*/React.createElement("span", {
-        className: "due-flag"
-      }, "Немає фото"), /*#__PURE__*/React.createElement("button", {
+      }, s.name), lesson.date <= todayStr() && (!w || !w.photo) && !printed && /*#__PURE__*/React.createElement("label", {
+        className: "due-flag",
+        title: "Прикріпити фото роботи"
+      }, "Немає фото", /*#__PURE__*/React.createElement("input", {
+        type: "file",
+        accept: "image/*",
+        style: {
+          display: "none"
+        },
+        onChange: e => {
+          const f = e.target.files[0];
+          if (f) attachPhoto(lesson.id, s.id, f);
+          e.target.value = "";
+        }
+      })), /*#__PURE__*/React.createElement("button", {
         className: "printed-pill" + (printed ? "" : " off"),
         onClick: () => togglePrinted(lesson.id, s.id)
       }, /*#__PURE__*/React.createElement(Icon, {
@@ -1775,7 +1890,9 @@ function AdminTeacherList({
 function Shell({
   session,
   profile,
-  setProfile
+  setProfile,
+  theme,
+  onToggleTheme
 }) {
   const isAdmin = profile.role === "admin";
   const [section, setSection] = useState("workspace"); // 'workspace' | 'admin'
@@ -1814,12 +1931,18 @@ function Shell({
   }, /*#__PURE__*/React.createElement("div", {
     className: "studio-sidebar"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "studio-brand"
+    className: "studio-brand",
+    style: {
+      justifyContent: "space-between"
+    }
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "studio-brand-title"
   }, "Stemik"), /*#__PURE__*/React.createElement("div", {
     className: "studio-brand-sub"
-  }, "Облік моделей"))), /*#__PURE__*/React.createElement("div", {
+  }, "Облік моделей")), /*#__PURE__*/React.createElement(ThemeToggle, {
+    theme: theme,
+    onToggle: onToggleTheme
+  })), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       alignItems: "center",
@@ -1955,10 +2078,27 @@ function Shell({
 // App root: auth state + profile bootstrap
 // ---------------------------------------------------------------
 
+function getInitialTheme() {
+  try {
+    const saved = localStorage.getItem("stemik-theme");
+    if (saved === "light" || saved === "dark") return saved;
+  } catch (e) {}
+  return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
 function App() {
   const [session, setSession] = useState(undefined); // undefined = unknown yet
   const [profile, setProfile] = useState(null);
   const [profileLoading, setProfileLoading] = useState(false);
+  const [theme, setTheme] = useState(getInitialTheme);
+  useEffect(() => {
+    document.documentElement.classList.toggle("theme-dark", theme === "dark");
+    try {
+      localStorage.setItem("stemik-theme", theme);
+    } catch (e) {}
+  }, [theme]);
+  function toggleTheme() {
+    setTheme(t => t === "dark" ? "light" : "dark");
+  }
   useEffect(() => {
     sb.auth.getSession().then(({
       data
@@ -1982,9 +2122,14 @@ function App() {
     });
   }, [session]);
   if (session === undefined) return /*#__PURE__*/React.createElement("div", {
+    className: "studio-app"
+  }, /*#__PURE__*/React.createElement("div", {
     className: "loading-block"
-  }, "Завантаження…");
-  if (!session) return /*#__PURE__*/React.createElement(LoginScreen, null);
+  }, "Завантаження…"));
+  if (!session) return /*#__PURE__*/React.createElement(LoginScreen, {
+    theme: theme,
+    onToggleTheme: toggleTheme
+  });
   if (profileLoading || !profile) return /*#__PURE__*/React.createElement("div", {
     className: "studio-app"
   }, /*#__PURE__*/React.createElement("div", {
@@ -1993,7 +2138,9 @@ function App() {
   return /*#__PURE__*/React.createElement(Shell, {
     session: session,
     profile: profile,
-    setProfile: setProfile
+    setProfile: setProfile,
+    theme: theme,
+    onToggleTheme: toggleTheme
   });
 }
 ReactDOM.createRoot(document.getElementById("root")).render(/*#__PURE__*/React.createElement(App, null));
