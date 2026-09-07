@@ -87,7 +87,7 @@
   .logout-btn{ margin:2px 8px 0; justify-content:flex-start; color:var(--ink-soft); }
   .logout-btn:hover{ color:var(--alert-text); background:var(--alert-soft); }
   .studio-main{ flex:1; min-width:0; padding:26px 30px 60px; overflow:hidden; }
-  .tab-fade{ animation:fadeInUp .28s cubic-bezier(.22,.8,.32,1) both; }
+  .tab-fade{ animation:fadeIn .28s ease both; }
   .studio-page-head{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom:20px; gap:12px; flex-wrap:wrap; }
   .studio-page-title{ font-family:var(--font-display); font-size:22px; font-weight:700; letter-spacing:-0.01em; }
   .studio-btn{
@@ -414,7 +414,7 @@ function ToastHost() {
   function dismiss(id) {
     setToasts(ts => ts.filter(t => t.id !== id));
   }
-  return /*#__PURE__*/React.createElement("div", {
+  return ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
     className: "toast-stack"
   }, toasts.map(t => /*#__PURE__*/React.createElement("div", {
     key: t.id,
@@ -423,7 +423,7 @@ function ToastHost() {
   }, /*#__PURE__*/React.createElement(Icon, {
     name: t.type === "error" ? "x" : "check",
     size: 14
-  }), /*#__PURE__*/React.createElement("span", null, t.message))));
+  }), /*#__PURE__*/React.createElement("span", null, t.message)))), document.body);
 }
 
 // ---------------------------------------------------------------
@@ -460,7 +460,7 @@ function ConfirmHost() {
   useEscapeClose(state ? () => respond(false) : null);
   useLockBodyScroll(!!state);
   if (!state) return null;
-  return /*#__PURE__*/React.createElement("div", {
+  return ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
     className: "overlay",
     onClick: () => respond(false)
   }, /*#__PURE__*/React.createElement("div", {
@@ -478,7 +478,7 @@ function ConfirmHost() {
   }, "Скасувати"), /*#__PURE__*/React.createElement("button", {
     className: "studio-btn danger",
     onClick: () => respond(true)
-  }, state.opts.confirmLabel || "Видалити"))));
+  }, state.opts.confirmLabel || "Видалити")))), document.body);
 }
 
 // ---------------------------------------------------------------
@@ -506,6 +506,20 @@ function useLockBodyScroll(active) {
       if (scrollLockCount === 0) document.body.style.overflow = "";
     };
   }, [active]);
+}
+
+// Modals render through a portal straight into document.body. This matters:
+// any ancestor with a non-"none" transform (even a finished animation whose
+// keyframes end at translateY(0), which is still "not none") silently turns
+// that ancestor into the containing block for position:fixed descendants —
+// so a modal nested inside an animated tab wrapper can end up boxed into
+// that wrapper's small bounding rect instead of the real viewport. Portalling
+// to document.body sidesteps this entirely, regardless of what animations
+// exist elsewhere in the tree, now or in the future.
+function Portal({
+  children
+}) {
+  return ReactDOM.createPortal(children, document.body);
 }
 
 // ---------------------------------------------------------------
@@ -1063,7 +1077,7 @@ function ProfileModal({
       first_name: firstName.trim()
     });
   }
-  return /*#__PURE__*/React.createElement("div", {
+  return ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
     className: "overlay",
     onClick: onClose
   }, /*#__PURE__*/React.createElement("form", {
@@ -1118,7 +1132,7 @@ function ProfileModal({
     type: "submit",
     className: "studio-btn primary",
     disabled: saving
-  }, saving ? "Збереження…" : "Зберегти"))));
+  }, saving ? "Збереження…" : "Зберегти")))), document.body);
 }
 
 // ---------------------------------------------------------------
@@ -1183,7 +1197,7 @@ function StudentModal({
     showToast(student ? "Учня оновлено" : "Учня додано");
     onSaved(res.data);
   }
-  return /*#__PURE__*/React.createElement("div", {
+  return ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
     className: "overlay",
     onClick: onClose
   }, /*#__PURE__*/React.createElement("form", {
@@ -1271,7 +1285,7 @@ function StudentModal({
     type: "submit",
     className: "studio-btn primary",
     disabled: saving
-  }, saving ? "Збереження…" : "Зберегти"))));
+  }, saving ? "Збереження…" : "Зберегти")))), document.body);
 }
 
 // ---------------------------------------------------------------
@@ -1350,7 +1364,7 @@ function LessonModal({
     showToast(lesson ? "Заняття оновлено" : "Заняття додано");
     onSaved();
   }
-  return /*#__PURE__*/React.createElement("div", {
+  return ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
     className: "overlay",
     onClick: onClose
   }, /*#__PURE__*/React.createElement("form", {
@@ -1442,7 +1456,7 @@ function LessonModal({
     type: "submit",
     className: "studio-btn primary",
     disabled: saving
-  }, saving ? "Збереження…" : "Зберегти"))));
+  }, saving ? "Збереження…" : "Зберегти")))), document.body);
 }
 
 // ---------------------------------------------------------------
@@ -1455,7 +1469,7 @@ function PreviewModal({
 }) {
   useEscapeClose(onClose);
   useLockBodyScroll();
-  return /*#__PURE__*/React.createElement("div", {
+  return ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
     className: "overlay",
     onClick: onClose
   }, /*#__PURE__*/React.createElement("div", {
@@ -1474,7 +1488,7 @@ function PreviewModal({
   }))), /*#__PURE__*/React.createElement("img", {
     className: "preview-img",
     src: url
-  })));
+  }))), document.body);
 }
 
 // ---------------------------------------------------------------
