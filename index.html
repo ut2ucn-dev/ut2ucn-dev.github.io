@@ -328,6 +328,22 @@
   }
   .week-lesson-row:first-of-type{ border-top:none; }
 
+  .day-section{ margin-bottom:20px; }
+  .day-section-head{
+    display:flex; align-items:baseline; gap:9px; margin-bottom:12px; padding-bottom:9px;
+    border-bottom:2px solid var(--line);
+  }
+  .day-section-name{ font-family:var(--font-display); font-size:15px; font-weight:700; text-transform:uppercase; letter-spacing:0.02em; color:var(--ink); }
+  .day-section-head.today{ border-bottom-color:var(--brand); }
+  .day-section-head.today .day-section-name{ color:var(--brand-text); }
+  .day-section-date{ font-family:var(--font-mono); font-size:11.5px; color:var(--ink-soft); }
+  .today-badge{
+    font-family:var(--font-mono); font-size:9.5px; font-weight:700; background:var(--brand); color:#fff;
+    border-radius:20px; padding:3px 9px; text-transform:uppercase; letter-spacing:0.03em;
+  }
+  .day-section-add{ margin-left:auto; }
+  .day-section-empty{ font-size:12.5px; color:var(--ink-soft); padding:0 4px 6px; font-style:italic; }
+
   .login-app{ display:flex; align-items:center; justify-content:center; }
   .login-theme-toggle{ position:absolute; top:18px; right:18px; z-index:2; }
   .login-wrap{ position:relative; width:100%; display:flex; justify-content:center; padding:20px; }
@@ -1802,7 +1818,9 @@ function ScheduleTab({
   const [works, setWorks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalLesson, setModalLesson] = useState(undefined); // undefined = closed, null = new
+  const [modalPresetDate, setModalPresetDate] = useState(null);
   const [preview, setPreview] = useState(null);
+  const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
   const load = useCallback(async () => {
     setLoading(true);
     const [lr, wr] = await Promise.all([sb.from("lessons").select("*").eq("owner_id", ownerId).order("date", {
@@ -1835,6 +1853,10 @@ function ScheduleTab({
     setLessons(ls => ls.filter(l => l.id !== lesson.id));
     showToast("Заняття видалено");
   }
+  function openNewLesson(presetDate) {
+    setModalPresetDate(presetDate || formatISODateLocal(weekStart));
+    setModalLesson(null);
+  }
   if (loading) return /*#__PURE__*/React.createElement("div", {
     className: "loading-block"
   }, "Завантаження розкладу…");
@@ -1846,65 +1868,15 @@ function ScheduleTab({
     const w = findWork(works, l.id, sid);
     if (!w || !w.printed) pendingCount++;
   }));
-  return /*#__PURE__*/React.createElement("div", {
-    className: "tab-fade"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "studio-page-head"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "studio-page-title"
-  }, "Розклад занять"), canEdit && /*#__PURE__*/React.createElement("button", {
-    className: "studio-btn primary",
-    onClick: () => setModalLesson(null)
-  }, /*#__PURE__*/React.createElement(Icon, {
-    name: "plus",
-    size: 16
-  }), " Нове заняття")), /*#__PURE__*/React.createElement("div", {
-    className: "stats-row"
-  }, /*#__PURE__*/React.createElement(StatCard, {
-    icon: "users",
-    value: students.length,
-    label: "учнів",
-    color: "var(--brand-text)",
-    soft: "var(--brand-soft)"
-  }), /*#__PURE__*/React.createElement(StatCard, {
-    icon: "calendar",
-    value: upcomingCount,
-    label: "занять попереду",
-    color: "var(--brand-text)",
-    soft: "var(--brand-soft)"
-  }), /*#__PURE__*/React.createElement(StatCard, {
-    icon: "printer",
-    value: pendingCount,
-    label: "в черзі на друк",
-    color: "var(--alert-text)",
-    soft: "var(--alert-soft)"
-  })), next && /*#__PURE__*/React.createElement("div", {
-    className: "studio-hero"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "datecard big"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "datecard-top"
-  }, dateCardParts(next.date).month), /*#__PURE__*/React.createElement("div", {
-    className: "datecard-body"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "datecard-day"
-  }, dateCardParts(next.date).day), /*#__PURE__*/React.createElement("div", {
-    className: "datecard-weekday"
-  }, dateCardParts(next.date).weekday))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    className: "studio-hero-label"
-  }, "Найближче заняття"), /*#__PURE__*/React.createElement("div", {
-    className: "studio-hero-theme"
-  }, next.theme), /*#__PURE__*/React.createElement("div", {
-    className: "studio-hero-date"
-  }, formatDateLong(next.date), next.time ? " · " + next.time : ""))), sorted.length === 0 && /*#__PURE__*/React.createElement("div", {
-    className: "empty-state"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "empty-mascot"
-  }, "📅"), /*#__PURE__*/React.createElement("div", {
-    className: "empty-state-title"
-  }, "Занять поки немає"), /*#__PURE__*/React.createElement("div", {
-    className: "empty-state-sub"
-  }, canEdit ? "Додайте перше заняття кнопкою вище." : "Розклад формує адміністратор — тут з'являться заплановані заняття.")), sorted.map(lesson => {
+  const lessonsByDate = {};
+  lessons.forEach(l => {
+    (lessonsByDate[l.date] = lessonsByDate[l.date] || []).push(l);
+  });
+  Object.values(lessonsByDate).forEach(arr => arr.sort((a, b) => (a.time || "").localeCompare(b.time || "")));
+  const weekDays = [];
+  for (let i = 0; i < 7; i++) weekDays.push(addDaysDate(weekStart, i));
+  const todayLocal = formatISODateLocal(new Date());
+  function renderLessonCard(lesson) {
     const present = (lesson.student_ids || []).map(id => studentById[id]).filter(Boolean);
     const doneCount = present.filter(s => {
       const w = findWork(works, lesson.id, s.id);
@@ -1957,7 +1929,10 @@ function ScheduleTab({
       className: "lesson-actions"
     }, /*#__PURE__*/React.createElement("button", {
       className: "studio-btn ghost",
-      onClick: () => setModalLesson(lesson)
+      onClick: () => {
+        setModalPresetDate(null);
+        setModalLesson(lesson);
+      }
     }, /*#__PURE__*/React.createElement(Icon, {
       name: "edit",
       size: 16
@@ -2007,10 +1982,120 @@ function ScheduleTab({
         className: "printed-by"
       }, "Статус змінив: ", w.printed_by_name));
     }))));
+  }
+  return /*#__PURE__*/React.createElement("div", {
+    className: "tab-fade"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "studio-page-head"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "studio-page-title"
+  }, "Розклад занять"), canEdit && /*#__PURE__*/React.createElement("button", {
+    className: "studio-btn primary",
+    onClick: () => openNewLesson(null)
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "plus",
+    size: 16
+  }), " Нове заняття")), /*#__PURE__*/React.createElement("div", {
+    className: "stats-row"
+  }, /*#__PURE__*/React.createElement(StatCard, {
+    icon: "users",
+    value: students.length,
+    label: "учнів",
+    color: "var(--brand-text)",
+    soft: "var(--brand-soft)"
+  }), /*#__PURE__*/React.createElement(StatCard, {
+    icon: "calendar",
+    value: upcomingCount,
+    label: "занять попереду",
+    color: "var(--brand-text)",
+    soft: "var(--brand-soft)"
+  }), /*#__PURE__*/React.createElement(StatCard, {
+    icon: "printer",
+    value: pendingCount,
+    label: "в черзі на друк",
+    color: "var(--alert-text)",
+    soft: "var(--alert-soft)"
+  })), next && /*#__PURE__*/React.createElement("div", {
+    className: "studio-hero"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "datecard big"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "datecard-top"
+  }, dateCardParts(next.date).month), /*#__PURE__*/React.createElement("div", {
+    className: "datecard-body"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "datecard-day"
+  }, dateCardParts(next.date).day), /*#__PURE__*/React.createElement("div", {
+    className: "datecard-weekday"
+  }, dateCardParts(next.date).weekday))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "studio-hero-label"
+  }, "Найближче заняття"), /*#__PURE__*/React.createElement("div", {
+    className: "studio-hero-theme"
+  }, next.theme), /*#__PURE__*/React.createElement("div", {
+    className: "studio-hero-date"
+  }, formatDateLong(next.date), next.time ? " · " + next.time : ""))), /*#__PURE__*/React.createElement("div", {
+    className: "calendar-header"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "studio-btn ghost",
+    onClick: () => setWeekStart(w => addDaysDate(w, -7))
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "back",
+    size: 16
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "calendar-month-label"
+  }, weekRangeLabel(weekStart)), /*#__PURE__*/React.createElement("button", {
+    className: "studio-btn ghost",
+    onClick: () => setWeekStart(w => addDaysDate(w, 7))
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "back",
+    size: 16,
+    style: {
+      transform: "rotate(180deg)"
+    }
+  })), /*#__PURE__*/React.createElement("button", {
+    className: "studio-btn",
+    style: {
+      marginLeft: "auto"
+    },
+    onClick: () => setWeekStart(startOfWeek(new Date()))
+  }, "Цей тиждень")), sorted.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    className: "empty-state"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "empty-mascot"
+  }, "📅"), /*#__PURE__*/React.createElement("div", {
+    className: "empty-state-title"
+  }, "Занять поки немає"), /*#__PURE__*/React.createElement("div", {
+    className: "empty-state-sub"
+  }, canEdit ? "Додайте перше заняття кнопкою вище." : "Розклад формує адміністратор — тут з'являться заплановані заняття.")) : weekDays.map(d => {
+    const dateStr = formatISODateLocal(d);
+    const dayLessons = lessonsByDate[dateStr] || [];
+    const isToday = dateStr === todayLocal;
+    return /*#__PURE__*/React.createElement("div", {
+      key: dateStr,
+      className: "day-section"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "day-section-head" + (isToday ? " today" : "")
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "day-section-name"
+    }, WEEKDAY_FULL[d.getDay()]), /*#__PURE__*/React.createElement("span", {
+      className: "day-section-date"
+    }, d.getDate(), " ", MONTHS[d.getMonth()]), isToday && /*#__PURE__*/React.createElement("span", {
+      className: "today-badge"
+    }, "Сьогодні"), canEdit && /*#__PURE__*/React.createElement("button", {
+      className: "studio-btn ghost day-section-add",
+      title: "Нове заняття на цей день",
+      onClick: () => openNewLesson(dateStr)
+    }, /*#__PURE__*/React.createElement(Icon, {
+      name: "plus",
+      size: 14
+    }))), dayLessons.length === 0 ? /*#__PURE__*/React.createElement("div", {
+      className: "day-section-empty"
+    }, "Немає занять") : dayLessons.map(renderLessonCard));
   }), modalLesson !== undefined && /*#__PURE__*/React.createElement(LessonModal, {
     ownerId: ownerId,
     students: students,
     lesson: modalLesson,
+    presetDate: modalLesson ? undefined : modalPresetDate,
     onClose: () => setModalLesson(undefined),
     onSaved: () => {
       setModalLesson(undefined);
