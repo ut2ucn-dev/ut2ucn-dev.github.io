@@ -281,41 +281,25 @@
   .admin-view-bar{ display:flex; align-items:center; gap:14px; padding:0 0 18px; flex-wrap:wrap; }
   .admin-view-title{ font-family:var(--font-mono); font-size:11.5px; color:var(--ink-soft); display:flex; align-items:center; gap:6px; }
 
-  .calendar-header{ display:flex; align-items:center; gap:10px; margin-bottom:14px; }
-  .calendar-month-label{ font-family:var(--font-display); font-size:15.5px; font-weight:700; min-width:150px; text-align:center; }
-  .calendar-grid{
-    display:grid; grid-template-columns:repeat(7, 1fr); gap:1px; background:var(--line);
-    border:1px solid var(--line); border-radius:12px; overflow:hidden;
-  }
-  .calendar-weekday{
-    background:var(--card); padding:8px 6px; text-align:center; font-family:var(--font-mono); font-size:10.5px;
-    color:var(--ink-soft); text-transform:uppercase; letter-spacing:0.03em;
-  }
-  .calendar-day{
-    background:var(--card); min-height:88px; padding:6px 6px 4px; cursor:pointer; display:flex; flex-direction:column; gap:4px;
-    transition:background .15s ease;
-  }
-  .calendar-day:hover{ background:var(--paper); }
-  .calendar-day.dim{ opacity:0.4; }
-  .calendar-day-num{ font-family:var(--font-mono); font-size:11.5px; color:var(--ink-soft); }
-  .calendar-day.today .calendar-day-num{
-    background:var(--brand); color:#fff; width:20px; height:20px; border-radius:50%;
-    display:flex; align-items:center; justify-content:center; font-weight:700;
-  }
-  .calendar-day-lessons{ display:flex; flex-direction:column; gap:2px; overflow:hidden; }
-  .calendar-chip{
-    font-size:10.5px; background:var(--brand-soft); color:var(--brand-text); border-radius:4px; padding:2px 4px;
-    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; line-height:1.5;
-  }
-  .calendar-chip-teacher{ font-family:var(--font-mono); font-weight:700; margin-right:3px; }
-  .calendar-more{ font-family:var(--font-mono); font-size:9.5px; color:var(--ink-soft); padding:0 4px; }
+  .calendar-header{ display:flex; align-items:center; gap:10px; margin-bottom:18px; }
+  .calendar-month-label{ font-family:var(--font-display); font-size:15.5px; font-weight:700; min-width:190px; text-align:center; }
 
-  .day-detail-modal{ max-width:520px; }
-  .day-lesson-row{
-    display:flex; align-items:flex-start; justify-content:space-between; gap:10px; padding:12px 0;
-    border-top:1px solid var(--line);
+  .week-list{ display:flex; flex-direction:column; gap:10px; }
+  .week-day{
+    border:1px solid var(--line); background:var(--card); border-radius:12px; padding:14px 16px;
+    animation:fadeInUp .25s ease both;
   }
-  .day-lesson-row:first-of-type{ border-top:none; }
+  .week-day.today{ border-color:var(--brand); box-shadow:0 0 0 1px var(--brand); }
+  .week-day-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+  .week-day-name{ font-family:var(--font-display); font-size:14.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.02em; }
+  .week-day.today .week-day-name{ color:var(--brand-text); }
+  .week-day-date{ font-family:var(--font-mono); font-size:11px; color:var(--ink-soft); margin-top:1px; }
+  .week-day-empty{ font-size:12.5px; color:var(--ink-soft); padding:4px 0 2px; font-style:italic; }
+  .week-lesson-row{
+    display:flex; align-items:flex-start; justify-content:space-between; gap:10px; padding:10px 0;
+    border-top:1px solid var(--line); flex-wrap:wrap;
+  }
+  .week-lesson-row:first-of-type{ border-top:none; }
 
   .login-app{ display:flex; align-items:center; justify-content:center; }
   .login-theme-toggle{ position:absolute; top:18px; right:18px; z-index:2; }
@@ -378,10 +362,8 @@
     .lesson-card .datecard-body{ padding:0; }
     .print-item{ flex-wrap:wrap; }
     .toast-stack{ bottom:calc(14px + env(safe-area-inset-bottom)); }
-    .calendar-day{ min-height:64px; padding:4px 3px 3px; }
-    .calendar-month-label{ min-width:110px; font-size:14px; }
-    .calendar-chip{ font-size:9px; padding:1px 3px; }
-    .day-lesson-row{ flex-wrap:wrap; }
+    .calendar-month-label{ min-width:150px; font-size:14px; }
+    .week-lesson-row{ flex-wrap:wrap; }
   }
 
   @media (max-width: 420px){
@@ -391,10 +373,8 @@
     .modal{ padding:18px; }
     .field-row{ flex-direction:column; gap:0; }
     .students-row{ flex-wrap:wrap; }
-    .calendar-day{ min-height:48px; }
-    .calendar-day-lessons{ display:none; }
-    .calendar-day.has-lessons .calendar-day-num::after{ content:""; display:inline-block; width:4px; height:4px; border-radius:50%; background:var(--brand); margin-left:4px; vertical-align:middle; }
-    .calendar-weekday{ font-size:9px; padding:6px 2px; }
+    .calendar-month-label{ min-width:0; flex:1; font-size:12.5px; }
+    .week-day{ padding:12px; }
   }
 
   @keyframes sheetUp{ from{ opacity:0.4; transform:translateY(24px); } to{ opacity:1; transform:translateY(0); } }
@@ -601,34 +581,26 @@ function dateCardParts(d) {
 function isPast(d) {
   return d < todayStr();
 }
-function startOfMonth(d) {
-  return new Date(d.getFullYear(), d.getMonth(), 1);
-}
-function shiftMonths(d, n) {
-  return new Date(d.getFullYear(), d.getMonth() + n, 1);
-}
 function formatISODateLocal(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
-function monthLabel(d) {
-  return `${MONTHS[d.getMonth()].replace(/^./, c => c.toUpperCase())} ${d.getFullYear()}`;
+function addDaysDate(d, n) {
+  const c = new Date(d);
+  c.setDate(c.getDate() + n);
+  return c;
 }
-// Always a fixed 6-week (42-day) grid, Monday-first, covering the given month
-// plus enough leading/trailing days from adjacent months to fill whole weeks.
-function buildMonthGrid(monthCursor) {
-  const first = startOfMonth(monthCursor);
-  const firstWeekday = (first.getDay() + 6) % 7; // Mon=0 ... Sun=6
-  const gridStart = new Date(first);
-  gridStart.setDate(first.getDate() - firstWeekday);
-  const days = [];
-  for (let i = 0; i < 42; i++) {
-    const d = new Date(gridStart);
-    d.setDate(gridStart.getDate() + i);
-    days.push(d);
-  }
-  return days;
+// Monday of the week containing d.
+function startOfWeek(d) {
+  const weekday = (d.getDay() + 6) % 7; // Mon=0 ... Sun=6
+  return addDaysDate(new Date(d.getFullYear(), d.getMonth(), d.getDate()), -weekday);
 }
-const CALENDAR_WEEKDAY_HEADERS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Нд"];
+function weekRangeLabel(weekStart) {
+  const weekEnd = addDaysDate(weekStart, 6);
+  const startPart = `${weekStart.getDate()} ${MONTHS[weekStart.getMonth()]}`;
+  const endPart = `${weekEnd.getDate()} ${MONTHS[weekEnd.getMonth()]}`;
+  return `${startPart} – ${endPart} ${weekEnd.getFullYear()}`;
+}
+const WEEKDAY_FULL = ["Неділя", "Понеділок", "Вівторок", "Середа", "Четвер", "П'ятниця", "Субота"];
 function fullName(p) {
   if (!p) return "";
   const n = `${p.last_name || ""} ${p.first_name || ""}`.trim();
@@ -2369,19 +2341,45 @@ function AdminUserList({
 // ---------------------------------------------------------------
 // Admin: studio-wide calendar (all teachers' lessons at a glance)
 // ---------------------------------------------------------------
+// Admin: studio-wide calendar, one week at a time, sorted by weekday
+// ---------------------------------------------------------------
 
-function DayDetailModal({
-  dateStr,
-  lessons,
-  profilesById,
-  allUsers,
-  onClose,
-  onOpenTeacherWorkspace,
-  onChanged
+function StudioCalendarTab({
+  onOpenTeacherWorkspace
 }) {
+  const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
+  const [lessons, setLessons] = useState([]);
+  const [profiles, setProfiles] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [editingLesson, setEditingLesson] = useState(undefined); // undefined closed, null = new
-  useEscapeClose(editingLesson === undefined ? onClose : null);
-  useLockBodyScroll();
+  const [newLessonDate, setNewLessonDate] = useState(null);
+  const weekStartStr = formatISODateLocal(weekStart);
+  const weekEndExclusiveStr = formatISODateLocal(addDaysDate(weekStart, 7));
+  const load = useCallback(async () => {
+    setLoading(true);
+    const [lr, pr] = await Promise.all([sb.from("lessons").select("*").gte("date", weekStartStr).lt("date", weekEndExclusiveStr), sb.from("profiles").select("*")]);
+    setLessons(lr.data || []);
+    setProfiles(pr.data || []);
+    setLoading(false);
+  }, [weekStartStr, weekEndExclusiveStr]);
+  useEffect(() => {
+    load();
+  }, [load]);
+  const profilesById = useMemo(() => Object.fromEntries(profiles.map(p => [p.id, p])), [profiles]);
+  const lessonsByDate = useMemo(() => {
+    const map = {};
+    lessons.forEach(l => {
+      (map[l.date] = map[l.date] || []).push(l);
+    });
+    Object.values(map).forEach(arr => arr.sort((a, b) => (a.time || "").localeCompare(b.time || "")));
+    return map;
+  }, [lessons]);
+  const days = useMemo(() => {
+    const arr = [];
+    for (let i = 0; i < 7; i++) arr.push(addDaysDate(weekStart, i));
+    return arr;
+  }, [weekStart]);
+  const today = formatISODateLocal(new Date());
   async function del(lesson) {
     const ok = await confirmDialog(`Видалити заняття «${lesson.theme}»?`, {
       title: "Видалити заняття"
@@ -2395,144 +2393,12 @@ function DayDetailModal({
       return;
     }
     showToast("Заняття видалено");
-    onChanged();
-  }
-  const sorted = [...lessons].sort((a, b) => (a.time || "").localeCompare(b.time || ""));
-  return ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
-    className: "overlay",
-    onClick: onClose
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "modal day-detail-modal",
-    onClick: e => e.stopPropagation()
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "modal-title"
-  }, formatDateLong(dateStr), /*#__PURE__*/React.createElement("button", {
-    className: "studio-btn ghost",
-    onClick: onClose
-  }, /*#__PURE__*/React.createElement(Icon, {
-    name: "x"
-  }))), /*#__PURE__*/React.createElement("button", {
-    className: "studio-btn primary",
-    style: {
-      marginBottom: 14
-    },
-    onClick: () => setEditingLesson(null)
-  }, /*#__PURE__*/React.createElement(Icon, {
-    name: "plus",
-    size: 14
-  }), " Нове заняття на цей день"), sorted.length === 0 ? /*#__PURE__*/React.createElement("div", {
-    className: "empty-state"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "empty-mascot"
-  }, "📅"), /*#__PURE__*/React.createElement("div", {
-    className: "empty-state-title"
-  }, "На цей день нічого не заплановано")) : sorted.map(lesson => {
-    const teacher = profilesById[lesson.owner_id];
-    return /*#__PURE__*/React.createElement("div", {
-      key: lesson.id,
-      className: "day-lesson-row"
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        flex: 1,
-        minWidth: 0
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "lesson-theme",
-      style: {
-        fontSize: 14.5
-      }
-    }, lesson.theme), /*#__PURE__*/React.createElement("div", {
-      className: "lesson-meta-row"
-    }, lesson.time && /*#__PURE__*/React.createElement("span", {
-      className: "lesson-time"
-    }, /*#__PURE__*/React.createElement(Icon, {
-      name: "calendar",
-      size: 12
-    }), " ", lesson.time), /*#__PURE__*/React.createElement("span", {
-      className: "lesson-time"
-    }, /*#__PURE__*/React.createElement(Icon, {
-      name: "user",
-      size: 12
-    }), " ", teacher ? fullName(teacher) : "?"), lesson.series_id && /*#__PURE__*/React.createElement("span", {
-      className: "lesson-series-tag"
-    }, /*#__PURE__*/React.createElement(Icon, {
-      name: "repeat",
-      size: 11
-    }), " щотижня"))), /*#__PURE__*/React.createElement("div", {
-      className: "lesson-actions"
-    }, teacher && /*#__PURE__*/React.createElement("button", {
-      className: "studio-btn ghost",
-      title: "Перейти в кабінет викладача",
-      onClick: () => onOpenTeacherWorkspace(teacher)
-    }, /*#__PURE__*/React.createElement(Icon, {
-      name: "back",
-      size: 14,
-      style: {
-        transform: "rotate(180deg)"
-      }
-    })), /*#__PURE__*/React.createElement("button", {
-      className: "studio-btn ghost",
-      onClick: () => setEditingLesson(lesson)
-    }, /*#__PURE__*/React.createElement(Icon, {
-      name: "edit",
-      size: 14
-    })), /*#__PURE__*/React.createElement("button", {
-      className: "studio-btn ghost",
-      onClick: () => del(lesson)
-    }, /*#__PURE__*/React.createElement(Icon, {
-      name: "trash",
-      size: 14
-    }))));
-  })), editingLesson !== undefined && (editingLesson === null ? /*#__PURE__*/React.createElement(LessonModal, {
-    teacherOptions: allUsers,
-    presetDate: dateStr,
-    onClose: () => setEditingLesson(undefined),
-    onSaved: () => {
-      setEditingLesson(undefined);
-      onChanged();
-    }
-  }) : /*#__PURE__*/React.createElement(LessonModal, {
-    ownerId: editingLesson.owner_id,
-    lesson: editingLesson,
-    onClose: () => setEditingLesson(undefined),
-    onSaved: () => {
-      setEditingLesson(undefined);
-      onChanged();
-    }
-  }))), document.body);
-}
-function StudioCalendarTab({
-  onOpenTeacherWorkspace
-}) {
-  const [monthCursor, setMonthCursor] = useState(() => startOfMonth(new Date()));
-  const [lessons, setLessons] = useState([]);
-  const [profiles, setProfiles] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedDate, setSelectedDate] = useState(null);
-  const [creatingDate, setCreatingDate] = useState(null);
-  const monthStart = formatISODateLocal(monthCursor);
-  const monthEndExclusive = formatISODateLocal(shiftMonths(monthCursor, 1));
-  const load = useCallback(async () => {
-    setLoading(true);
-    const [lr, pr] = await Promise.all([sb.from("lessons").select("*").gte("date", monthStart).lt("date", monthEndExclusive), sb.from("profiles").select("*")]);
-    setLessons(lr.data || []);
-    setProfiles(pr.data || []);
-    setLoading(false);
-  }, [monthStart, monthEndExclusive]);
-  useEffect(() => {
     load();
-  }, [load]);
-  const profilesById = useMemo(() => Object.fromEntries(profiles.map(p => [p.id, p])), [profiles]);
-  const lessonsByDate = useMemo(() => {
-    const map = {};
-    lessons.forEach(l => {
-      (map[l.date] = map[l.date] || []).push(l);
-    });
-    Object.values(map).forEach(arr => arr.sort((a, b) => (a.time || "").localeCompare(b.time || "")));
-    return map;
-  }, [lessons]);
-  const grid = useMemo(() => buildMonthGrid(monthCursor), [monthCursor]);
-  const today = formatISODateLocal(new Date());
+  }
+  function openNewLesson(dateStr) {
+    setNewLessonDate(dateStr);
+    setEditingLesson(null);
+  }
   return /*#__PURE__*/React.createElement("div", {
     className: "tab-fade"
   }, /*#__PURE__*/React.createElement("div", {
@@ -2543,15 +2409,15 @@ function StudioCalendarTab({
     className: "calendar-header"
   }, /*#__PURE__*/React.createElement("button", {
     className: "studio-btn ghost",
-    onClick: () => setMonthCursor(m => shiftMonths(m, -1))
+    onClick: () => setWeekStart(w => addDaysDate(w, -7))
   }, /*#__PURE__*/React.createElement(Icon, {
     name: "back",
     size: 16
   })), /*#__PURE__*/React.createElement("div", {
     className: "calendar-month-label"
-  }, monthLabel(monthCursor)), /*#__PURE__*/React.createElement("button", {
+  }, weekRangeLabel(weekStart)), /*#__PURE__*/React.createElement("button", {
     className: "studio-btn ghost",
-    onClick: () => setMonthCursor(m => shiftMonths(m, 1))
+    onClick: () => setWeekStart(w => addDaysDate(w, 7))
   }, /*#__PURE__*/React.createElement(Icon, {
     name: "back",
     size: 16,
@@ -2563,44 +2429,107 @@ function StudioCalendarTab({
     style: {
       marginLeft: "auto"
     },
-    onClick: () => setMonthCursor(startOfMonth(new Date()))
-  }, "Сьогодні")), loading ? /*#__PURE__*/React.createElement("div", {
+    onClick: () => setWeekStart(startOfWeek(new Date()))
+  }, "Цей тиждень")), loading ? /*#__PURE__*/React.createElement("div", {
     className: "loading-block"
   }, "Завантаження календаря…") : /*#__PURE__*/React.createElement("div", {
-    className: "calendar-grid"
-  }, CALENDAR_WEEKDAY_HEADERS.map(w => /*#__PURE__*/React.createElement("div", {
-    key: w,
-    className: "calendar-weekday"
-  }, w)), grid.map(d => {
+    className: "week-list"
+  }, days.map(d => {
     const dateStr = formatISODateLocal(d);
     const dayLessons = lessonsByDate[dateStr] || [];
-    const isCurrentMonth = d.getMonth() === monthCursor.getMonth();
     return /*#__PURE__*/React.createElement("div", {
       key: dateStr,
-      className: "calendar-day" + (isCurrentMonth ? "" : " dim") + (dateStr === today ? " today" : "") + (dayLessons.length > 0 ? " has-lessons" : ""),
-      onClick: () => setSelectedDate(dateStr)
+      className: "week-day" + (dateStr === today ? " today" : "")
     }, /*#__PURE__*/React.createElement("div", {
-      className: "calendar-day-num"
-    }, d.getDate()), /*#__PURE__*/React.createElement("div", {
-      className: "calendar-day-lessons"
-    }, dayLessons.slice(0, 3).map(l => /*#__PURE__*/React.createElement("div", {
-      key: l.id,
-      className: "calendar-chip",
-      title: `${l.theme} · ${fullName(profilesById[l.owner_id])}`
-    }, /*#__PURE__*/React.createElement("span", {
-      className: "calendar-chip-teacher"
-    }, initials(profilesById[l.owner_id])), l.theme)), dayLessons.length > 3 && /*#__PURE__*/React.createElement("div", {
-      className: "calendar-more"
-    }, "+", dayLessons.length - 3)));
-  })), selectedDate && /*#__PURE__*/React.createElement(DayDetailModal, {
-    dateStr: selectedDate,
-    lessons: lessonsByDate[selectedDate] || [],
-    profilesById: profilesById,
-    allUsers: profiles,
-    onClose: () => setSelectedDate(null),
-    onOpenTeacherWorkspace: onOpenTeacherWorkspace,
-    onChanged: load
-  }));
+      className: "week-day-head"
+    }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+      className: "week-day-name"
+    }, WEEKDAY_FULL[d.getDay()]), /*#__PURE__*/React.createElement("div", {
+      className: "week-day-date"
+    }, d.getDate(), " ", MONTHS[d.getMonth()])), /*#__PURE__*/React.createElement("button", {
+      className: "studio-btn ghost",
+      title: "Нове заняття на цей день",
+      onClick: () => openNewLesson(dateStr)
+    }, /*#__PURE__*/React.createElement(Icon, {
+      name: "plus",
+      size: 14
+    }))), dayLessons.length === 0 ? /*#__PURE__*/React.createElement("div", {
+      className: "week-day-empty"
+    }, "Немає занять") : dayLessons.map(lesson => {
+      const teacher = profilesById[lesson.owner_id];
+      return /*#__PURE__*/React.createElement("div", {
+        key: lesson.id,
+        className: "week-lesson-row"
+      }, /*#__PURE__*/React.createElement("div", {
+        style: {
+          flex: 1,
+          minWidth: 0
+        }
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "lesson-theme",
+        style: {
+          fontSize: 14
+        }
+      }, lesson.theme), /*#__PURE__*/React.createElement("div", {
+        className: "lesson-meta-row"
+      }, lesson.time && /*#__PURE__*/React.createElement("span", {
+        className: "lesson-time"
+      }, /*#__PURE__*/React.createElement(Icon, {
+        name: "calendar",
+        size: 11
+      }), " ", lesson.time), /*#__PURE__*/React.createElement("span", {
+        className: "lesson-time"
+      }, /*#__PURE__*/React.createElement(Icon, {
+        name: "user",
+        size: 11
+      }), " ", teacher ? fullName(teacher) : "?"), lesson.series_id && /*#__PURE__*/React.createElement("span", {
+        className: "lesson-series-tag"
+      }, /*#__PURE__*/React.createElement(Icon, {
+        name: "repeat",
+        size: 10
+      }), " щотижня"))), /*#__PURE__*/React.createElement("div", {
+        className: "lesson-actions"
+      }, teacher && /*#__PURE__*/React.createElement("button", {
+        className: "studio-btn ghost",
+        title: "Перейти в кабінет викладача",
+        onClick: () => onOpenTeacherWorkspace(teacher)
+      }, /*#__PURE__*/React.createElement(Icon, {
+        name: "back",
+        size: 13,
+        style: {
+          transform: "rotate(180deg)"
+        }
+      })), /*#__PURE__*/React.createElement("button", {
+        className: "studio-btn ghost",
+        onClick: () => setEditingLesson(lesson)
+      }, /*#__PURE__*/React.createElement(Icon, {
+        name: "edit",
+        size: 13
+      })), /*#__PURE__*/React.createElement("button", {
+        className: "studio-btn ghost",
+        onClick: () => del(lesson)
+      }, /*#__PURE__*/React.createElement(Icon, {
+        name: "trash",
+        size: 13
+      }))));
+    }));
+  })), editingLesson !== undefined && (editingLesson === null ? /*#__PURE__*/React.createElement(LessonModal, {
+    teacherOptions: profiles,
+    presetDate: newLessonDate,
+    onClose: () => setEditingLesson(undefined),
+    onSaved: () => {
+      setEditingLesson(undefined);
+      load();
+    }
+  }) : /*#__PURE__*/React.createElement(LessonModal, {
+    ownerId: editingLesson.owner_id,
+    lesson: editingLesson,
+    onClose: () => setEditingLesson(undefined),
+    onSaved: () => {
+      setEditingLesson(undefined);
+      load();
+    }
+  })));
 }
 
 // ---------------------------------------------------------------
