@@ -170,6 +170,15 @@
   .lesson-progress{ font-family:var(--font-mono); font-weight:700; font-size:10.5px; color:var(--brand-text); background:var(--brand-soft); border-radius:20px; padding:3px 9px; }
   .lesson-actions{ display:flex; gap:3px; flex-shrink:0; }
   .lesson-series-tag{ display:inline-flex; align-items:center; gap:4px; font-family:var(--font-mono); font-size:10px; color:var(--brand-text); }
+  .course-tag{
+    font-family:var(--font-mono); font-weight:700; font-size:10px; color:var(--sand-text); background:var(--sand);
+    border-radius:6px; padding:3px 8px; text-transform:uppercase; letter-spacing:0.02em;
+  }
+  .format-tag{
+    font-family:var(--font-mono); font-weight:700; font-size:10px; color:var(--brand-text); background:var(--brand-soft);
+    border-radius:6px; padding:3px 8px;
+  }
+  .format-tag.individual{ color:var(--alert-text); background:var(--alert-soft); }
   .student-panel{ margin-top:14px; background:var(--paper); border-radius:10px; padding:6px 12px; }
   .student-row{ display:flex; align-items:center; gap:11px; padding:10px 0; border-top:1px solid var(--line); flex-wrap:wrap; }
   .student-row:first-child{ border-top:none; }
@@ -647,6 +656,10 @@ function weekRangeLabel(weekStart) {
   return `${startPart} – ${endPart} ${weekEnd.getFullYear()}`;
 }
 const WEEKDAY_FULL = ["Неділя", "Понеділок", "Вівторок", "Середа", "Четвер", "П'ятниця", "Субота"];
+const COURSE_OPTIONS = ["3D TinkerCad", "3D MakersEmpire", "VR ігровий", "VR Delightex", "3D слайсинг", "Робототехніка Ukit", "Робототехніка Ugot", "Робототехніка"];
+function formatLabel(format) {
+  return format === "individual" ? "Індивідуальне" : "Група";
+}
 function fullName(p) {
   if (!p) return "";
   const n = `${p.last_name || ""} ${p.first_name || ""}`.trim();
@@ -1422,6 +1435,8 @@ function LessonModal({
   const [date, setDate] = useState(lesson ? lesson.date : presetDate || todayStr());
   const [time, setTime] = useState(lesson ? lesson.time || "" : "");
   const [theme, setTheme] = useState(lesson ? lesson.theme : "");
+  const [course, setCourse] = useState(lesson ? lesson.course || "" : "");
+  const [format, setFormat] = useState(lesson ? lesson.format || "group" : "group");
   const [studentIds, setStudentIds] = useState(lesson ? lesson.student_ids : []);
   const [repeatWeekly, setRepeatWeekly] = useState(false);
   const [weeks, setWeeks] = useState(4);
@@ -1461,6 +1476,10 @@ function LessonModal({
       setError("Оберіть викладача");
       return;
     }
+    if (!course) {
+      setError("Оберіть напрямок");
+      return;
+    }
     if (!theme.trim()) {
       setError("Вкажіть тему заняття");
       return;
@@ -1478,6 +1497,8 @@ function LessonModal({
         date,
         time: time || null,
         theme: theme.trim(),
+        course,
+        format,
         student_ids: studentIds
       }).eq("id", lesson.id);
       setSaving(false);
@@ -1496,6 +1517,8 @@ function LessonModal({
           date: addDays(date, i * 7),
           time: time || null,
           theme: theme.trim(),
+          course,
+          format,
           student_ids: studentIds
         });
       }
@@ -1544,6 +1567,32 @@ function LessonModal({
     key: t.id,
     value: t.id
   }, fullName(t))))), /*#__PURE__*/React.createElement("div", {
+    className: "field"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "field-label"
+  }, "Напрямок"), /*#__PURE__*/React.createElement("select", {
+    value: course,
+    onChange: e => setCourse(e.target.value)
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "Оберіть напрямок…"), COURSE_OPTIONS.map(c => /*#__PURE__*/React.createElement("option", {
+    key: c,
+    value: c
+  }, c)))), /*#__PURE__*/React.createElement("div", {
+    className: "field"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "field-label"
+  }, "Формат"), /*#__PURE__*/React.createElement("div", {
+    className: "studio-segmented"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: format === "group" ? "active" : "",
+    onClick: () => setFormat("group")
+  }, "Група"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: format === "individual" ? "active" : "",
+    onClick: () => setFormat("individual")
+  }, "Індивідуальне"))), /*#__PURE__*/React.createElement("div", {
     className: "field"
   }, /*#__PURE__*/React.createElement("label", {
     className: "field-label"
@@ -1913,7 +1962,11 @@ function ScheduleTab({
       className: "lesson-theme"
     }, lesson.theme), /*#__PURE__*/React.createElement("div", {
       className: "lesson-meta-row"
-    }, lesson.time && /*#__PURE__*/React.createElement("span", {
+    }, lesson.course && /*#__PURE__*/React.createElement("span", {
+      className: "course-tag"
+    }, lesson.course), lesson.format && /*#__PURE__*/React.createElement("span", {
+      className: "format-tag" + (lesson.format === "individual" ? " individual" : "")
+    }, formatLabel(lesson.format)), lesson.time && /*#__PURE__*/React.createElement("span", {
       className: "lesson-time"
     }, /*#__PURE__*/React.createElement(Icon, {
       name: "calendar",
@@ -2645,7 +2698,11 @@ function StudioCalendarTab({
         }
       }, lesson.theme), /*#__PURE__*/React.createElement("div", {
         className: "lesson-meta-row"
-      }, lesson.time && /*#__PURE__*/React.createElement("span", {
+      }, lesson.course && /*#__PURE__*/React.createElement("span", {
+        className: "course-tag"
+      }, lesson.course), lesson.format && /*#__PURE__*/React.createElement("span", {
+        className: "format-tag" + (lesson.format === "individual" ? " individual" : "")
+      }, formatLabel(lesson.format)), lesson.time && /*#__PURE__*/React.createElement("span", {
         className: "lesson-time"
       }, /*#__PURE__*/React.createElement(Icon, {
         name: "calendar",
