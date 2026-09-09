@@ -353,8 +353,22 @@
   .day-section-add{ margin-left:auto; }
   .day-section-empty{ font-size:12.5px; color:var(--ink-soft); padding:0 4px 6px; font-style:italic; }
 
-  .login-app{ display:flex; align-items:center; justify-content:center; }
+  .login-app{ display:flex; align-items:center; justify-content:center; overflow:hidden; }
   .login-theme-toggle{ position:absolute; top:18px; right:18px; z-index:2; }
+  .login-blob{
+    position:absolute; border-radius:50%; filter:blur(60px); opacity:0.35; pointer-events:none; z-index:0;
+    animation:blobFloat 9s ease-in-out infinite;
+  }
+  .login-blob-1{ width:340px; height:340px; background:var(--brand); top:-80px; left:-100px; }
+  .login-blob-2{ width:300px; height:300px; background:#8B5CF6; bottom:-100px; right:-80px; animation-delay:-4s; }
+  @keyframes blobFloat{ 0%,100%{ transform:translate(0,0) scale(1); } 50%{ transform:translate(20px,-20px) scale(1.08); } }
+  .login-tagline{ font-size:13px; color:var(--ink-soft); margin-top:4px; font-weight:500; }
+  .login-footer{
+    position:relative; margin-top:18px; display:flex; align-items:center; justify-content:center; gap:8px; flex-wrap:wrap;
+    font-family:var(--font-mono); font-size:10.5px; color:var(--ink-soft); text-align:center; max-width:380px;
+  }
+  .login-footer a{ color:var(--brand-text); text-decoration:none; }
+  .login-footer a:hover{ text-decoration:underline; }
   .login-wrap{ position:relative; width:100%; display:flex; justify-content:center; padding:20px; }
   .login-card{
     background:var(--card); border:1.5px solid var(--line); border-radius:22px; padding:36px 32px 32px;
@@ -362,7 +376,7 @@
     animation:modalIn .32s cubic-bezier(.22,.9,.36,1) both;
   }
   .login-card.shake{ animation:shake .42s ease; }
-  .login-mascot{ font-size:52px; margin-bottom:6px; animation:floaty 3s ease-in-out infinite; }
+  .login-mascot{ display:flex; justify-content:center; margin-bottom:8px; animation:floaty 3s ease-in-out infinite; filter:drop-shadow(0 6px 14px rgba(92,167,201,0.35)); }
   .login-title{ font-family:var(--font-display); font-size:24px; font-weight:700; color:var(--ink); }
   .login-sub{ font-family:var(--font-mono); font-size:10px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:0.05em; margin-top:4px; margin-bottom:18px; }
   .login-tabs{ display:flex; border:1.5px solid var(--line-strong); border-radius:11px; padding:3px; background:var(--paper); margin-bottom:18px; }
@@ -980,6 +994,74 @@ function ThemeToggle({
     size: 16
   }));
 }
+
+// Stemik's brand mark: an isometric "cube" — a nod to 3D modeling/printing,
+// the studio's core discipline — rendered as crisp inline SVG so it never
+// depends on an external image loading.
+function StemikMark({
+  size,
+  className
+}) {
+  size = size || 40;
+  return /*#__PURE__*/React.createElement("svg", {
+    width: size,
+    height: size,
+    viewBox: "0 0 48 48",
+    fill: "none",
+    className: className
+  }, /*#__PURE__*/React.createElement("defs", null, /*#__PURE__*/React.createElement("linearGradient", {
+    id: "stemikGrad",
+    x1: "4",
+    y1: "4",
+    x2: "44",
+    y2: "44",
+    gradientUnits: "userSpaceOnUse"
+  }, /*#__PURE__*/React.createElement("stop", {
+    offset: "0",
+    style: {
+      stopColor: "var(--brand)"
+    }
+  }), /*#__PURE__*/React.createElement("stop", {
+    offset: "1",
+    style: {
+      stopColor: "var(--navy)"
+    }
+  }))), /*#__PURE__*/React.createElement("path", {
+    d: "M24 3 L43 13.5 V34.5 L24 45 L5 34.5 V13.5 Z",
+    fill: "url(#stemikGrad)"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M24 3 V24 M24 24 L43 13.5 M24 24 L5 13.5 M24 24 V45",
+    stroke: "rgba(255,255,255,0.32)",
+    strokeWidth: "1.2"
+  }), /*#__PURE__*/React.createElement("circle", {
+    cx: "24",
+    cy: "24",
+    r: "4",
+    fill: "#fff"
+  }));
+}
+
+// Course names starting with these prefixes get a consistent accent color,
+// matching Stemik's three real learning tracks (3D / VR / Robotics).
+function courseAccent(course) {
+  if (!course) return null;
+  if (course.startsWith("VR")) return {
+    color: "#8B5CF6",
+    soft: "rgba(139,92,246,0.14)"
+  };
+  if (course.startsWith("3D")) return {
+    color: "var(--brand-text)",
+    soft: "var(--brand-soft)"
+  };
+  if (course.startsWith("Робототехніка")) return {
+    color: "var(--success-text)",
+    soft: "var(--success-soft)"
+  };
+  return {
+    color: "var(--sand-text)",
+    soft: "var(--sand)"
+  };
+}
 function StatCard({
   icon,
   value,
@@ -1078,6 +1160,10 @@ function LoginScreen({
     className: "studio-app login-app"
   }, /*#__PURE__*/React.createElement("div", {
     className: "bg-grid"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "login-blob login-blob-1"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "login-blob login-blob-2"
   }), /*#__PURE__*/React.createElement(ThemeToggle, {
     theme: theme,
     onToggle: onToggleTheme,
@@ -1088,9 +1174,13 @@ function LoginScreen({
     className: "login-card" + (shake ? " shake" : "")
   }, /*#__PURE__*/React.createElement("div", {
     className: "login-mascot"
-  }, "🧵"), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement(StemikMark, {
+    size: 60
+  })), /*#__PURE__*/React.createElement("div", {
     className: "login-title"
   }, "Stemik"), /*#__PURE__*/React.createElement("div", {
+    className: "login-tagline"
+  }, "Освітня студія VR · AI · 3D"), /*#__PURE__*/React.createElement("div", {
     className: "login-sub"
   }, "Облік моделей"), /*#__PURE__*/React.createElement("div", {
     className: "login-tabs"
@@ -1164,7 +1254,17 @@ function LoginScreen({
     className: "studio-btn primary login-btn",
     disabled: busy,
     type: "submit"
-  }, busy ? "Зачекайте…" : tab === "in" ? "Увійти" : "Створити акаунт")))));
+  }, busy ? "Зачекайте…" : tab === "in" ? "Увійти" : "Створити акаунт"))), /*#__PURE__*/React.createElement("div", {
+    className: "login-footer"
+  }, /*#__PURE__*/React.createElement("a", {
+    href: "https://stemik.studio",
+    target: "_blank",
+    rel: "noopener noreferrer"
+  }, "stemik.studio"), /*#__PURE__*/React.createElement("span", null, "·"), /*#__PURE__*/React.createElement("a", {
+    href: "https://www.instagram.com/stemik.studio/",
+    target: "_blank",
+    rel: "noopener noreferrer"
+  }, "Instagram"), /*#__PURE__*/React.createElement("span", null, "·"), /*#__PURE__*/React.createElement("span", null, "м. Київ, вул. Михайла Максимовича, 3Г"))));
 }
 
 // ---------------------------------------------------------------
@@ -1963,7 +2063,11 @@ function ScheduleTab({
     }, lesson.theme), /*#__PURE__*/React.createElement("div", {
       className: "lesson-meta-row"
     }, lesson.course && /*#__PURE__*/React.createElement("span", {
-      className: "course-tag"
+      className: "course-tag",
+      style: {
+        color: courseAccent(lesson.course).color,
+        background: courseAccent(lesson.course).soft
+      }
     }, lesson.course), lesson.format && /*#__PURE__*/React.createElement("span", {
       className: "format-tag" + (lesson.format === "individual" ? " individual" : "")
     }, formatLabel(lesson.format)), lesson.time && /*#__PURE__*/React.createElement("span", {
@@ -2027,7 +2131,11 @@ function ScheduleTab({
         }
       })), /*#__PURE__*/React.createElement("button", {
         className: "printed-pill" + (printed ? "" : " off"),
-        onClick: () => togglePrinted(lesson.id, s.id)
+        onClick: async () => {
+          const willComplete = !printed && doneCount + 1 === present.length;
+          await togglePrinted(lesson.id, s.id);
+          if (willComplete) showToast("🎉 Усі роботи цього заняття надруковано!");
+        }
       }, /*#__PURE__*/React.createElement(Icon, {
         name: "printer",
         size: 11
@@ -2699,7 +2807,11 @@ function StudioCalendarTab({
       }, lesson.theme), /*#__PURE__*/React.createElement("div", {
         className: "lesson-meta-row"
       }, lesson.course && /*#__PURE__*/React.createElement("span", {
-        className: "course-tag"
+        className: "course-tag",
+        style: {
+          color: courseAccent(lesson.course).color,
+          background: courseAccent(lesson.course).soft
+        }
       }, lesson.course), lesson.format && /*#__PURE__*/React.createElement("span", {
         className: "format-tag" + (lesson.format === "individual" ? " individual" : "")
       }, formatLabel(lesson.format)), lesson.time && /*#__PURE__*/React.createElement("span", {
@@ -2816,11 +2928,19 @@ function Shell({
     style: {
       justifyContent: "space-between"
     }
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement(StemikMark, {
+    size: 32
+  }), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "studio-brand-title"
   }, "Stemik"), /*#__PURE__*/React.createElement("div", {
     className: "studio-brand-sub"
-  }, "Облік моделей")), /*#__PURE__*/React.createElement(ThemeToggle, {
+  }, "Облік моделей"))), /*#__PURE__*/React.createElement(ThemeToggle, {
     theme: theme,
     onToggle: onToggleTheme
   })), /*#__PURE__*/React.createElement("div", {
