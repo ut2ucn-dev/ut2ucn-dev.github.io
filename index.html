@@ -179,6 +179,15 @@
     border-radius:6px; padding:3px 8px;
   }
   .format-tag.individual{ color:var(--alert-text); background:var(--alert-soft); }
+  .teacher-tag{
+    display:inline-flex; align-items:center; gap:4px; font-family:var(--font-mono); font-weight:600; font-size:10px;
+    color:var(--ink-soft); background:var(--paper); border:1px solid var(--line); border-radius:6px; padding:3px 8px;
+  }
+  .teacher-tag{
+    display:inline-flex; align-items:center; gap:4px; font-family:var(--font-mono); font-weight:700; font-size:10px;
+    color:var(--navy); background:var(--sand); border-radius:6px; padding:3px 8px 3px 6px;
+  }
+  :root.theme-dark .teacher-tag{ color:var(--ink); }
   .student-panel{ margin-top:14px; background:var(--paper); border-radius:10px; padding:6px 12px; }
   .student-row{ display:flex; align-items:center; gap:11px; padding:10px 0; border-top:1px solid var(--line); flex-wrap:wrap; }
   .student-row:first-child{ border-top:none; }
@@ -226,6 +235,12 @@
     transition:background .15s ease, color .15s ease, border-color .15s ease, transform .12s ease;
   }
   .chip.selected{ background:var(--brand); color:#fff; border-color:var(--brand); transform:scale(1.03); font-weight:700; }
+  .chip-avatar{
+    width:20px; height:20px; border-radius:50%; overflow:hidden; display:flex; align-items:center; justify-content:center;
+    background:linear-gradient(135deg, var(--brand), var(--sand-text)); color:#fff; font-family:var(--font-display); font-weight:700; font-size:9px;
+    flex-shrink:0;
+  }
+  .chip-avatar img{ width:100%; height:100%; object-fit:cover; }
   .empty-state{ border:2px dashed var(--line-strong); border-radius:16px; padding:40px 20px 44px; text-align:center; color:var(--ink-soft); animation:fadeIn .3s ease both; }
   .empty-mascot{ display:flex; justify-content:center; margin-bottom:14px; font-size:48px; animation:floaty 3s ease-in-out infinite; }
   .empty-state-title{ font-family:var(--font-display); font-size:16.5px; font-weight:700; color:var(--ink); margin-bottom:5px; }
@@ -244,6 +259,7 @@
   }
   .avatar img{ width:100%; height:100%; object-fit:cover; }
   .avatar.lg{ width:64px; height:64px; font-size:23px; box-shadow:0 0 0 3px var(--card), 0 0 0 5px var(--brand-soft); }
+  .avatar.sm{ width:28px; height:28px; font-size:11px; box-shadow:0 0 0 1.5px var(--card), 0 0 0 2.5px var(--brand-soft); flex-shrink:0; }
   .students-meta{ font-family:var(--font-mono); font-size:11.5px; color:var(--ink-soft); }
   .students-sub{ font-size:12.5px; color:var(--ink-soft); margin-top:2px; }
   .print-item{ display:flex; gap:14px; align-items:center; border:1px solid var(--line); background:var(--card); border-radius:14px; padding:14px 16px; margin-bottom:12px; animation:fadeInUp .3s ease both; transition:box-shadow .15s ease, border-color .15s ease; flex-wrap:wrap; }
@@ -271,6 +287,10 @@
     transition:border-color .15s ease, box-shadow .15s ease;
   }
   .field select{ cursor:pointer; }
+  .static-field-value{
+    padding:9px 10px; border-radius:8px; background:var(--paper); border:1px solid var(--line); color:var(--ink-soft);
+    font-size:13.5px; font-weight:500;
+  }
   .field input:focus, .field select:focus{ outline:none; border-color:var(--brand); box-shadow:0 0 0 3px var(--brand-soft); }
   .chip-wrap{ display:flex; flex-wrap:wrap; gap:6px; }
   .modal-actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:18px; }
@@ -628,12 +648,16 @@ function parseDate(d) {
   return new Date(y, m - 1, day);
 }
 function todayStr() {
-  return new Date().toISOString().slice(0, 10);
+  return formatISODateLocal(new Date());
 }
+// NOTE: deliberately NOT using dt.toISOString() here — that converts to UTC,
+// which silently rolls the date back by one day for anyone in a timezone
+// ahead of UTC (e.g. Ukraine) once local midnight is past. Build the ISO
+// string from local Y/M/D components instead, same as formatISODateLocal.
 function addDays(d, n) {
   const dt = parseDate(d);
   dt.setDate(dt.getDate() + n);
-  return dt.toISOString().slice(0, 10);
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
 }
 function formatDateLong(d) {
   const dt = parseDate(d);
@@ -1522,10 +1546,12 @@ function StudentModal({
 
 function LessonModal({
   ownerId: fixedOwnerId,
+  ownerProfile,
   students: fixedStudents,
   teacherOptions,
   lesson,
   presetDate,
+  showPhoto,
   onClose,
   onSaved
 }) {
@@ -1666,7 +1692,19 @@ function LessonModal({
   }, "Оберіть викладача…"), teacherOptions.map(t => /*#__PURE__*/React.createElement("option", {
     key: t.id,
     value: t.id
-  }, fullName(t))))), /*#__PURE__*/React.createElement("div", {
+  }, fullName(t))))), teacherOptions && lesson && /*#__PURE__*/React.createElement("div", {
+    className: "field"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "field-label"
+  }, "Викладач"), /*#__PURE__*/React.createElement("div", {
+    className: "static-field-value"
+  }, fullName(teacherOptions.find(t => t.id === lesson.owner_id) || {}))), !teacherOptions && ownerProfile && /*#__PURE__*/React.createElement("div", {
+    className: "field"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "field-label"
+  }, "Викладач"), /*#__PURE__*/React.createElement("div", {
+    className: "static-field-value"
+  }, fullName(ownerProfile))), /*#__PURE__*/React.createElement("div", {
     className: "field"
   }, /*#__PURE__*/React.createElement("label", {
     className: "field-label"
@@ -1731,7 +1769,11 @@ function LessonModal({
     key: s.id,
     className: "chip" + (studentIds.includes(s.id) ? " selected" : ""),
     onClick: () => toggleStudent(s.id)
-  }, studentIds.includes(s.id) && /*#__PURE__*/React.createElement(Icon, {
+  }, showPhoto && /*#__PURE__*/React.createElement("span", {
+    className: "chip-avatar"
+  }, s.photo ? /*#__PURE__*/React.createElement("img", {
+    src: s.photo
+  }) : initialsFromName(s.name)), studentIds.includes(s.id) && /*#__PURE__*/React.createElement(Icon, {
     name: "check",
     size: 12
   }), s.name)), !loadingRoster && roster.length === 0 && ownerId && teacherOptions && /*#__PURE__*/React.createElement("div", {
@@ -1959,6 +2001,7 @@ function useWorkActions(ownerId, works, setWorks, me) {
 
 function ScheduleTab({
   ownerId,
+  ownerProfile,
   canEdit,
   students,
   me
@@ -2062,7 +2105,12 @@ function ScheduleTab({
       className: "lesson-theme"
     }, lesson.theme), /*#__PURE__*/React.createElement("div", {
       className: "lesson-meta-row"
-    }, lesson.course && /*#__PURE__*/React.createElement("span", {
+    }, ownerProfile && /*#__PURE__*/React.createElement("span", {
+      className: "teacher-tag"
+    }, /*#__PURE__*/React.createElement(Icon, {
+      name: "user",
+      size: 10
+    }), " ", fullName(ownerProfile)), lesson.course && /*#__PURE__*/React.createElement("span", {
       className: "course-tag",
       style: {
         color: courseAccent(lesson.course).color,
@@ -2107,7 +2155,11 @@ function ScheduleTab({
       return /*#__PURE__*/React.createElement("div", {
         key: s.id,
         className: "student-row"
-      }, /*#__PURE__*/React.createElement(PhotoSlot, {
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "avatar sm"
+      }, canEdit && s.photo ? /*#__PURE__*/React.createElement("img", {
+        src: s.photo
+      }) : initialsFromName(s.name)), /*#__PURE__*/React.createElement(PhotoSlot, {
         url: w && w.photo,
         uploading: w && w._uploading,
         size: 17,
@@ -2254,6 +2306,8 @@ function ScheduleTab({
     }, "Немає занять") : dayLessons.map(renderLessonCard));
   }), modalLesson !== undefined && /*#__PURE__*/React.createElement(LessonModal, {
     ownerId: ownerId,
+    ownerProfile: ownerProfile,
+    showPhoto: true,
     students: students,
     lesson: modalLesson,
     presetDate: modalLesson ? undefined : modalPresetDate,
@@ -2402,6 +2456,7 @@ function StudentsTab({
 
 function QueueTab({
   ownerId,
+  ownerProfile,
   students,
   me
 }) {
@@ -2493,7 +2548,15 @@ function QueueTab({
       className: "print-item-name"
     }, student.name), /*#__PURE__*/React.createElement("div", {
       className: "print-item-origin"
-    }, lesson.theme, " · ", formatDateLong(lesson.date))), /*#__PURE__*/React.createElement("button", {
+    }, lesson.theme, " · ", formatDateLong(lesson.date), ownerProfile && /*#__PURE__*/React.createElement("span", {
+      className: "teacher-tag",
+      style: {
+        marginLeft: 7
+      }
+    }, /*#__PURE__*/React.createElement(Icon, {
+      name: "user",
+      size: 10
+    }), " ", fullName(ownerProfile)))), /*#__PURE__*/React.createElement("button", {
       className: "printed-pill" + (printed ? "" : " off"),
       onClick: () => togglePrinted(lesson.id, student.id)
     }, /*#__PURE__*/React.createElement(Icon, {
@@ -2516,6 +2579,7 @@ function QueueTab({
 // for an admin, the teacher currently being viewed).
 function WorkspaceBody({
   ownerId,
+  ownerProfile,
   canEditSchedule,
   showChildPhoto,
   me,
@@ -2535,11 +2599,13 @@ function WorkspaceBody({
   });
   if (tab === "queue") return /*#__PURE__*/React.createElement(QueueTab, {
     ownerId: ownerId,
+    ownerProfile: ownerProfile,
     students: students,
     me: me
   });
   return /*#__PURE__*/React.createElement(ScheduleTab, {
     ownerId: ownerId,
+    ownerProfile: ownerProfile,
     canEdit: canEditSchedule,
     students: students,
     me: me
@@ -2820,10 +2886,10 @@ function StudioCalendarTab({
         name: "calendar",
         size: 11
       }), " ", lesson.time), /*#__PURE__*/React.createElement("span", {
-        className: "lesson-time"
+        className: "teacher-tag"
       }, /*#__PURE__*/React.createElement(Icon, {
         name: "user",
-        size: 11
+        size: 10
       }), " ", teacher ? fullName(teacher) : "?"), lesson.series_id && /*#__PURE__*/React.createElement("span", {
         className: "lesson-series-tag"
       }, /*#__PURE__*/React.createElement(Icon, {
@@ -2858,6 +2924,7 @@ function StudioCalendarTab({
   })), editingLesson !== undefined && (editingLesson === null ? /*#__PURE__*/React.createElement(LessonModal, {
     teacherOptions: profiles,
     presetDate: newLessonDate,
+    showPhoto: true,
     onClose: () => setEditingLesson(undefined),
     onSaved: () => {
       setEditingLesson(undefined);
@@ -2865,7 +2932,9 @@ function StudioCalendarTab({
     }
   }) : /*#__PURE__*/React.createElement(LessonModal, {
     ownerId: editingLesson.owner_id,
+    ownerProfile: profilesById[editingLesson.owner_id],
     lesson: editingLesson,
+    showPhoto: true,
     onClose: () => setEditingLesson(undefined),
     onSaved: () => {
       setEditingLesson(undefined);
@@ -2892,6 +2961,7 @@ function Shell({
   const [tab, setTab] = useState("schedule");
   const [profileModalTarget, setProfileModalTarget] = useState(null);
   const targetOwnerId = section === "admin" && adminTeacher ? adminTeacher.id : profile.id;
+  const targetOwnerProfile = section === "admin" && adminTeacher ? adminTeacher : profile;
   const [students, setStudents] = useState([]);
   const [loadingStudents, setLoadingStudents] = useState(true);
   const reloadStudents = useCallback(async () => {
@@ -3067,6 +3137,7 @@ function Shell({
     size: 16
   }), " Профіль")), /*#__PURE__*/React.createElement(WorkspaceBody, {
     ownerId: targetOwnerId,
+    ownerProfile: targetOwnerProfile,
     canEditSchedule: true,
     showChildPhoto: true,
     me: profile,
@@ -3076,6 +3147,7 @@ function Shell({
     reloadStudents: reloadStudents
   })), section === "workspace" && /*#__PURE__*/React.createElement(WorkspaceBody, {
     ownerId: targetOwnerId,
+    ownerProfile: targetOwnerProfile,
     canEditSchedule: isAdmin,
     showChildPhoto: isAdmin,
     me: profile,
