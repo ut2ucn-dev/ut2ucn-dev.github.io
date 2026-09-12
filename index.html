@@ -150,6 +150,7 @@
   .datecard-body{ text-align:center; padding:7px 0 9px; }
   .datecard-day{ font-family:var(--font-display); font-size:23px; font-weight:700; line-height:1; color:var(--ink); }
   .datecard-weekday{ font-family:var(--font-mono); font-size:9px; color:var(--ink-soft); margin-top:3px; letter-spacing:0.04em; }
+  .datecard-time{ font-family:var(--font-mono); font-size:10.5px; font-weight:700; color:var(--brand-text); margin-top:4px; padding-top:4px; border-top:1px solid var(--line); }
   .lesson-card{
     border:1px solid var(--line); background:var(--card); border-radius:14px; padding:16px 18px 16px 22px; margin-bottom:14px;
     display:flex; gap:16px; animation:fadeInUp .3s ease both; transition:border-color .15s ease, box-shadow .15s ease;
@@ -228,6 +229,14 @@
   .printed-pill:active{ transform:scale(0.95); }
   .printed-pill.off{ color:var(--alert-text); background:var(--alert-soft); border:1.5px solid transparent; }
   .printed-pill.off:hover{ box-shadow:0 2px 8px rgba(224,142,69,0.25); }
+  .trial-pill{
+    font-family:var(--font-mono); font-weight:700; font-size:10.5px; color:#fff; background:#8B5CF6;
+    border-radius:20px; padding:5px 11px; flex-shrink:0; border:1.5px solid transparent; cursor:pointer;
+    transition:transform .12s ease, box-shadow .15s ease;
+  }
+  .trial-pill:hover{ box-shadow:0 2px 8px rgba(139,92,246,0.35); }
+  .trial-pill:active{ transform:scale(0.95); }
+  .trial-pill.off{ color:#8B5CF6; background:rgba(139,92,246,0.12); }
   .printed-by{ font-family:var(--font-mono); font-size:9.5px; color:var(--ink-soft); flex-basis:100%; padding-left:2px; }
   .chip{
     display:inline-flex; align-items:center; gap:6px; padding:8px 15px; border-radius:20px; border:1.5px solid var(--line-strong);
@@ -389,7 +398,7 @@
   }
   .login-footer a{ color:var(--brand-text); text-decoration:none; }
   .login-footer a:hover{ text-decoration:underline; }
-  .login-wrap{ position:relative; width:100%; display:flex; justify-content:center; padding:20px; }
+  .login-wrap{ position:relative; width:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:20px; gap:4px; }
   .login-card{
     background:var(--card); border:1.5px solid var(--line); border-radius:22px; padding:36px 32px 32px;
     width:100%; max-width:390px; text-align:center; box-shadow:0 16px 42px rgba(5,38,63,0.12);
@@ -694,7 +703,7 @@ function weekRangeLabel(weekStart) {
   return `${startPart} – ${endPart} ${weekEnd.getFullYear()}`;
 }
 const WEEKDAY_FULL = ["Неділя", "Понеділок", "Вівторок", "Середа", "Четвер", "П'ятниця", "Субота"];
-const COURSE_OPTIONS = ["3D TinkerCad", "3D MakersEmpire", "VR ігровий", "VR Delightex", "3D слайсинг", "Робототехніка Ukit", "Робототехніка Ugot", "Робототехніка"];
+const COURSE_OPTIONS = ["3D Tinkercad FIRST (9-12)", "3D Tinkercad PRO (9-12)", "3D Makers FIRST (6-8)", "3D Makers PRO (6-8)", "VR ІГРОВИЙ", "VR РОЗРОБКА (Delightex)", "Robo AI (Ukit 6-8)", "Robo AI (UGot 9-12)", "3D слайсинг"];
 function formatLabel(format) {
   return format === "individual" ? "Індивідуальне" : "Група";
 }
@@ -1077,7 +1086,7 @@ function courseAccent(course) {
     color: "var(--brand-text)",
     soft: "var(--brand-soft)"
   };
-  if (course.startsWith("Робототехніка")) return {
+  if (course.startsWith("Robo")) return {
     color: "var(--success-text)",
     soft: "var(--success-soft)"
   };
@@ -1119,60 +1128,29 @@ function LoginScreen({
   theme,
   onToggleTheme
 }) {
-  const [tab, setTab] = useState("in");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [firstName, setFirstName] = useState("");
   const [error, setError] = useState("");
-  const [info, setInfo] = useState("");
   const [busy, setBusy] = useState(false);
   const [shake, setShake] = useState(false);
   function fail(msg) {
     setError(msg);
-    setInfo("");
     setShake(true);
     setTimeout(() => setShake(false), 450);
   }
   async function submit(e) {
     e.preventDefault();
     setError("");
-    setInfo("");
     if (!email || !password) return fail("Заповніть email і пароль");
     setBusy(true);
     try {
-      if (tab === "in") {
-        const {
-          error
-        } = await sb.auth.signInWithPassword({
-          email,
-          password
-        });
-        if (error) throw error;
-      } else {
-        if (!lastName.trim() || !firstName.trim()) {
-          setBusy(false);
-          return fail("Вкажіть прізвище та ім'я");
-        }
-        const {
-          data,
-          error
-        } = await sb.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              last_name: lastName.trim(),
-              first_name: firstName.trim()
-            }
-          }
-        });
-        if (error) throw error;
-        if (!data.session) {
-          setInfo("Реєстрація успішна. Перевірте пошту й підтвердьте email, потім увійдіть.");
-          setTab("in");
-        }
-      }
+      const {
+        error
+      } = await sb.auth.signInWithPassword({
+        email,
+        password
+      });
+      if (error) throw error;
     } catch (err) {
       const msg = err && err.message || "Сталася помилка";
       fail(msg.includes("Invalid login") ? "Невірний email або пароль" : msg);
@@ -1206,55 +1184,14 @@ function LoginScreen({
     className: "login-tagline"
   }, "Освітня студія VR · AI · 3D"), /*#__PURE__*/React.createElement("div", {
     className: "login-sub"
-  }, "Облік моделей"), /*#__PURE__*/React.createElement("div", {
-    className: "login-tabs"
-  }, /*#__PURE__*/React.createElement("button", {
-    className: tab === "in" ? "active" : "",
-    onClick: () => {
-      setTab("in");
-      setError("");
-      setInfo("");
-    }
-  }, "Вхід"), /*#__PURE__*/React.createElement("button", {
-    className: tab === "up" ? "active" : "",
-    onClick: () => {
-      setTab("up");
-      setError("");
-      setInfo("");
-    }
-  }, "Реєстрація")), error && /*#__PURE__*/React.createElement("div", {
+  }, "Облік моделей"), error && /*#__PURE__*/React.createElement("div", {
     className: "login-error"
   }, /*#__PURE__*/React.createElement(Icon, {
     name: "x",
     size: 14
-  }), error), info && /*#__PURE__*/React.createElement("div", {
-    className: "login-info"
-  }, /*#__PURE__*/React.createElement(Icon, {
-    name: "check",
-    size: 14
-  }), info), /*#__PURE__*/React.createElement("form", {
+  }), error), /*#__PURE__*/React.createElement("form", {
     onSubmit: submit
-  }, tab === "up" && /*#__PURE__*/React.createElement("div", {
-    className: "field-row"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "field"
-  }, /*#__PURE__*/React.createElement("label", {
-    className: "field-label"
-  }, "Прізвище"), /*#__PURE__*/React.createElement("input", {
-    type: "text",
-    value: lastName,
-    onChange: e => setLastName(e.target.value),
-    placeholder: "Іванова"
-  })), /*#__PURE__*/React.createElement("div", {
-    className: "field"
-  }, /*#__PURE__*/React.createElement("label", {
-    className: "field-label"
-  }, "Ім'я"), /*#__PURE__*/React.createElement("input", {
-    type: "text",
-    value: firstName,
-    onChange: e => setFirstName(e.target.value),
-    placeholder: "Олена"
-  }))), /*#__PURE__*/React.createElement("div", {
     className: "field"
   }, /*#__PURE__*/React.createElement("label", {
     className: "field-label"
@@ -1273,12 +1210,18 @@ function LoginScreen({
     value: password,
     onChange: e => setPassword(e.target.value),
     placeholder: "••••••••",
-    autoComplete: tab === "in" ? "current-password" : "new-password"
+    autoComplete: "current-password"
   })), /*#__PURE__*/React.createElement("button", {
     className: "studio-btn primary login-btn",
     disabled: busy,
     type: "submit"
-  }, busy ? "Зачекайте…" : tab === "in" ? "Увійти" : "Створити акаунт"))), /*#__PURE__*/React.createElement("div", {
+  }, busy ? "Зачекайте…" : "Увійти")), /*#__PURE__*/React.createElement("div", {
+    className: "hint",
+    style: {
+      textAlign: "center",
+      marginTop: 12
+    }
+  }, "Акаунт викладача створює адміністратор студії.")), /*#__PURE__*/React.createElement("div", {
     className: "login-footer"
   }, /*#__PURE__*/React.createElement("a", {
     href: "https://stemik.studio",
@@ -1549,13 +1492,14 @@ function LessonModal({
   ownerProfile,
   students: fixedStudents,
   teacherOptions,
+  defaultOwnerId,
   lesson,
   presetDate,
   showPhoto,
   onClose,
   onSaved
 }) {
-  const [ownerId, setOwnerId] = useState(fixedOwnerId || (lesson ? lesson.owner_id : ""));
+  const [ownerId, setOwnerId] = useState(fixedOwnerId || (lesson ? lesson.owner_id : defaultOwnerId || ""));
   const [roster, setRoster] = useState(fixedStudents || []);
   const [loadingRoster, setLoadingRoster] = useState(false);
   const [date, setDate] = useState(lesson ? lesson.date : presetDate || todayStr());
@@ -1911,15 +1855,21 @@ function PhotoSlot({
 function findWork(works, lessonId, studentId) {
   return works.find(w => w.lesson_id === lessonId && w.student_id === studentId) || null;
 }
-function useWorkActions(ownerId, works, setWorks, me) {
+function useWorkActions(ownerId, works, setWorks, me, lessonById) {
+  function resolveOwner(lessonId) {
+    if (ownerId) return ownerId;
+    const l = lessonById && lessonById[lessonId];
+    return l ? l.owner_id : null;
+  }
   const attachPhoto = useCallback(async (lessonId, studentId, file) => {
     const existing = findWork(works, lessonId, studentId);
+    const owner = resolveOwner(lessonId);
     setWorks(ws => ws.map(w => w === existing ? {
       ...w,
       _uploading: true
     } : w));
     try {
-      const path = `${ownerId}/${lessonId}_${studentId}.jpg`;
+      const path = `${owner}/${lessonId}_${studentId}.jpg`;
       const url = await uploadPhoto("works-photos", path, file);
       if (existing) {
         const {
@@ -1935,7 +1885,7 @@ function useWorkActions(ownerId, works, setWorks, me) {
           data,
           error
         } = await sb.from("works").insert({
-          owner_id: ownerId,
+          owner_id: owner,
           lesson_id: lessonId,
           student_id: studentId,
           photo: url
@@ -1950,9 +1900,10 @@ function useWorkActions(ownerId, works, setWorks, me) {
         _uploading: false
       } : w));
     }
-  }, [ownerId, works]);
+  }, [ownerId, works, lessonById]);
   const togglePrinted = useCallback(async (lessonId, studentId) => {
     const existing = findWork(works, lessonId, studentId);
+    const owner = resolveOwner(lessonId);
     const nextPrinted = !(existing && existing.printed);
     const printedByName = nextPrinted ? fullName(me) : null;
     const printedAt = nextPrinted ? new Date().toISOString() : null;
@@ -1975,7 +1926,7 @@ function useWorkActions(ownerId, works, setWorks, me) {
         data,
         error
       } = await sb.from("works").insert({
-        owner_id: ownerId,
+        owner_id: owner,
         lesson_id: lessonId,
         student_id: studentId,
         printed: nextPrinted,
@@ -1988,7 +1939,7 @@ function useWorkActions(ownerId, works, setWorks, me) {
       }
       setWorks(ws => [...ws, data]);
     }
-  }, [ownerId, works, me]);
+  }, [ownerId, works, me, lessonById]);
   return {
     attachPhoto,
     togglePrinted
@@ -2004,10 +1955,13 @@ function ScheduleTab({
   ownerProfile,
   canEdit,
   students,
-  me
+  me,
+  aggregateAll
 }) {
   const [lessons, setLessons] = useState([]);
   const [works, setWorks] = useState([]);
+  const [allStudents, setAllStudents] = useState([]);
+  const [allProfiles, setAllProfiles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalLesson, setModalLesson] = useState(undefined); // undefined = closed, null = new
   const [modalPresetDate, setModalPresetDate] = useState(null);
@@ -2015,21 +1969,44 @@ function ScheduleTab({
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
   const load = useCallback(async () => {
     setLoading(true);
-    const [lr, wr] = await Promise.all([sb.from("lessons").select("*").eq("owner_id", ownerId).order("date", {
-      ascending: true
-    }), sb.from("works").select("*").eq("owner_id", ownerId)]);
-    setLessons(lr.data || []);
-    setWorks(wr.data || []);
+    if (aggregateAll) {
+      const [lr, wr, sr, pr] = await Promise.all([sb.from("lessons").select("*").order("date", {
+        ascending: true
+      }), sb.from("works").select("*"), sb.from("students").select("*"), sb.from("profiles").select("*")]);
+      setLessons(lr.data || []);
+      setWorks(wr.data || []);
+      setAllStudents(sr.data || []);
+      setAllProfiles(pr.data || []);
+    } else {
+      const [lr, wr] = await Promise.all([sb.from("lessons").select("*").eq("owner_id", ownerId).order("date", {
+        ascending: true
+      }), sb.from("works").select("*").eq("owner_id", ownerId)]);
+      setLessons(lr.data || []);
+      setWorks(wr.data || []);
+    }
     setLoading(false);
-  }, [ownerId]);
+  }, [ownerId, aggregateAll]);
   useEffect(() => {
     load();
   }, [load]);
+
+  // In aggregate mode, works/lessons can belong to any teacher, so
+  // useWorkActions needs to write with each lesson's own owner_id rather
+  // than a single fixed one — resolved per-call below via a wrapper.
   const {
-    attachPhoto,
-    togglePrinted
+    attachPhoto: attachPhotoFixed,
+    togglePrinted: togglePrintedFixed
   } = useWorkActions(ownerId, works, setWorks, me);
-  const studentById = useMemo(() => Object.fromEntries(students.map(s => [s.id, s])), [students]);
+  const lessonById = useMemo(() => Object.fromEntries(lessons.map(l => [l.id, l])), [lessons]);
+  const {
+    attachPhoto: attachPhotoAgg,
+    togglePrinted: togglePrintedAgg
+  } = useWorkActions(null, works, setWorks, me, lessonById);
+  const attachPhoto = aggregateAll ? attachPhotoAgg : attachPhotoFixed;
+  const togglePrinted = aggregateAll ? togglePrintedAgg : togglePrintedFixed;
+  const effectiveStudents = aggregateAll ? allStudents : students;
+  const profilesById = useMemo(() => Object.fromEntries(allProfiles.map(p => [p.id, p])), [allProfiles]);
+  const studentById = useMemo(() => Object.fromEntries(effectiveStudents.map(s => [s.id, s])), [effectiveStudents]);
   async function deleteLesson(lesson) {
     const ok = await confirmDialog(`Видалити заняття «${lesson.theme}»?`, {
       title: "Видалити заняття"
@@ -2075,6 +2052,7 @@ function ScheduleTab({
       return w && w.printed;
     }).length;
     const past = isPast(lesson.date);
+    const rowOwnerProfile = aggregateAll ? profilesById[lesson.owner_id] : ownerProfile;
     let accent = "var(--line-strong)";
     if (present.length > 0) {
       if (doneCount === present.length) accent = "var(--success)";else if (past) accent = "var(--alert)";else accent = "var(--brand)";
@@ -2095,7 +2073,9 @@ function ScheduleTab({
       className: "datecard-day"
     }, dateCardParts(lesson.date).day), /*#__PURE__*/React.createElement("div", {
       className: "datecard-weekday"
-    }, dateCardParts(lesson.date).weekday))), /*#__PURE__*/React.createElement("div", {
+    }, dateCardParts(lesson.date).weekday), lesson.time && /*#__PURE__*/React.createElement("div", {
+      className: "datecard-time"
+    }, lesson.time))), /*#__PURE__*/React.createElement("div", {
       className: "lesson-main"
     }, /*#__PURE__*/React.createElement("div", {
       className: "lesson-top"
@@ -2105,12 +2085,12 @@ function ScheduleTab({
       className: "lesson-theme"
     }, lesson.theme), /*#__PURE__*/React.createElement("div", {
       className: "lesson-meta-row"
-    }, ownerProfile && /*#__PURE__*/React.createElement("span", {
+    }, rowOwnerProfile && /*#__PURE__*/React.createElement("span", {
       className: "teacher-tag"
     }, /*#__PURE__*/React.createElement(Icon, {
       name: "user",
       size: 10
-    }), " ", fullName(ownerProfile)), lesson.course && /*#__PURE__*/React.createElement("span", {
+    }), " ", fullName(rowOwnerProfile)), lesson.course && /*#__PURE__*/React.createElement("span", {
       className: "course-tag",
       style: {
         color: courseAccent(lesson.course).color,
@@ -2118,12 +2098,7 @@ function ScheduleTab({
       }
     }, lesson.course), lesson.format && /*#__PURE__*/React.createElement("span", {
       className: "format-tag" + (lesson.format === "individual" ? " individual" : "")
-    }, formatLabel(lesson.format)), lesson.time && /*#__PURE__*/React.createElement("span", {
-      className: "lesson-time"
-    }, /*#__PURE__*/React.createElement(Icon, {
-      name: "calendar",
-      size: 12
-    }), " ", lesson.time), present.length > 0 && /*#__PURE__*/React.createElement("span", {
+    }, formatLabel(lesson.format)), present.length > 0 && /*#__PURE__*/React.createElement("span", {
       className: "lesson-progress"
     }, doneCount, "/", present.length, " надруковано"), lesson.series_id && /*#__PURE__*/React.createElement("span", {
       className: "lesson-series-tag"
@@ -2152,6 +2127,7 @@ function ScheduleTab({
     }, present.map(s => {
       const w = findWork(works, lesson.id, s.id);
       const printed = w && w.printed;
+      const trialEligible = lessons.filter(l => (l.student_ids || []).includes(s.id)).length <= 1;
       return /*#__PURE__*/React.createElement("div", {
         key: s.id,
         className: "student-row"
@@ -2167,7 +2143,11 @@ function ScheduleTab({
         onPreview: setPreview
       }), /*#__PURE__*/React.createElement("div", {
         className: "student-name"
-      }, s.name), lesson.date <= todayStr() && (!w || !w.photo) && !printed && /*#__PURE__*/React.createElement("label", {
+      }, s.name), (trialEligible || w && w.trial) && /*#__PURE__*/React.createElement("button", {
+        className: "trial-pill" + (w && w.trial ? "" : " off"),
+        title: "Пробне заняття для цього учня",
+        onClick: () => toggleTrial(lesson.id, s.id, w)
+      }, "Пробне"), lesson.date <= todayStr() && (!w || !w.photo) && !printed && /*#__PURE__*/React.createElement("label", {
         className: "due-flag",
         title: "Прикріпити фото роботи"
       }, "Немає фото", /*#__PURE__*/React.createElement("input", {
@@ -2196,13 +2176,46 @@ function ScheduleTab({
       }, "Статус змінив: ", w.printed_by_name));
     }))));
   }
+  async function toggleTrial(lessonId, studentId, existingWork) {
+    const nextTrial = !(existingWork && existingWork.trial);
+    if (existingWork) {
+      const {
+        data,
+        error
+      } = await sb.from("works").update({
+        trial: nextTrial
+      }).eq("id", existingWork.id).select().single();
+      if (error) {
+        showToast(error.message, "error");
+        return;
+      }
+      setWorks(ws => ws.map(w => w.id === existingWork.id ? data : w));
+    } else {
+      const lesson = lessonById[lessonId] || lessons.find(l => l.id === lessonId);
+      const owner = lesson ? lesson.owner_id : ownerId;
+      const {
+        data,
+        error
+      } = await sb.from("works").insert({
+        owner_id: owner,
+        lesson_id: lessonId,
+        student_id: studentId,
+        trial: nextTrial
+      }).select().single();
+      if (error) {
+        showToast(error.message, "error");
+        return;
+      }
+      setWorks(ws => [...ws, data]);
+    }
+  }
   return /*#__PURE__*/React.createElement("div", {
     className: "tab-fade"
   }, /*#__PURE__*/React.createElement("div", {
     className: "studio-page-head"
   }, /*#__PURE__*/React.createElement("div", {
     className: "studio-page-title"
-  }, "Розклад занять"), canEdit && /*#__PURE__*/React.createElement("button", {
+  }, aggregateAll ? "Розклад студії" : "Розклад занять"), canEdit && /*#__PURE__*/React.createElement("button", {
     className: "studio-btn primary",
     onClick: () => openNewLesson(null)
   }, /*#__PURE__*/React.createElement(Icon, {
@@ -2212,7 +2225,7 @@ function ScheduleTab({
     className: "stats-row"
   }, /*#__PURE__*/React.createElement(StatCard, {
     icon: "users",
-    value: students.length,
+    value: effectiveStudents.length,
     label: "учнів",
     color: "var(--brand-text)",
     soft: "var(--brand-soft)"
@@ -2304,7 +2317,18 @@ function ScheduleTab({
     }))), dayLessons.length === 0 ? /*#__PURE__*/React.createElement("div", {
       className: "day-section-empty"
     }, "Немає занять") : dayLessons.map(renderLessonCard));
-  }), modalLesson !== undefined && /*#__PURE__*/React.createElement(LessonModal, {
+  }), modalLesson !== undefined && (aggregateAll ? /*#__PURE__*/React.createElement(LessonModal, {
+    teacherOptions: allProfiles,
+    defaultOwnerId: me.id,
+    showPhoto: true,
+    lesson: modalLesson,
+    presetDate: modalLesson ? undefined : modalPresetDate,
+    onClose: () => setModalLesson(undefined),
+    onSaved: () => {
+      setModalLesson(undefined);
+      load();
+    }
+  }) : /*#__PURE__*/React.createElement(LessonModal, {
     ownerId: ownerId,
     ownerProfile: ownerProfile,
     showPhoto: true,
@@ -2316,7 +2340,7 @@ function ScheduleTab({
       setModalLesson(undefined);
       load();
     }
-  }), preview && /*#__PURE__*/React.createElement(PreviewModal, {
+  })), preview && /*#__PURE__*/React.createElement(PreviewModal, {
     url: preview,
     onClose: () => setPreview(null)
   }));
@@ -2458,29 +2482,48 @@ function QueueTab({
   ownerId,
   ownerProfile,
   students,
-  me
+  me,
+  aggregateAll
 }) {
   const [lessons, setLessons] = useState([]);
   const [works, setWorks] = useState([]);
+  const [allStudents, setAllStudents] = useState([]);
+  const [allProfiles, setAllProfiles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("pending");
   const [preview, setPreview] = useState(null);
   const load = useCallback(async () => {
     setLoading(true);
-    const [lr, wr] = await Promise.all([sb.from("lessons").select("*").eq("owner_id", ownerId), sb.from("works").select("*").eq("owner_id", ownerId)]);
-    setLessons(lr.data || []);
-    setWorks(wr.data || []);
+    if (aggregateAll) {
+      const [lr, wr, sr, pr] = await Promise.all([sb.from("lessons").select("*"), sb.from("works").select("*"), sb.from("students").select("*"), sb.from("profiles").select("*")]);
+      setLessons(lr.data || []);
+      setWorks(wr.data || []);
+      setAllStudents(sr.data || []);
+      setAllProfiles(pr.data || []);
+    } else {
+      const [lr, wr] = await Promise.all([sb.from("lessons").select("*").eq("owner_id", ownerId), sb.from("works").select("*").eq("owner_id", ownerId)]);
+      setLessons(lr.data || []);
+      setWorks(wr.data || []);
+    }
     setLoading(false);
-  }, [ownerId]);
+  }, [ownerId, aggregateAll]);
   useEffect(() => {
     load();
   }, [load]);
-  const {
-    attachPhoto,
-    togglePrinted
-  } = useWorkActions(ownerId, works, setWorks, me);
   const lessonById = useMemo(() => Object.fromEntries(lessons.map(l => [l.id, l])), [lessons]);
-  const studentById = useMemo(() => Object.fromEntries(students.map(s => [s.id, s])), [students]);
+  const {
+    attachPhoto: attachPhotoFixed,
+    togglePrinted: togglePrintedFixed
+  } = useWorkActions(ownerId, works, setWorks, me);
+  const {
+    attachPhoto: attachPhotoAgg,
+    togglePrinted: togglePrintedAgg
+  } = useWorkActions(null, works, setWorks, me, lessonById);
+  const attachPhoto = aggregateAll ? attachPhotoAgg : attachPhotoFixed;
+  const togglePrinted = aggregateAll ? togglePrintedAgg : togglePrintedFixed;
+  const effectiveStudents = aggregateAll ? allStudents : students;
+  const profilesById = useMemo(() => Object.fromEntries(allProfiles.map(p => [p.id, p])), [allProfiles]);
+  const studentById = useMemo(() => Object.fromEntries(effectiveStudents.map(s => [s.id, s])), [effectiveStudents]);
 
   // build one row per (lesson, student) pair that has at least a scheduled presence
   const rows = [];
@@ -2507,7 +2550,7 @@ function QueueTab({
     className: "studio-page-head"
   }, /*#__PURE__*/React.createElement("div", {
     className: "studio-page-title"
-  }, "Черга друку"), /*#__PURE__*/React.createElement("div", {
+  }, aggregateAll ? "Черга друку студії" : "Черга друку"), /*#__PURE__*/React.createElement("div", {
     className: "studio-segmented"
   }, /*#__PURE__*/React.createElement("button", {
     className: filter === "pending" ? "active" : "",
@@ -2529,6 +2572,7 @@ function QueueTab({
     work
   }) => {
     const printed = work && work.printed;
+    const rowOwnerProfile = aggregateAll ? profilesById[lesson.owner_id] : ownerProfile;
     return /*#__PURE__*/React.createElement("div", {
       key: lesson.id + "_" + student.id,
       className: "print-item"
@@ -2548,7 +2592,7 @@ function QueueTab({
       className: "print-item-name"
     }, student.name), /*#__PURE__*/React.createElement("div", {
       className: "print-item-origin"
-    }, lesson.theme, " · ", formatDateLong(lesson.date), ownerProfile && /*#__PURE__*/React.createElement("span", {
+    }, lesson.theme, " · ", formatDateLong(lesson.date), rowOwnerProfile && /*#__PURE__*/React.createElement("span", {
       className: "teacher-tag",
       style: {
         marginLeft: 7
@@ -2556,7 +2600,7 @@ function QueueTab({
     }, /*#__PURE__*/React.createElement(Icon, {
       name: "user",
       size: 10
-    }), " ", fullName(ownerProfile)))), /*#__PURE__*/React.createElement("button", {
+    }), " ", fullName(rowOwnerProfile)))), /*#__PURE__*/React.createElement("button", {
       className: "printed-pill" + (printed ? "" : " off"),
       onClick: () => togglePrinted(lesson.id, student.id)
     }, /*#__PURE__*/React.createElement(Icon, {
@@ -2586,7 +2630,8 @@ function WorkspaceBody({
   tab,
   students,
   loadingStudents,
-  reloadStudents
+  reloadStudents,
+  aggregateAll
 }) {
   if (loadingStudents) return /*#__PURE__*/React.createElement("div", {
     className: "loading-block"
@@ -2601,14 +2646,16 @@ function WorkspaceBody({
     ownerId: ownerId,
     ownerProfile: ownerProfile,
     students: students,
-    me: me
+    me: me,
+    aggregateAll: aggregateAll
   });
   return /*#__PURE__*/React.createElement(ScheduleTab, {
     ownerId: ownerId,
     ownerProfile: ownerProfile,
     canEdit: canEditSchedule,
     students: students,
-    me: me
+    me: me,
+    aggregateAll: aggregateAll
   });
 }
 
@@ -2624,6 +2671,7 @@ function AdminUserList({
   const [counts, setCounts] = useState({});
   const [loading, setLoading] = useState(true);
   const [togglingId, setTogglingId] = useState(null);
+  const [creating, setCreating] = useState(false);
   const load = useCallback(async () => {
     setLoading(true);
     const {
@@ -2689,7 +2737,13 @@ function AdminUserList({
     className: "studio-page-head"
   }, /*#__PURE__*/React.createElement("div", {
     className: "studio-page-title"
-  }, "Викладачі та адміністратори")), users.length === 0 ? /*#__PURE__*/React.createElement("div", {
+  }, "Викладачі та адміністратори"), /*#__PURE__*/React.createElement("button", {
+    className: "studio-btn primary",
+    onClick: () => setCreating(true)
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "plus",
+    size: 16
+  }), " Новий викладач")), users.length === 0 ? /*#__PURE__*/React.createElement("div", {
     className: "empty-state"
   }, /*#__PURE__*/React.createElement("div", {
     className: "empty-mascot"
@@ -2697,7 +2751,7 @@ function AdminUserList({
     className: "empty-state-title"
   }, "Більше нікого немає"), /*#__PURE__*/React.createElement("div", {
     className: "empty-state-sub"
-  }, "Щойно хтось зареєструється за посиланням на сайт, він з'явиться тут.")) : /*#__PURE__*/React.createElement("div", {
+  }, "Натисніть «Новий викладач», щоб створити перший акаунт.")) : /*#__PURE__*/React.createElement("div", {
     className: "students-list"
   }, users.map(t => {
     const c = counts[t.id] || {};
@@ -2735,11 +2789,137 @@ function AdminUserList({
       name: "shield",
       size: 14
     })));
-  })));
+  })), creating && /*#__PURE__*/React.createElement(CreateTeacherModal, {
+    onClose: () => setCreating(false),
+    onCreated: () => {
+      setCreating(false);
+      load();
+    }
+  }));
 }
 
 // ---------------------------------------------------------------
-// Admin: studio-wide calendar (all teachers' lessons at a glance)
+// Admin: create a brand-new teacher account (via secure Edge Function —
+// the anon key alone cannot create accounts on someone else's behalf)
+// ---------------------------------------------------------------
+
+function CreateTeacherModal({
+  onClose,
+  onCreated
+}) {
+  const [lastName, setLastName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  useEscapeClose(onClose);
+  useLockBodyScroll();
+  async function save(e) {
+    if (e) e.preventDefault();
+    if (!lastName.trim() || !firstName.trim()) {
+      setError("Вкажіть прізвище та ім'я");
+      return;
+    }
+    if (!email.trim()) {
+      setError("Вкажіть email");
+      return;
+    }
+    if (password.length < 6) {
+      setError("Пароль має містити щонайменше 6 символів");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    const {
+      data,
+      error
+    } = await sb.functions.invoke("create-teacher", {
+      body: {
+        email: email.trim(),
+        password,
+        last_name: lastName.trim(),
+        first_name: firstName.trim()
+      }
+    });
+    setSaving(false);
+    if (error || data && data.error) {
+      setError(data && data.error || error.message || "Не вдалося створити акаунт");
+      return;
+    }
+    showToast("Акаунт викладача створено");
+    onCreated();
+  }
+  return ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
+    className: "overlay",
+    onClick: onClose
+  }, /*#__PURE__*/React.createElement("form", {
+    className: "modal",
+    onClick: e => e.stopPropagation(),
+    onSubmit: save
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "modal-title"
+  }, "Новий викладач", /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "studio-btn ghost",
+    onClick: onClose
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "x"
+  }))), error && /*#__PURE__*/React.createElement("div", {
+    className: "login-error"
+  }, error), /*#__PURE__*/React.createElement("div", {
+    className: "field-row"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "field"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "field-label"
+  }, "Прізвище"), /*#__PURE__*/React.createElement("input", {
+    type: "text",
+    value: lastName,
+    onChange: e => setLastName(e.target.value),
+    placeholder: "Іванова"
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "field"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "field-label"
+  }, "Ім'я"), /*#__PURE__*/React.createElement("input", {
+    type: "text",
+    value: firstName,
+    onChange: e => setFirstName(e.target.value),
+    placeholder: "Олена"
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "field"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "field-label"
+  }, "Email"), /*#__PURE__*/React.createElement("input", {
+    type: "email",
+    value: email,
+    onChange: e => setEmail(e.target.value),
+    placeholder: "teacher@example.com"
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "field"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "field-label"
+  }, "Тимчасовий пароль"), /*#__PURE__*/React.createElement("input", {
+    type: "text",
+    value: password,
+    onChange: e => setPassword(e.target.value),
+    placeholder: "Щонайменше 6 символів"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "hint"
+  }, "Передайте цей пароль викладачу — після першого входу вони зможуть увійти під ним; зміна пароля самим викладачем поки не реалізована в інтерфейсі.")), /*#__PURE__*/React.createElement("div", {
+    className: "modal-actions"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "studio-btn",
+    onClick: onClose
+  }, "Скасувати"), /*#__PURE__*/React.createElement("button", {
+    type: "submit",
+    className: "studio-btn primary",
+    disabled: saving
+  }, saving ? "Створення…" : "Створити")))), document.body);
+}
+
 // ---------------------------------------------------------------
 // Admin: studio-wide calendar, one week at a time, sorted by weekday
 // ---------------------------------------------------------------
@@ -3154,7 +3334,8 @@ function Shell({
     tab: tab,
     students: students,
     loadingStudents: loadingStudents,
-    reloadStudents: reloadStudents
+    reloadStudents: reloadStudents,
+    aggregateAll: isAdmin
   }))), profileModalTarget && /*#__PURE__*/React.createElement(ProfileModal, {
     target: profileModalTarget,
     isAdminEditing: profileModalTarget.id !== profile.id,
