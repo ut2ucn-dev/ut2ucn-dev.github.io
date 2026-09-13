@@ -843,6 +843,26 @@ function Icon({
       return /*#__PURE__*/React.createElement("svg", p, /*#__PURE__*/React.createElement("path", {
         d: "M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z"
       }));
+    case "key":
+      return /*#__PURE__*/React.createElement("svg", p, /*#__PURE__*/React.createElement("circle", {
+        cx: "7.5",
+        cy: "15.5",
+        r: "5.5"
+      }), /*#__PURE__*/React.createElement("path", {
+        d: "M21 2l-9.6 9.6"
+      }), /*#__PURE__*/React.createElement("path", {
+        d: "M15.5 7.5L18 5l3 3-2.5 2.5"
+      }));
+    case "copy":
+      return /*#__PURE__*/React.createElement("svg", p, /*#__PURE__*/React.createElement("rect", {
+        x: "9",
+        y: "9",
+        width: "13",
+        height: "13",
+        rx: "2"
+      }), /*#__PURE__*/React.createElement("path", {
+        d: "M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
+      }));
     case "plus":
       return /*#__PURE__*/React.createElement("svg", p, /*#__PURE__*/React.createElement("line", {
         x1: "12",
@@ -2673,7 +2693,10 @@ function AdminUserList({
   const [counts, setCounts] = useState({});
   const [loading, setLoading] = useState(true);
   const [togglingId, setTogglingId] = useState(null);
+  const [resettingId, setResettingId] = useState(null);
   const [creating, setCreating] = useState(false);
+  const [resultFor, setResultFor] = useState(null); // { teacher, password } | null
+
   const load = useCallback(async () => {
     setLoading(true);
     const {
@@ -2727,6 +2750,49 @@ function AdminUserList({
       role: nextRole
     } : u));
     showToast(nextRole === "admin" ? "Тепер адміністратор" : "Тепер викладач");
+  }
+  async function resetPassword(e, t) {
+    e.stopPropagation();
+    const ok = await confirmDialog(`Згенерувати новий пароль для ${fullName(t)}? Старий пароль перестане працювати одразу.`, {
+      title: "Скинути пароль",
+      confirmLabel: "Скинути"
+    });
+    if (!ok) return;
+    setResettingId(t.id);
+    try {
+      const {
+        data: {
+          session
+        }
+      } = await sb.auth.getSession();
+      const res = await fetch(`${window.SUPABASE_URL}/functions/v1/reset-password`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session ? session.access_token : ""}`,
+          "apikey": window.SUPABASE_ANON_KEY
+        },
+        body: JSON.stringify({
+          user_id: t.id
+        })
+      });
+      let body = {};
+      try {
+        body = await res.json();
+      } catch (e) {}
+      setResettingId(null);
+      if (!res.ok) {
+        showToast(body.error || `Помилка сервера (код ${res.status})`, "error");
+        return;
+      }
+      setResultFor({
+        teacher: t,
+        password: body.password
+      });
+    } catch (err) {
+      setResettingId(null);
+      showToast("Не вдалося з'єднатися з функцією: " + (err && err.message ? err.message : err), "error");
+    }
   }
   if (loading) return /*#__PURE__*/React.createElement("div", {
     className: "loading-block"
@@ -2782,6 +2848,14 @@ function AdminUserList({
       className: "students-meta"
     }, c.lessons != null ? `${c.lessons} занять · ${c.pending} в черзі` : "…"), /*#__PURE__*/React.createElement("button", {
       className: "studio-btn ghost",
+      disabled: resettingId === t.id,
+      onClick: e => resetPassword(e, t),
+      title: "Скинути пароль"
+    }, /*#__PURE__*/React.createElement(Icon, {
+      name: "key",
+      size: 14
+    })), /*#__PURE__*/React.createElement("button", {
+      className: "studio-btn ghost",
       disabled: togglingId === t.id,
       onClick: e => toggleRole(e, t),
       title: isAdminUser ? "Зробити викладачем" : "Зробити адміністратором"
@@ -2795,6 +2869,10 @@ function AdminUserList({
       setCreating(false);
       load();
     }
+  }), resultFor && /*#__PURE__*/React.createElement(PasswordResultModal, {
+    teacher: resultFor.teacher,
+    password: resultFor.password,
+    onClose: () => setResultFor(null)
   }));
 }
 
@@ -2939,6 +3017,90 @@ function CreateTeacherModal({
     className: "studio-btn primary",
     disabled: saving
   }, saving ? "Створення…" : "Створити")))), document.body);
+}
+
+// ---------------------------------------------------------------
+// Shows a freshly-generated password after an admin resets someone's —
+// nothing is emailed; the admin reads it here and passes it on themselves.
+// ---------------------------------------------------------------
+
+function PasswordResultModal({
+  teacher,
+  password,
+  onClose
+}) {
+  const [copied, setCopied] = useState(false);
+  useEscapeClose(onClose);
+  useLockBodyScroll();
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(password);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (e) {
+      showToast("Не вдалося скопіювати — виділіть пароль вручну", "error");
+    }
+  }
+  return ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
+    className: "overlay",
+    onClick: onClose
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "modal",
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "modal-title"
+  }, "Новий пароль створено", /*#__PURE__*/React.createElement("button", {
+    className: "studio-btn ghost",
+    onClick: onClose
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "x"
+  }))), /*#__PURE__*/React.createElement("p", {
+    style: {
+      fontSize: 13.5,
+      color: "var(--ink-soft)",
+      marginTop: 0
+    }
+  }, "Для ", /*#__PURE__*/React.createElement("strong", {
+    style: {
+      color: "var(--ink)"
+    }
+  }, fullName(teacher)), " (", teacher.email, ") згенеровано новий пароль. Старий більше не діє."), /*#__PURE__*/React.createElement("div", {
+    className: "field"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "field-label"
+  }, "Новий пароль"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "text",
+    value: password,
+    readOnly: true,
+    onFocus: e => e.target.select(),
+    style: {
+      fontFamily: "var(--font-mono)",
+      fontWeight: 700,
+      letterSpacing: "0.03em"
+    }
+  }), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "studio-btn",
+    style: {
+      flexShrink: 0
+    },
+    onClick: copy
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: copied ? "check" : "copy",
+    size: 14
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "hint"
+  }, "Передайте цей пароль людині особисто (голосом, у месенджері тощо) — він більше ніде не зберігається і не надсилається автоматично.")), /*#__PURE__*/React.createElement("div", {
+    className: "modal-actions"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "studio-btn primary",
+    onClick: onClose
+  }, "Готово")))), document.body);
 }
 
 // ---------------------------------------------------------------
