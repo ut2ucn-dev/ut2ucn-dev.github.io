@@ -308,6 +308,14 @@
   .loading-block{ padding:60px 20px; text-align:center; color:var(--ink-soft); font-size:13.5px; }
   .photo-field{ display:flex; align-items:center; gap:12px; }
 
+  .student-card-modal{ max-width:560px; }
+  .student-card-head{ display:flex; align-items:center; gap:14px; padding-bottom:16px; border-bottom:1px solid var(--line); margin-bottom:4px; }
+  .student-card-name{ font-family:var(--font-display); font-size:18px; font-weight:700; }
+  .portfolio-row{
+    display:flex; align-items:center; gap:14px; padding:12px 0; border-top:1px solid var(--line); flex-wrap:wrap;
+  }
+  .portfolio-row:first-of-type{ border-top:none; }
+
   .confirm-modal{ max-width:380px; }
   .confirm-message{ font-size:13.5px; color:var(--ink-soft); line-height:1.5; margin-bottom:4px; }
   .studio-btn.danger:focus-visible{ outline:2px solid var(--alert); outline-offset:2px; }
@@ -1359,6 +1367,213 @@ function ProfileModal({
 // Student edit modal (add / edit). Photo field only shown for admins.
 // ---------------------------------------------------------------
 
+// ---------------------------------------------------------------
+// Student card: a full portfolio for one student — courses studied,
+// every lesson attended (across the whole studio, not just one teacher,
+// since students are now a single shared roster), and contact info.
+// ---------------------------------------------------------------
+
+function StudentCardModal({
+  student,
+  showPhoto,
+  onClose,
+  onEdit
+}) {
+  const [lessons, setLessons] = useState([]);
+  const [works, setWorks] = useState([]);
+  const [profiles, setProfiles] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [preview, setPreview] = useState(null);
+  useEscapeClose(preview ? null : onClose);
+  useLockBodyScroll();
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    Promise.all([sb.from("lessons").select("*").contains("student_ids", [student.id]), sb.from("works").select("*").eq("student_id", student.id), sb.from("profiles").select("*")]).then(([lr, wr, pr]) => {
+      if (cancelled) return;
+      setLessons(lr.data || []);
+      setWorks(wr.data || []);
+      setProfiles(pr.data || []);
+      setLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [student.id]);
+  const profilesById = useMemo(() => Object.fromEntries(profiles.map(p => [p.id, p])), [profiles]);
+  const sorted = useMemo(() => [...lessons].sort((a, b) => (a.date + (a.time || "")).localeCompare(b.date + (b.time || ""))), [lessons]);
+  const courses = useMemo(() => {
+    const set = new Set();
+    lessons.forEach(l => {
+      if (l.course) set.add(l.course);
+    });
+    return Array.from(set);
+  }, [lessons]);
+  const firstLesson = sorted[0];
+  const workByLesson = useMemo(() => Object.fromEntries(works.map(w => [w.lesson_id, w])), [works]);
+  return ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
+    className: "overlay",
+    onClick: onClose
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "modal student-card-modal",
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "modal-title"
+  }, "Картка учня", /*#__PURE__*/React.createElement("button", {
+    className: "studio-btn ghost",
+    onClick: onClose
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "x"
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "student-card-head"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "avatar lg"
+  }, showPhoto && student.photo ? /*#__PURE__*/React.createElement("img", {
+    src: student.photo
+  }) : initialsFromName(student.name)), /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      minWidth: 0
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "student-card-name"
+  }, student.name), (student.parent_last_name || student.parent_first_name) && /*#__PURE__*/React.createElement("div", {
+    className: "students-sub"
+  }, [student.parent_last_name, student.parent_first_name].filter(Boolean).join(" ")), student.phone && /*#__PURE__*/React.createElement("a", {
+    className: "tel-link",
+    href: "tel:" + student.phone.replace(/\s+/g, "")
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "phone",
+    size: 11
+  }), " ", student.phone)), /*#__PURE__*/React.createElement("button", {
+    className: "studio-btn ghost",
+    onClick: onEdit,
+    title: "Редагувати"
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "edit",
+    size: 16
+  }))), loading ? /*#__PURE__*/React.createElement("div", {
+    className: "loading-block"
+  }, "Завантаження портфоліо…") : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "stats-row",
+    style: {
+      margin: "16px 0"
+    }
+  }, /*#__PURE__*/React.createElement(StatCard, {
+    icon: "calendar",
+    value: lessons.length,
+    label: "занять всього",
+    color: "var(--brand-text)",
+    soft: "var(--brand-soft)"
+  }), /*#__PURE__*/React.createElement(StatCard, {
+    icon: "users",
+    value: courses.length,
+    label: "напрямків",
+    color: "var(--brand-text)",
+    soft: "var(--brand-soft)"
+  }), /*#__PURE__*/React.createElement(StatCard, {
+    icon: "check",
+    value: lessons.length <= 1 ? "Так" : "Ні",
+    label: "відвідує вперше",
+    color: lessons.length <= 1 ? "#8B5CF6" : "var(--ink-soft)",
+    soft: lessons.length <= 1 ? "rgba(139,92,246,0.14)" : "var(--paper)"
+  })), courses.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "field"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "field-label"
+  }, "Напрямки, які вивчає"), /*#__PURE__*/React.createElement("div", {
+    className: "chip-wrap"
+  }, courses.map(c => /*#__PURE__*/React.createElement("span", {
+    key: c,
+    className: "course-tag",
+    style: {
+      color: courseAccent(c).color,
+      background: courseAccent(c).soft,
+      fontSize: 11.5,
+      padding: "5px 11px"
+    }
+  }, c)))), /*#__PURE__*/React.createElement("label", {
+    className: "field-label",
+    style: {
+      display: "block",
+      margin: "16px 0 8px"
+    }
+  }, "Відвідані та заплановані заняття"), sorted.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    className: "empty-state"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "empty-mascot"
+  }, "📭"), /*#__PURE__*/React.createElement("div", {
+    className: "empty-state-title"
+  }, "Ще немає жодного заняття")) : sorted.map(lesson => {
+    const teacher = profilesById[lesson.owner_id];
+    const w = workByLesson[lesson.id];
+    const printable = courseHasPrinting(lesson.course);
+    const isFirst = firstLesson && lesson.id === firstLesson.id;
+    return /*#__PURE__*/React.createElement("div", {
+      key: lesson.id,
+      className: "portfolio-row"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "datecard"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "datecard-top"
+    }, dateCardParts(lesson.date).month), /*#__PURE__*/React.createElement("div", {
+      className: "datecard-body"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "datecard-day"
+    }, dateCardParts(lesson.date).day), /*#__PURE__*/React.createElement("div", {
+      className: "datecard-weekday"
+    }, dateCardParts(lesson.date).weekday), lesson.time && /*#__PURE__*/React.createElement("div", {
+      className: "datecard-time"
+    }, lesson.time))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        flex: 1,
+        minWidth: 0
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "lesson-theme",
+      style: {
+        fontSize: 14
+      }
+    }, lesson.theme), /*#__PURE__*/React.createElement("div", {
+      className: "lesson-meta-row"
+    }, teacher && /*#__PURE__*/React.createElement("span", {
+      className: "teacher-tag"
+    }, /*#__PURE__*/React.createElement(Icon, {
+      name: "user",
+      size: 10
+    }), " ", fullName(teacher)), lesson.course && /*#__PURE__*/React.createElement("span", {
+      className: "course-tag",
+      style: {
+        color: courseAccent(lesson.course).color,
+        background: courseAccent(lesson.course).soft
+      }
+    }, lesson.course), lesson.format && /*#__PURE__*/React.createElement("span", {
+      className: "format-tag" + (lesson.format === "individual" ? " individual" : "")
+    }, formatLabel(lesson.format)), isFirst && /*#__PURE__*/React.createElement("span", {
+      className: "trial-pill"
+    }, "Перше заняття"))), printable && /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        flexShrink: 0
+      }
+    }, /*#__PURE__*/React.createElement(PhotoSlot, {
+      url: w && w.photo,
+      size: 17,
+      readOnly: true,
+      onPreview: setPreview
+    }), /*#__PURE__*/React.createElement("span", {
+      className: "printed-pill" + (w && w.printed ? "" : " off")
+    }, /*#__PURE__*/React.createElement(Icon, {
+      name: "printer",
+      size: 11
+    }), " ", w && w.printed ? "Надруковано" : "Не надруковано")));
+  }))), preview && /*#__PURE__*/React.createElement(PreviewModal, {
+    url: preview,
+    onClose: () => setPreview(null)
+  })), document.body);
+}
 function StudentModal({
   ownerId,
   student,
@@ -1827,7 +2042,8 @@ function PhotoSlot({
   size,
   onUpload,
   onPreview,
-  className
+  className,
+  readOnly
 }) {
   const fileRef = useRef(null);
   function pick(e) {
@@ -1840,11 +2056,11 @@ function PhotoSlot({
     e.target.value = "";
   }
   return /*#__PURE__*/React.createElement("div", {
-    className: (className || "thumb-slot") + (url ? " has-photo" : ""),
+    className: (className || "thumb-slot") + (url ? " has-photo" : "") + (readOnly ? " readonly" : ""),
     onClick: () => {
-      if (url) onPreview(url);else pick();
+      if (url) onPreview(url);else if (!readOnly) pick();
     },
-    title: url ? "Переглянути фото" : "Прикріпити фото роботи"
+    title: url ? "Переглянути фото" : readOnly ? "Фото ще не додано" : "Прикріпити фото роботи"
   }, uploading ? /*#__PURE__*/React.createElement("div", {
     className: "thumb-spinner"
   }) : url ? /*#__PURE__*/React.createElement("img", {
@@ -1852,7 +2068,7 @@ function PhotoSlot({
   }) : /*#__PURE__*/React.createElement(Icon, {
     name: "camera",
     size: size || 15
-  }), url && /*#__PURE__*/React.createElement("button", {
+  }), url && !readOnly && /*#__PURE__*/React.createElement("button", {
     type: "button",
     className: "thumb-replace",
     onClick: pick,
@@ -1860,7 +2076,7 @@ function PhotoSlot({
   }, /*#__PURE__*/React.createElement(Icon, {
     name: "camera",
     size: 10
-  })), /*#__PURE__*/React.createElement("input", {
+  })), !readOnly && /*#__PURE__*/React.createElement("input", {
     ref: fileRef,
     type: "file",
     accept: "image/*",
@@ -2379,6 +2595,7 @@ function StudentsTab({
   reload
 }) {
   const [modalStudent, setModalStudent] = useState(undefined);
+  const [viewingStudent, setViewingStudent] = useState(null);
   const [query, setQuery] = useState("");
   async function del(s) {
     const ok = await confirmDialog(`Видалити учня «${s.name}»? Це також видалить його роботи та прибере з усіх занять.`, {
@@ -2451,7 +2668,8 @@ function StudentsTab({
     className: "students-list"
   }, filtered.map(s => /*#__PURE__*/React.createElement("div", {
     key: s.id,
-    className: "students-row"
+    className: "students-row admin-row",
+    onClick: () => setViewingStudent(s)
   }, /*#__PURE__*/React.createElement("div", {
     className: "avatar"
   }, showPhoto && s.photo ? /*#__PURE__*/React.createElement("img", {
@@ -2474,17 +2692,31 @@ function StudentsTab({
     size: 11
   }), " ", s.phone)))), /*#__PURE__*/React.createElement("button", {
     className: "studio-btn ghost",
-    onClick: () => setModalStudent(s)
+    onClick: e => {
+      e.stopPropagation();
+      setModalStudent(s);
+    }
   }, /*#__PURE__*/React.createElement(Icon, {
     name: "edit",
     size: 16
   })), /*#__PURE__*/React.createElement("button", {
     className: "studio-btn ghost",
-    onClick: () => del(s)
+    onClick: e => {
+      e.stopPropagation();
+      del(s);
+    }
   }, /*#__PURE__*/React.createElement(Icon, {
     name: "trash",
     size: 16
-  }))))), modalStudent !== undefined && /*#__PURE__*/React.createElement(StudentModal, {
+  }))))), viewingStudent && /*#__PURE__*/React.createElement(StudentCardModal, {
+    student: viewingStudent,
+    showPhoto: showPhoto,
+    onClose: () => setViewingStudent(null),
+    onEdit: () => {
+      setViewingStudent(null);
+      setModalStudent(viewingStudent);
+    }
+  }), modalStudent !== undefined && /*#__PURE__*/React.createElement(StudentModal, {
     ownerId: ownerId,
     student: modalStudent,
     showPhoto: showPhoto,
