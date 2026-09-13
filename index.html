@@ -1095,6 +1095,11 @@ function courseAccent(course) {
     soft: "var(--sand)"
   };
 }
+// Only 3D courses involve a physically printed model — VR and Robo AI
+// lessons have nothing to photograph or send to the printer.
+function courseHasPrinting(course) {
+  return !course || course.startsWith("3D");
+}
 function StatCard({
   icon,
   value,
@@ -1501,7 +1506,7 @@ function LessonModal({
 }) {
   const [ownerId, setOwnerId] = useState(fixedOwnerId || (lesson ? lesson.owner_id : defaultOwnerId || ""));
   const [roster, setRoster] = useState(fixedStudents || []);
-  const [loadingRoster, setLoadingRoster] = useState(false);
+  const [loadingRoster, setLoadingRoster] = useState(!fixedStudents);
   const [date, setDate] = useState(lesson ? lesson.date : presetDate || todayStr());
   const [time, setTime] = useState(lesson ? lesson.time || "" : "");
   const [theme, setTheme] = useState(lesson ? lesson.theme : "");
@@ -1515,23 +1520,20 @@ function LessonModal({
   useEscapeClose(onClose);
   useLockBodyScroll();
 
-  // When no fixed roster was handed in (the studio-wide calendar doesn't
-  // preload every teacher's students), fetch the chosen teacher's students
-  // on demand whenever the owner changes.
+  // One shared roster for the whole studio, same for every teacher — so
+  // unlike the owner picker, this never needs to be refetched when the
+  // selected teacher changes. Only fetch it ourselves when the caller
+  // didn't already have it loaded (e.g. the studio-wide calendar).
   useEffect(() => {
     if (fixedStudents) return;
-    if (!ownerId) {
-      setRoster([]);
-      return;
-    }
     setLoadingRoster(true);
-    sb.from("students").select("*").eq("owner_id", ownerId).order("name").then(({
+    sb.from("students").select("*").order("name").then(({
       data
     }) => {
       setRoster(data || []);
       setLoadingRoster(false);
     });
-  }, [ownerId, fixedStudents]);
+  }, [fixedStudents]);
 
   // Keep in sync if the caller's own roster reference is refreshed while open.
   useEffect(() => {
@@ -1720,13 +1722,9 @@ function LessonModal({
   }) : initialsFromName(s.name)), studentIds.includes(s.id) && /*#__PURE__*/React.createElement(Icon, {
     name: "check",
     size: 12
-  }), s.name)), !loadingRoster && roster.length === 0 && ownerId && teacherOptions && /*#__PURE__*/React.createElement("div", {
+  }), s.name)), !loadingRoster && roster.length === 0 && /*#__PURE__*/React.createElement("div", {
     className: "hint"
-  }, "У цього викладача ще немає учнів."), !loadingRoster && roster.length === 0 && ownerId && !teacherOptions && /*#__PURE__*/React.createElement("div", {
-    className: "hint"
-  }, "Спершу додайте учнів на вкладці «Учні»."), !loadingRoster && !ownerId && teacherOptions && /*#__PURE__*/React.createElement("div", {
-    className: "hint"
-  }, "Спершу оберіть викладача."))), !lesson && /*#__PURE__*/React.createElement("div", {
+  }, "Спершу додайте учнів на вкладці «Учні»."))), !lesson && /*#__PURE__*/React.createElement("div", {
     className: "field"
   }, /*#__PURE__*/React.createElement("label", {
     className: "field-label"
@@ -1960,7 +1958,6 @@ function ScheduleTab({
 }) {
   const [lessons, setLessons] = useState([]);
   const [works, setWorks] = useState([]);
-  const [allStudents, setAllStudents] = useState([]);
   const [allProfiles, setAllProfiles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalLesson, setModalLesson] = useState(undefined); // undefined = closed, null = new
@@ -1970,12 +1967,11 @@ function ScheduleTab({
   const load = useCallback(async () => {
     setLoading(true);
     if (aggregateAll) {
-      const [lr, wr, sr, pr] = await Promise.all([sb.from("lessons").select("*").order("date", {
+      const [lr, wr, pr] = await Promise.all([sb.from("lessons").select("*").order("date", {
         ascending: true
-      }), sb.from("works").select("*"), sb.from("students").select("*"), sb.from("profiles").select("*")]);
+      }), sb.from("works").select("*"), sb.from("profiles").select("*")]);
       setLessons(lr.data || []);
       setWorks(wr.data || []);
-      setAllStudents(sr.data || []);
       setAllProfiles(pr.data || []);
     } else {
       const [lr, wr] = await Promise.all([sb.from("lessons").select("*").eq("owner_id", ownerId).order("date", {
@@ -2004,9 +2000,11 @@ function ScheduleTab({
   } = useWorkActions(null, works, setWorks, me, lessonById);
   const attachPhoto = aggregateAll ? attachPhotoAgg : attachPhotoFixed;
   const togglePrinted = aggregateAll ? togglePrintedAgg : togglePrintedFixed;
-  const effectiveStudents = aggregateAll ? allStudents : students;
+
+  // `students` is always the studio's one shared roster (see Shell), so it
+  // works the same whether or not this tab is in aggregate mode.
   const profilesById = useMemo(() => Object.fromEntries(allProfiles.map(p => [p.id, p])), [allProfiles]);
-  const studentById = useMemo(() => Object.fromEntries(effectiveStudents.map(s => [s.id, s])), [effectiveStudents]);
+  const studentById = useMemo(() => Object.fromEntries(students.map(s => [s.id, s])), [students]);
   async function deleteLesson(lesson) {
     const ok = await confirmDialog(`Видалити заняття «${lesson.theme}»?`, {
       title: "Видалити заняття"
@@ -2033,10 +2031,13 @@ function ScheduleTab({
   const next = sorted.find(l => !isPast(l.date));
   const upcomingCount = sorted.filter(l => !isPast(l.date)).length;
   let pendingCount = 0;
-  lessons.forEach(l => (l.student_ids || []).forEach(sid => {
-    const w = findWork(works, l.id, sid);
-    if (!w || !w.printed) pendingCount++;
-  }));
+  lessons.forEach(l => {
+    if (!courseHasPrinting(l.course)) return;
+    (l.student_ids || []).forEach(sid => {
+      const w = findWork(works, l.id, sid);
+      if (!w || !w.printed) pendingCount++;
+    });
+  });
   const lessonsByDate = {};
   lessons.forEach(l => {
     (lessonsByDate[l.date] = lessonsByDate[l.date] || []).push(l);
@@ -2047,6 +2048,7 @@ function ScheduleTab({
   const todayLocal = formatISODateLocal(new Date());
   function renderLessonCard(lesson) {
     const present = (lesson.student_ids || []).map(id => studentById[id]).filter(Boolean);
+    const printable = courseHasPrinting(lesson.course);
     const doneCount = present.filter(s => {
       const w = findWork(works, lesson.id, s.id);
       return w && w.printed;
@@ -2054,7 +2056,7 @@ function ScheduleTab({
     const past = isPast(lesson.date);
     const rowOwnerProfile = aggregateAll ? profilesById[lesson.owner_id] : ownerProfile;
     let accent = "var(--line-strong)";
-    if (present.length > 0) {
+    if (printable && present.length > 0) {
       if (doneCount === present.length) accent = "var(--success)";else if (past) accent = "var(--alert)";else accent = "var(--brand)";
     } else if (!past) accent = "var(--brand)";
     return /*#__PURE__*/React.createElement("div", {
@@ -2098,7 +2100,7 @@ function ScheduleTab({
       }
     }, lesson.course), lesson.format && /*#__PURE__*/React.createElement("span", {
       className: "format-tag" + (lesson.format === "individual" ? " individual" : "")
-    }, formatLabel(lesson.format)), present.length > 0 && /*#__PURE__*/React.createElement("span", {
+    }, formatLabel(lesson.format)), printable && present.length > 0 && /*#__PURE__*/React.createElement("span", {
       className: "lesson-progress"
     }, doneCount, "/", present.length, " надруковано"), lesson.series_id && /*#__PURE__*/React.createElement("span", {
       className: "lesson-series-tag"
@@ -2135,7 +2137,7 @@ function ScheduleTab({
         className: "avatar sm"
       }, canEdit && s.photo ? /*#__PURE__*/React.createElement("img", {
         src: s.photo
-      }) : initialsFromName(s.name)), /*#__PURE__*/React.createElement(PhotoSlot, {
+      }) : initialsFromName(s.name)), printable && /*#__PURE__*/React.createElement(PhotoSlot, {
         url: w && w.photo,
         uploading: w && w._uploading,
         size: 17,
@@ -2147,7 +2149,7 @@ function ScheduleTab({
         className: "trial-pill" + (w && w.trial ? "" : " off"),
         title: "Пробне заняття для цього учня",
         onClick: () => toggleTrial(lesson.id, s.id, w)
-      }, "Пробне"), lesson.date <= todayStr() && (!w || !w.photo) && !printed && /*#__PURE__*/React.createElement("label", {
+      }, "Пробне"), printable && lesson.date <= todayStr() && (!w || !w.photo) && !printed && /*#__PURE__*/React.createElement("label", {
         className: "due-flag",
         title: "Прикріпити фото роботи"
       }, "Немає фото", /*#__PURE__*/React.createElement("input", {
@@ -2161,7 +2163,7 @@ function ScheduleTab({
           if (f) attachPhoto(lesson.id, s.id, f);
           e.target.value = "";
         }
-      })), /*#__PURE__*/React.createElement("button", {
+      })), printable && /*#__PURE__*/React.createElement("button", {
         className: "printed-pill" + (printed ? "" : " off"),
         onClick: async () => {
           const willComplete = !printed && doneCount + 1 === present.length;
@@ -2171,7 +2173,7 @@ function ScheduleTab({
       }, /*#__PURE__*/React.createElement(Icon, {
         name: "printer",
         size: 11
-      }), " ", printed ? "Надруковано" : "Не надруковано"), printed && w.printed_by_name && /*#__PURE__*/React.createElement("span", {
+      }), " ", printed ? "Надруковано" : "Не надруковано"), printable && printed && w.printed_by_name && /*#__PURE__*/React.createElement("span", {
         className: "printed-by"
       }, "Статус змінив: ", w.printed_by_name));
     }))));
@@ -2225,7 +2227,7 @@ function ScheduleTab({
     className: "stats-row"
   }, /*#__PURE__*/React.createElement(StatCard, {
     icon: "users",
-    value: effectiveStudents.length,
+    value: students.length,
     label: "учнів",
     color: "var(--brand-text)",
     soft: "var(--brand-soft)"
@@ -2387,7 +2389,7 @@ function StudentsTab({
     className: "studio-page-head"
   }, /*#__PURE__*/React.createElement("div", {
     className: "studio-page-title"
-  }, "Учні"), /*#__PURE__*/React.createElement("button", {
+  }, "Учні студії"), /*#__PURE__*/React.createElement("button", {
     className: "studio-btn primary",
     onClick: () => setModalStudent(null)
   }, /*#__PURE__*/React.createElement(Icon, {
@@ -2487,7 +2489,6 @@ function QueueTab({
 }) {
   const [lessons, setLessons] = useState([]);
   const [works, setWorks] = useState([]);
-  const [allStudents, setAllStudents] = useState([]);
   const [allProfiles, setAllProfiles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("pending");
@@ -2495,10 +2496,9 @@ function QueueTab({
   const load = useCallback(async () => {
     setLoading(true);
     if (aggregateAll) {
-      const [lr, wr, sr, pr] = await Promise.all([sb.from("lessons").select("*"), sb.from("works").select("*"), sb.from("students").select("*"), sb.from("profiles").select("*")]);
+      const [lr, wr, pr] = await Promise.all([sb.from("lessons").select("*"), sb.from("works").select("*"), sb.from("profiles").select("*")]);
       setLessons(lr.data || []);
       setWorks(wr.data || []);
-      setAllStudents(sr.data || []);
       setAllProfiles(pr.data || []);
     } else {
       const [lr, wr] = await Promise.all([sb.from("lessons").select("*").eq("owner_id", ownerId), sb.from("works").select("*").eq("owner_id", ownerId)]);
@@ -2521,13 +2521,15 @@ function QueueTab({
   } = useWorkActions(null, works, setWorks, me, lessonById);
   const attachPhoto = aggregateAll ? attachPhotoAgg : attachPhotoFixed;
   const togglePrinted = aggregateAll ? togglePrintedAgg : togglePrintedFixed;
-  const effectiveStudents = aggregateAll ? allStudents : students;
   const profilesById = useMemo(() => Object.fromEntries(allProfiles.map(p => [p.id, p])), [allProfiles]);
-  const studentById = useMemo(() => Object.fromEntries(effectiveStudents.map(s => [s.id, s])), [effectiveStudents]);
+  const studentById = useMemo(() => Object.fromEntries(students.map(s => [s.id, s])), [students]);
 
-  // build one row per (lesson, student) pair that has at least a scheduled presence
+  // build one row per (lesson, student) pair that has at least a scheduled
+  // presence — but only for courses that actually involve a printed model
+  // (VR and Robo AI lessons have nothing to send to the printer)
   const rows = [];
   lessons.forEach(lesson => {
+    if (!courseHasPrinting(lesson.course)) return;
     (lesson.student_ids || []).forEach(sid => {
       const student = studentById[sid];
       if (!student) return;
@@ -2680,11 +2682,10 @@ function AdminUserList({
     const list = data || [];
     setUsers(list);
     setLoading(false);
+    // Students are one shared roster now (not owned per-teacher), so only
+    // lessons and pending prints make sense as a per-person count here.
     const results = await Promise.all(list.map(async t => {
-      const [sRes, lRes, wRes] = await Promise.all([sb.from("students").select("id", {
-        count: "exact",
-        head: true
-      }).eq("owner_id", t.id), sb.from("lessons").select("id", {
+      const [lRes, wRes] = await Promise.all([sb.from("lessons").select("id", {
         count: "exact",
         head: true
       }).eq("owner_id", t.id), sb.from("works").select("id", {
@@ -2692,7 +2693,6 @@ function AdminUserList({
         head: true
       }).eq("owner_id", t.id).eq("printed", false)]);
       return [t.id, {
-        students: sRes.count || 0,
         lessons: lRes.count || 0,
         pending: wRes.count || 0
       }];
@@ -2780,7 +2780,7 @@ function AdminUserList({
       className: "students-sub"
     }, t.email)), /*#__PURE__*/React.createElement("div", {
       className: "students-meta"
-    }, c.students != null ? `${c.students} учнів · ${c.lessons} занять · ${c.pending} в черзі` : "…"), /*#__PURE__*/React.createElement("button", {
+    }, c.lessons != null ? `${c.lessons} занять · ${c.pending} в черзі` : "…"), /*#__PURE__*/React.createElement("button", {
       className: "studio-btn ghost",
       disabled: togglingId === t.id,
       onClick: e => toggleRole(e, t),
@@ -3144,14 +3144,17 @@ function Shell({
   const targetOwnerProfile = section === "admin" && adminTeacher ? adminTeacher : profile;
   const [students, setStudents] = useState([]);
   const [loadingStudents, setLoadingStudents] = useState(true);
+  // One shared student roster for the whole studio — every teacher and
+  // admin sees and can edit the exact same list, regardless of who
+  // originally added each student.
   const reloadStudents = useCallback(async () => {
     setLoadingStudents(true);
     const {
       data
-    } = await sb.from("students").select("*").eq("owner_id", targetOwnerId).order("name");
+    } = await sb.from("students").select("*").order("name");
     setStudents(data || []);
     setLoadingStudents(false);
-  }, [targetOwnerId]);
+  }, []);
   useEffect(() => {
     reloadStudents();
   }, [reloadStudents]);
