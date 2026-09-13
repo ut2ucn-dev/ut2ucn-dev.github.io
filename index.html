@@ -121,6 +121,31 @@
     padding:6px 12px; border-radius:7px; cursor:pointer; transition:background .15s ease, color .15s ease;
   }
   .studio-segmented button.active{ background:var(--brand-soft); color:var(--brand-text); }
+  .format-segmented{ flex-wrap:wrap; }
+  .payroll-preview{
+    display:flex; align-items:center; gap:8px; background:var(--brand-soft); color:var(--brand-text);
+    border-radius:9px; padding:10px 14px; font-size:12.5px; font-weight:600; margin-bottom:14px;
+  }
+
+  .rate-table-wrap{ overflow-x:auto; border:1px solid var(--line); border-radius:12px; }
+  .rate-table{ border-collapse:collapse; width:100%; min-width:820px; }
+  .rate-table th, .rate-table td{ padding:9px 10px; border-bottom:1px solid var(--line); text-align:left; }
+  .rate-table th{ font-family:var(--font-mono); font-size:10px; text-transform:uppercase; letter-spacing:0.02em; color:var(--ink-soft); background:var(--paper); white-space:nowrap; }
+  .rate-table tr:last-child td{ border-bottom:none; }
+  .rate-course-name{ font-size:12.5px; font-weight:600; white-space:nowrap; }
+  .rate-input{
+    width:76px; border:1px solid var(--line-strong); border-radius:7px; padding:6px 8px; font-family:var(--font-mono);
+    font-size:12.5px; background:var(--card); color:var(--ink); text-align:right;
+  }
+  .rate-input:focus{ outline:none; border-color:var(--brand); box-shadow:0 0 0 2px var(--brand-soft); }
+
+  .payroll-range{ display:flex; gap:14px; margin-bottom:16px; flex-wrap:wrap; }
+  .payroll-range .field{ min-width:150px; margin-bottom:0; }
+  .payroll-amount{ font-family:var(--font-mono); font-weight:700; font-size:13px; color:var(--success-text); white-space:nowrap; }
+  .payroll-lesson-row{ display:flex; align-items:center; gap:12px; padding:10px 0; border-top:1px solid var(--line); }
+  .payroll-lesson-row:first-of-type{ border-top:none; }
+  .payroll-detail{ background:var(--paper); padding:6px 16px; border-bottom:1px solid var(--line); }
+
   .studio-hero{
     border:1.5px solid var(--brand); background:linear-gradient(135deg, var(--brand-soft), var(--card) 65%); border-radius:16px;
     padding:20px 22px; margin-bottom:22px; display:flex; gap:18px; align-items:flex-start; position:relative; overflow:hidden;
@@ -180,6 +205,8 @@
     border-radius:6px; padding:3px 8px;
   }
   .format-tag.individual{ color:var(--alert-text); background:var(--alert-soft); }
+  .format-tag.online-print{ color:#8B5CF6; background:rgba(139,92,246,0.14); }
+  .format-tag.online-no-print{ color:var(--sand-text); background:var(--sand); }
   .teacher-tag{
     display:inline-flex; align-items:center; gap:4px; font-family:var(--font-mono); font-weight:600; font-size:10px;
     color:var(--ink-soft); background:var(--paper); border:1px solid var(--line); border-radius:6px; padding:3px 8px;
@@ -728,8 +755,67 @@ function weekRangeLabel(weekStart) {
 }
 const WEEKDAY_FULL = ["Неділя", "Понеділок", "Вівторок", "Середа", "Четвер", "П'ятниця", "Субота"];
 const COURSE_OPTIONS = ["3D Tinkercad FIRST (9-12)", "3D Tinkercad PRO (9-12)", "3D Makers FIRST (6-8)", "3D Makers PRO (6-8)", "VR ІГРОВИЙ", "VR РОЗРОБКА (Delightex)", "Robo AI (Ukit 6-8)", "Robo AI (UGot 9-12)", "3D слайсинг"];
+const FORMAT_OPTIONS = [{
+  value: "group",
+  label: "Група"
+}, {
+  value: "individual",
+  label: "Індивідуальне"
+}, {
+  value: "online_print",
+  label: "Онлайн (+друк)"
+}, {
+  value: "online_no_print",
+  label: "Онлайн (-друк)"
+}];
 function formatLabel(format) {
-  return format === "individual" ? "Індивідуальне" : "Група";
+  const found = FORMAT_OPTIONS.find(f => f.value === format);
+  return found ? found.label : "Група";
+}
+function formatTagClass(format) {
+  if (format === "individual") return " individual";
+  if (format === "online_print") return " online-print";
+  if (format === "online_no_print") return " online-no-print";
+  return "";
+}
+// Which bucket of the studio's rate card a lesson's payroll falls into.
+// Group lessons are further split by how many students actually attended.
+function payrollBucket(format, studentCount) {
+  if (format === "individual") return "individual";
+  if (format === "online_print") return "online_print";
+  if (format === "online_no_print") return "online_no_print";
+  if (studentCount <= 1) return "group_1";
+  if (studentCount <= 4) return "group_2_4";
+  return "group_5_6";
+}
+const PAYROLL_BUCKET_LABELS = {
+  group_1: "Група · 1 учень",
+  group_2_4: "Група · 2–4 учні",
+  group_5_6: "Група · 5–6 учнів",
+  individual: "Індивідуальне",
+  online_print: "Онлайн (+друк)",
+  online_no_print: "Онлайн (-друк)"
+};
+const PAYROLL_BUCKET_RATE_FIELD = {
+  group_1: "rate_group_1",
+  group_2_4: "rate_group_2_4",
+  group_5_6: "rate_group_5_6",
+  individual: "rate_individual",
+  online_print: "rate_online_print",
+  online_no_print: "rate_online_no_print"
+};
+function computePayroll(rateCard, format, studentCount, extraPrint) {
+  if (!rateCard) return 0;
+  const bucket = payrollBucket(format, studentCount);
+  const base = Number(rateCard[PAYROLL_BUCKET_RATE_FIELD[bucket]]) || 0;
+  const extra = extraPrint ? Number(rateCard.rate_extra_print) || 0 : 0;
+  return base + extra;
+}
+function formatMoney(n) {
+  return (Math.round((Number(n) || 0) * 100) / 100).toLocaleString("uk-UA", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2
+  }) + " грн";
 }
 function fullName(p) {
   if (!p) return "";
@@ -886,6 +972,26 @@ function Icon({
         rx: "2"
       }), /*#__PURE__*/React.createElement("path", {
         d: "M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
+      }));
+    case "money":
+      return /*#__PURE__*/React.createElement("svg", p, /*#__PURE__*/React.createElement("rect", {
+        x: "2",
+        y: "6",
+        width: "20",
+        height: "12",
+        rx: "2"
+      }), /*#__PURE__*/React.createElement("circle", {
+        cx: "12",
+        cy: "12",
+        r: "3"
+      }), /*#__PURE__*/React.createElement("path", {
+        d: "M6 6v0M18 18v0"
+      }));
+    case "wallet":
+      return /*#__PURE__*/React.createElement("svg", p, /*#__PURE__*/React.createElement("path", {
+        d: "M19 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-2"
+      }), /*#__PURE__*/React.createElement("path", {
+        d: "M18 12a2 2 0 0 0 0 4h4v-4z"
       }));
     case "plus":
       return /*#__PURE__*/React.createElement("svg", p, /*#__PURE__*/React.createElement("line", {
@@ -1808,7 +1914,7 @@ function StudentCardModal({
         background: courseAccent(lesson.course).soft
       }
     }, lesson.course), lesson.format && /*#__PURE__*/React.createElement("span", {
-      className: "format-tag" + (lesson.format === "individual" ? " individual" : "")
+      className: "format-tag" + formatTagClass(lesson.format)
     }, formatLabel(lesson.format)), isFirst && /*#__PURE__*/React.createElement("span", {
       className: "trial-pill"
     }, "Перше заняття"))), printable && /*#__PURE__*/React.createElement("div", {
@@ -2007,6 +2113,8 @@ function LessonModal({
   const [theme, setTheme] = useState(lesson ? lesson.theme : "");
   const [course, setCourse] = useState(lesson ? lesson.course || "" : "");
   const [format, setFormat] = useState(lesson ? lesson.format || "group" : "group");
+  const [extraPrint, setExtraPrint] = useState(lesson ? !!lesson.extra_print : false);
+  const [rateCard, setRateCard] = useState(null);
   const [studentIds, setStudentIds] = useState(lesson ? lesson.student_ids : []);
   const [repeatWeekly, setRepeatWeekly] = useState(false);
   const [weeks, setWeeks] = useState(4);
@@ -2034,6 +2142,24 @@ function LessonModal({
   useEffect(() => {
     if (fixedStudents) setRoster(fixedStudents);
   }, [fixedStudents]);
+
+  // Fetch the pay rate for whichever course is currently selected, so we
+  // can preview (and later freeze) the payroll amount for this lesson.
+  useEffect(() => {
+    if (!course) {
+      setRateCard(null);
+      return;
+    }
+    let cancelled = false;
+    sb.from("rate_cards").select("*").eq("course", course).maybeSingle().then(({
+      data
+    }) => {
+      if (!cancelled) setRateCard(data || null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [course]);
   function toggleStudent(id) {
     setStudentIds(ids => ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]);
   }
@@ -2057,6 +2183,7 @@ function LessonModal({
     }
     setSaving(true);
     setError("");
+    const payrollAmount = computePayroll(rateCard, format, studentIds.length, extraPrint);
     if (lesson) {
       const {
         error
@@ -2066,7 +2193,9 @@ function LessonModal({
         theme: theme.trim(),
         course,
         format,
-        student_ids: studentIds
+        student_ids: studentIds,
+        extra_print: extraPrint,
+        payroll_amount: payrollAmount
       }).eq("id", lesson.id);
       setSaving(false);
       if (error) {
@@ -2086,7 +2215,9 @@ function LessonModal({
           theme: theme.trim(),
           course,
           format,
-          student_ids: studentIds
+          student_ids: studentIds,
+          extra_print: extraPrint,
+          payroll_amount: payrollAmount
         });
       }
       const {
@@ -2162,16 +2293,29 @@ function LessonModal({
   }, /*#__PURE__*/React.createElement("label", {
     className: "field-label"
   }, "Формат"), /*#__PURE__*/React.createElement("div", {
-    className: "studio-segmented"
-  }, /*#__PURE__*/React.createElement("button", {
+    className: "studio-segmented format-segmented"
+  }, FORMAT_OPTIONS.map(f => /*#__PURE__*/React.createElement("button", {
+    key: f.value,
     type: "button",
-    className: format === "group" ? "active" : "",
-    onClick: () => setFormat("group")
-  }, "Група"), /*#__PURE__*/React.createElement("button", {
-    type: "button",
-    className: format === "individual" ? "active" : "",
-    onClick: () => setFormat("individual")
-  }, "Індивідуальне"))), /*#__PURE__*/React.createElement("div", {
+    className: format === f.value ? "active" : "",
+    onClick: () => setFormat(f.value)
+  }, f.label)))), /*#__PURE__*/React.createElement("div", {
+    className: "field"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "field-label"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: extraPrint,
+    onChange: e => setExtraPrint(e.target.checked),
+    style: {
+      marginRight: 6
+    }
+  }), "Додаткова послуга з друку")), rateCard && /*#__PURE__*/React.createElement("div", {
+    className: "payroll-preview"
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "wallet",
+    size: 13
+  }), "Нарахування за це заняття: ", /*#__PURE__*/React.createElement("strong", null, formatMoney(computePayroll(rateCard, format, studentIds.length, extraPrint)))), /*#__PURE__*/React.createElement("div", {
     className: "field"
   }, /*#__PURE__*/React.createElement("label", {
     className: "field-label"
@@ -2595,7 +2739,7 @@ function ScheduleTab({
         background: courseAccent(lesson.course).soft
       }
     }, lesson.course), lesson.format && /*#__PURE__*/React.createElement("span", {
-      className: "format-tag" + (lesson.format === "individual" ? " individual" : "")
+      className: "format-tag" + formatTagClass(lesson.format)
     }, formatLabel(lesson.format)), printable && present.length > 0 && /*#__PURE__*/React.createElement("span", {
       className: "lesson-progress"
     }, doneCount, "/", present.length, " надруковано"), lesson.series_id && /*#__PURE__*/React.createElement("span", {
@@ -3279,6 +3423,12 @@ function WorkspaceBody({
     me: me,
     aggregateAll: aggregateAll
   });
+  if (tab === "payroll") return /*#__PURE__*/React.createElement(PayrollTab, {
+    ownerId: ownerId,
+    ownerProfile: ownerProfile,
+    aggregateAll: aggregateAll,
+    me: me
+  });
   return /*#__PURE__*/React.createElement(ScheduleTab, {
     ownerId: ownerId,
     ownerProfile: ownerProfile,
@@ -3850,7 +4000,7 @@ function StudioCalendarTab({
           background: courseAccent(lesson.course).soft
         }
       }, lesson.course), lesson.format && /*#__PURE__*/React.createElement("span", {
-        className: "format-tag" + (lesson.format === "individual" ? " individual" : "")
+        className: "format-tag" + formatTagClass(lesson.format)
       }, formatLabel(lesson.format)), lesson.time && /*#__PURE__*/React.createElement("span", {
         className: "lesson-time"
       }, /*#__PURE__*/React.createElement(Icon, {
@@ -3915,6 +4065,313 @@ function StudioCalendarTab({
 }
 
 // ---------------------------------------------------------------
+// Admin: pay rates per direction — one row per course, editable.
+// ---------------------------------------------------------------
+
+const RATE_FIELDS = [{
+  key: "rate_group_1",
+  label: "Група · 1 учень"
+}, {
+  key: "rate_group_2_4",
+  label: "Група · 2–4"
+}, {
+  key: "rate_group_5_6",
+  label: "Група · 5–6"
+}, {
+  key: "rate_individual",
+  label: "Індивідуальне"
+}, {
+  key: "rate_online_print",
+  label: "Онлайн (+друк)"
+}, {
+  key: "rate_online_no_print",
+  label: "Онлайн (-друк)"
+}, {
+  key: "rate_extra_print",
+  label: "Дод. послуга друку"
+}];
+function blankRateRow(course) {
+  const row = {
+    course
+  };
+  RATE_FIELDS.forEach(f => {
+    row[f.key] = 0;
+  });
+  return row;
+}
+function RateCardsTab() {
+  const [rates, setRates] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const load = useCallback(async () => {
+    setLoading(true);
+    const {
+      data
+    } = await sb.from("rate_cards").select("*");
+    const map = {};
+    COURSE_OPTIONS.forEach(c => {
+      const existing = (data || []).find(r => r.course === c);
+      map[c] = existing || blankRateRow(c);
+    });
+    setRates(map);
+    setLoading(false);
+  }, []);
+  useEffect(() => {
+    load();
+  }, [load]);
+  function setField(course, field, value) {
+    setRates(r => ({
+      ...r,
+      [course]: {
+        ...r[course],
+        [field]: value
+      }
+    }));
+  }
+  async function saveAll() {
+    setSaving(true);
+    const rows = Object.values(rates).map(r => {
+      const clean = {
+        course: r.course
+      };
+      RATE_FIELDS.forEach(f => {
+        clean[f.key] = Number(r[f.key]) || 0;
+      });
+      return clean;
+    });
+    const {
+      error
+    } = await sb.from("rate_cards").upsert(rows, {
+      onConflict: "course"
+    });
+    setSaving(false);
+    if (error) {
+      showToast(error.message, "error");
+      return;
+    }
+    showToast("Тарифи збережено");
+    load();
+  }
+  if (loading) return /*#__PURE__*/React.createElement("div", {
+    className: "loading-block"
+  }, "Завантаження тарифів…");
+  return /*#__PURE__*/React.createElement("div", {
+    className: "tab-fade"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "studio-page-head"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "studio-page-title"
+  }, "Тарифи за напрямками"), /*#__PURE__*/React.createElement("button", {
+    className: "studio-btn primary",
+    onClick: saveAll,
+    disabled: saving
+  }, saving ? "Збереження…" : "Зберегти всі тарифи")), /*#__PURE__*/React.createElement("div", {
+    className: "hint",
+    style: {
+      marginBottom: 14
+    }
+  }, "Суми — за одне заняття цього типу, у гривнях. «Додаткова послуга друку» додається зверху, якщо позначена на занятті."), /*#__PURE__*/React.createElement("div", {
+    className: "rate-table-wrap"
+  }, /*#__PURE__*/React.createElement("table", {
+    className: "rate-table"
+  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null, "Напрямок"), RATE_FIELDS.map(f => /*#__PURE__*/React.createElement("th", {
+    key: f.key
+  }, f.label)))), /*#__PURE__*/React.createElement("tbody", null, COURSE_OPTIONS.map(c => /*#__PURE__*/React.createElement("tr", {
+    key: c
+  }, /*#__PURE__*/React.createElement("td", {
+    className: "rate-course-name"
+  }, c), RATE_FIELDS.map(f => /*#__PURE__*/React.createElement("td", {
+    key: f.key
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    min: "0",
+    step: "1",
+    className: "rate-input",
+    value: rates[c] ? rates[c][f.key] : 0,
+    onChange: e => setField(c, f.key, e.target.value)
+  })))))))));
+}
+
+// ---------------------------------------------------------------
+// Payroll summary for a date range — a single teacher's own total, or
+// (for admin's own aggregate workspace) every teacher broken out, with a
+// grand total across the whole studio.
+// ---------------------------------------------------------------
+
+function PayrollTab({
+  ownerId,
+  ownerProfile,
+  aggregateAll,
+  me
+}) {
+  const today = todayStr();
+  const [from, setFrom] = useState(() => today.slice(0, 8) + "01");
+  const [to, setTo] = useState(today);
+  const [lessons, setLessons] = useState([]);
+  const [profiles, setProfiles] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState(null);
+  const load = useCallback(async () => {
+    setLoading(true);
+    let query = sb.from("lessons").select("*").gte("date", from).lte("date", to);
+    if (!aggregateAll) query = query.eq("owner_id", ownerId);
+    const [lr, pr] = await Promise.all([query, aggregateAll ? sb.from("profiles").select("*") : Promise.resolve({
+      data: ownerProfile ? [ownerProfile] : []
+    })]);
+    setLessons(lr.data || []);
+    setProfiles(pr.data || []);
+    setLoading(false);
+  }, [from, to, ownerId, aggregateAll]);
+  useEffect(() => {
+    load();
+  }, [load]);
+  const profilesById = useMemo(() => Object.fromEntries(profiles.map(p => [p.id, p])), [profiles]);
+  const sorted = useMemo(() => [...lessons].sort((a, b) => a.date.localeCompare(b.date)), [lessons]);
+  const grandTotal = lessons.reduce((sum, l) => sum + (Number(l.payroll_amount) || 0), 0);
+  const byTeacher = useMemo(() => {
+    const map = {};
+    lessons.forEach(l => {
+      if (!map[l.owner_id]) map[l.owner_id] = {
+        total: 0,
+        count: 0,
+        lessons: []
+      };
+      map[l.owner_id].total += Number(l.payroll_amount) || 0;
+      map[l.owner_id].count += 1;
+      map[l.owner_id].lessons.push(l);
+    });
+    return map;
+  }, [lessons]);
+  function lessonRow(lesson) {
+    const bucket = payrollBucket(lesson.format, (lesson.student_ids || []).length);
+    return /*#__PURE__*/React.createElement("div", {
+      key: lesson.id,
+      className: "payroll-lesson-row"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "datecard"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "datecard-top"
+    }, dateCardParts(lesson.date).month), /*#__PURE__*/React.createElement("div", {
+      className: "datecard-body"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "datecard-day"
+    }, dateCardParts(lesson.date).day), /*#__PURE__*/React.createElement("div", {
+      className: "datecard-weekday"
+    }, dateCardParts(lesson.date).weekday))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        flex: 1,
+        minWidth: 0
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "lesson-theme",
+      style: {
+        fontSize: 14
+      }
+    }, lesson.theme), /*#__PURE__*/React.createElement("div", {
+      className: "lesson-meta-row"
+    }, lesson.course && /*#__PURE__*/React.createElement("span", {
+      className: "course-tag",
+      style: {
+        color: courseAccent(lesson.course).color,
+        background: courseAccent(lesson.course).soft
+      }
+    }, lesson.course), /*#__PURE__*/React.createElement("span", {
+      className: "format-tag"
+    }, PAYROLL_BUCKET_LABELS[bucket]), lesson.extra_print && /*#__PURE__*/React.createElement("span", {
+      className: "format-tag online-print"
+    }, "+ дод. друк"))), /*#__PURE__*/React.createElement("div", {
+      className: "payroll-amount"
+    }, formatMoney(lesson.payroll_amount)));
+  }
+  return /*#__PURE__*/React.createElement("div", {
+    className: "tab-fade"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "studio-page-head"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "studio-page-title"
+  }, aggregateAll ? "Зарплата студії" : "Моя зарплата")), /*#__PURE__*/React.createElement("div", {
+    className: "payroll-range"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "field"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "field-label"
+  }, "Від"), /*#__PURE__*/React.createElement("input", {
+    type: "date",
+    value: from,
+    onChange: e => setFrom(e.target.value)
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "field"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "field-label"
+  }, "До"), /*#__PURE__*/React.createElement("input", {
+    type: "date",
+    value: to,
+    onChange: e => setTo(e.target.value)
+  }))), loading ? /*#__PURE__*/React.createElement("div", {
+    className: "loading-block"
+  }, "Обчислення…") : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "stats-row"
+  }, /*#__PURE__*/React.createElement(StatCard, {
+    icon: "wallet",
+    value: formatMoney(grandTotal),
+    label: aggregateAll ? "усього по студії" : "усього за період",
+    color: "var(--success-text)",
+    soft: "var(--success-soft)"
+  }), /*#__PURE__*/React.createElement(StatCard, {
+    icon: "calendar",
+    value: lessons.length,
+    label: "занять за період",
+    color: "var(--brand-text)",
+    soft: "var(--brand-soft)"
+  })), aggregateAll ? lessons.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    className: "empty-state"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "empty-mascot"
+  }, "💸"), /*#__PURE__*/React.createElement("div", {
+    className: "empty-state-title"
+  }, "За цей період занять немає")) : /*#__PURE__*/React.createElement("div", {
+    className: "students-list"
+  }, Object.entries(byTeacher).sort((a, b) => b[1].total - a[1].total).map(([teacherId, info]) => {
+    const teacher = profilesById[teacherId];
+    const isOpen = expanded === teacherId;
+    return /*#__PURE__*/React.createElement(React.Fragment, {
+      key: teacherId
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "students-row admin-row",
+      onClick: () => setExpanded(isOpen ? null : teacherId)
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "avatar"
+    }, teacher ? initials(teacher) : "?"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        flex: 1,
+        minWidth: 0
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "student-name"
+    }, teacher ? fullName(teacher) : "Невідомо"), /*#__PURE__*/React.createElement("div", {
+      className: "students-sub"
+    }, info.count, " занять")), /*#__PURE__*/React.createElement("div", {
+      className: "students-meta payroll-amount"
+    }, formatMoney(info.total)), /*#__PURE__*/React.createElement(Icon, {
+      name: "back",
+      size: 14,
+      style: {
+        transform: isOpen ? "rotate(-90deg)" : "rotate(180deg)",
+        flexShrink: 0
+      }
+    })), isOpen && /*#__PURE__*/React.createElement("div", {
+      className: "payroll-detail"
+    }, [...info.lessons].sort((a, b) => a.date.localeCompare(b.date)).map(lessonRow)));
+  })) : sorted.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    className: "empty-state"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "empty-mascot"
+  }, "💸"), /*#__PURE__*/React.createElement("div", {
+    className: "empty-state-title"
+  }, "За цей період занять немає")) : sorted.map(lessonRow)));
+}
+
+// ---------------------------------------------------------------
 // Shell (post-login layout)
 // ---------------------------------------------------------------
 
@@ -3927,7 +4384,7 @@ function Shell({
 }) {
   const isAdmin = profile.role === "admin";
   const [section, setSection] = useState("workspace"); // 'workspace' | 'admin'
-  const [adminSection, setAdminSection] = useState("users"); // 'users' | 'calendar' (only when no adminTeacher)
+  const [adminSection, setAdminSection] = useState("users"); // 'users' | 'calendar' | 'rates' (only when no adminTeacher)
   const [adminTeacher, setAdminTeacher] = useState(null);
   const [tab, setTab] = useState("schedule");
   const [profileModalTarget, setProfileModalTarget] = useState(null);
@@ -4044,7 +4501,13 @@ function Shell({
   }, /*#__PURE__*/React.createElement(Icon, {
     name: "calendar",
     size: 17
-  }), " Календар")), (section === "workspace" || section === "admin" && adminTeacher) && /*#__PURE__*/React.createElement("div", {
+  }), " Календар"), /*#__PURE__*/React.createElement("button", {
+    className: "studio-nav-btn" + (adminSection === "rates" ? " active" : ""),
+    onClick: () => setAdminSection("rates")
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "money",
+    size: 17
+  }), " Тарифи")), (section === "workspace" || section === "admin" && adminTeacher) && /*#__PURE__*/React.createElement("div", {
     className: "nav-group",
     style: {
       marginBottom: 14
@@ -4069,7 +4532,13 @@ function Shell({
   }, /*#__PURE__*/React.createElement(Icon, {
     name: "printer",
     size: 17
-  }), " Черга друку")), /*#__PURE__*/React.createElement("div", {
+  }), " Черга друку"), /*#__PURE__*/React.createElement("button", {
+    className: "studio-nav-btn" + (tab === "payroll" ? " active" : ""),
+    onClick: () => setTab("payroll")
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "wallet",
+    size: 17
+  }), " Зарплата")), /*#__PURE__*/React.createElement("div", {
     className: "studio-sync"
   }, /*#__PURE__*/React.createElement("span", {
     className: "studio-sync-dot"
@@ -4086,7 +4555,7 @@ function Shell({
     currentUserId: profile.id
   }), section === "admin" && !adminTeacher && adminSection === "calendar" && /*#__PURE__*/React.createElement(StudioCalendarTab, {
     onOpenTeacherWorkspace: selectTeacher
-  }), section === "admin" && adminTeacher && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+  }), section === "admin" && !adminTeacher && adminSection === "rates" && /*#__PURE__*/React.createElement(RateCardsTab, null), section === "admin" && adminTeacher && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     className: "admin-view-bar"
   }, /*#__PURE__*/React.createElement("button", {
     className: "studio-btn ghost",
