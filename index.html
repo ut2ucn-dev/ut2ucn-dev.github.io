@@ -2831,34 +2831,45 @@ function CreateTeacherModal({
     }
     setSaving(true);
     setError("");
-    const {
-      data,
-      error
-    } = await sb.functions.invoke("create-teacher", {
-      body: {
-        email: email.trim(),
-        password,
-        last_name: lastName.trim(),
-        first_name: firstName.trim()
+    try {
+      // Calling fetch directly (instead of sb.functions.invoke) so we get
+      // full, guaranteed visibility into the actual response — supabase-js's
+      // own error wrapping here only ever surfaced a generic
+      // "non-2xx status code" message, never the function's real reason.
+      const {
+        data: {
+          session
+        }
+      } = await sb.auth.getSession();
+      const res = await fetch(`${window.SUPABASE_URL}/functions/v1/create-teacher`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session ? session.access_token : ""}`,
+          "apikey": window.SUPABASE_ANON_KEY
+        },
+        body: JSON.stringify({
+          email: email.trim(),
+          password,
+          last_name: lastName.trim(),
+          first_name: firstName.trim()
+        })
+      });
+      let body = {};
+      try {
+        body = await res.json();
+      } catch (e) {}
+      setSaving(false);
+      if (!res.ok) {
+        setError(body.error || `Помилка сервера (код ${res.status})`);
+        return;
       }
-    });
-    setSaving(false);
-    if (error || data && data.error) {
-      // supabase-js only gives a generic wrapper message here ("Edge
-      // Function returned a non-2xx status code") — the function's actual
-      // error text is in the response body, reachable via error.context.
-      let msg = data && data.error || error.message || "Не вдалося створити акаунт";
-      if (error && error.context && typeof error.context.json === "function") {
-        try {
-          const body = await error.context.json();
-          if (body && body.error) msg = body.error;
-        } catch (e) {}
-      }
-      setError(msg);
-      return;
+      showToast("Акаунт викладача створено");
+      onCreated();
+    } catch (err) {
+      setSaving(false);
+      setError("Не вдалося з'єднатися з функцією: " + (err && err.message ? err.message : err));
     }
-    showToast("Акаунт викладача створено");
-    onCreated();
   }
   return ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
     className: "overlay",
