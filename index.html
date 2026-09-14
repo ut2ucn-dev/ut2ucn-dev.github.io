@@ -269,6 +269,22 @@
   .trial-pill:active{ transform:scale(0.95); }
   .trial-pill.off{ color:#8B5CF6; background:rgba(139,92,246,0.12); }
   .printed-by{ font-family:var(--font-mono); font-size:9.5px; color:var(--ink-soft); flex-basis:100%; padding-left:2px; }
+  .attendance-controls{
+    display:flex; align-items:center; gap:8px; flex-wrap:wrap; flex-basis:100%;
+    margin-top:8px; padding-top:8px; border-top:1px dashed var(--line);
+  }
+  .attend-switch{ display:inline-flex; border:1.5px solid var(--line-strong); border-radius:11px; padding:2px; gap:2px; flex-shrink:0; }
+  .attend-btn{
+    font-family:var(--font-mono); font-size:10.5px; font-weight:700; border:none; background:transparent; color:var(--ink-soft);
+    padding:6px 10px; border-radius:9px; cursor:pointer; transition:background .15s ease, color .15s ease;
+  }
+  .attend-btn.active.present{ background:var(--success); color:#fff; }
+  .attend-btn.active.present.unpaid{ background:var(--alert); }
+  .attend-btn.active.absent{ background:var(--ink-soft); color:#fff; }
+  .attend-btn.active.excused{ background:var(--sand-text); color:#fff; }
+  .payment-chip{ font-size:11.5px; padding:6px 11px; gap:4px; }
+  .payment-chip .sub-hint{ font-family:var(--font-mono); font-weight:700; opacity:0.85; }
+  .payment-amount{ font-family:var(--font-mono); font-weight:700; font-size:11.5px; color:var(--success-text); }
   .chip{
     display:inline-flex; align-items:center; gap:6px; padding:8px 15px; border-radius:22px; border:1.5px solid var(--line-strong);
     background:var(--card); font-size:13.5px; font-weight:500; cursor:pointer; user-select:none; color:var(--ink-soft);
@@ -2658,6 +2674,75 @@ function useWorkActions(ownerId, works, setWorks, me, lessonById) {
 }
 
 // ---------------------------------------------------------------
+// Attendance (П/Н/ВПП) + payment — admin/superadmin only. All the actual
+// business logic (consume/refund/forfeit a subscription slot) lives in
+// the mark_attendance() database function; this is just the button UI
+// that calls it and shows whatever it returns.
+// ---------------------------------------------------------------
+
+function findAttendance(attendance, lessonId, studentId) {
+  return attendance.find(a => a.lesson_id === lessonId && a.student_id === studentId) || null;
+}
+function findActiveSubscription(subscriptions, studentId, course) {
+  return subscriptions.find(s => s.student_id === studentId && s.course === course && s.status === "active" && s.remaining_lessons > 0) || null;
+}
+const ATTENDANCE_STATUSES = [{
+  value: "present",
+  label: "П"
+}, {
+  value: "absent",
+  label: "Н"
+}, {
+  value: "excused",
+  label: "ВПП"
+}];
+const PAYMENT_METHODS = [{
+  value: "card",
+  label: "Картка"
+}, {
+  value: "cash",
+  label: "Готівка"
+}, {
+  value: "subscription",
+  label: "Абонемент"
+}, {
+  value: "certificate",
+  label: "Сертифікат"
+}];
+function AttendanceControls({
+  lesson,
+  student,
+  record,
+  subscription,
+  onMark
+}) {
+  const status = record ? record.status : null;
+  const unpaid = status === "present" && !record.payment_method;
+  return /*#__PURE__*/React.createElement("div", {
+    className: "attendance-controls"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "attend-switch"
+  }, ATTENDANCE_STATUSES.map(st => /*#__PURE__*/React.createElement("button", {
+    key: st.value,
+    type: "button",
+    title: st.value === "present" ? "Присутній" : st.value === "absent" ? "Відсутній" : "Відсутній з поважної причини",
+    className: "attend-btn" + (status === st.value ? " active " + st.value + (st.value === "present" && unpaid ? " unpaid" : "") : ""),
+    onClick: () => onMark(lesson.id, student.id, st.value, st.value === "present" ? record && record.payment_method || null : null)
+  }, st.label))), status === "present" && /*#__PURE__*/React.createElement("div", {
+    className: "chip-wrap"
+  }, PAYMENT_METHODS.map(pm => /*#__PURE__*/React.createElement("button", {
+    key: pm.value,
+    type: "button",
+    className: "chip payment-chip" + (record.payment_method === pm.value ? " selected" : ""),
+    onClick: () => onMark(lesson.id, student.id, "present", pm.value)
+  }, pm.label, pm.value === "subscription" && subscription && /*#__PURE__*/React.createElement("span", {
+    className: "sub-hint"
+  }, " ", subscription.remaining_lessons, "/", subscription.total_lessons)))), status === "present" && record.payment_method && /*#__PURE__*/React.createElement("span", {
+    className: "payment-amount"
+  }, formatMoney(record.amount)));
+}
+
+// ---------------------------------------------------------------
 // Schedule tab
 // ---------------------------------------------------------------
 
@@ -2672,12 +2757,20 @@ function ScheduleTab({
 }) {
   const [lessons, setLessons] = useState([]);
   const [works, setWorks] = useState([]);
+  const [attendance, setAttendance] = useState([]);
+  const [subscriptions, setSubscriptions] = useState([]);
   const [allProfiles, setAllProfiles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalLesson, setModalLesson] = useState(undefined); // undefined = closed, null = new
   const [modalPresetDate, setModalPresetDate] = useState(null);
   const [preview, setPreview] = useState(null);
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
+  const loadAttendance = useCallback(async () => {
+    if (!isAdmin) return;
+    const [ar, sr] = await Promise.all([aggregateAll ? sb.from("lesson_attendance").select("*") : sb.from("lesson_attendance").select("*").eq("owner_id", ownerId), sb.from("subscriptions").select("*")]);
+    setAttendance(ar.data || []);
+    setSubscriptions(sr.data || []);
+  }, [ownerId, aggregateAll, isAdmin]);
   const load = useCallback(async () => {
     setLoading(true);
     if (aggregateAll) {
@@ -2694,11 +2787,27 @@ function ScheduleTab({
       setLessons(lr.data || []);
       setWorks(wr.data || []);
     }
+    await loadAttendance();
     setLoading(false);
-  }, [ownerId, aggregateAll]);
+  }, [ownerId, aggregateAll, loadAttendance]);
   useEffect(() => {
     load();
   }, [load]);
+  async function markAttendance(lessonId, studentId, status, paymentMethod) {
+    const {
+      error
+    } = await sb.rpc("mark_attendance", {
+      p_lesson_id: lessonId,
+      p_student_id: studentId,
+      p_status: status,
+      p_payment_method: paymentMethod
+    });
+    if (error) {
+      showToast(error.message, "error");
+      return;
+    }
+    loadAttendance();
+  }
 
   // In aggregate mode, works/lessons can belong to any teacher, so
   // useWorkActions needs to write with each lesson's own owner_id rather
@@ -2889,7 +2998,13 @@ function ScheduleTab({
         size: 11
       }), " ", printed ? "Надруковано" : "Не надруковано"), printable && printed && w.printed_by_name && /*#__PURE__*/React.createElement("span", {
         className: "printed-by"
-      }, "Статус змінив: ", w.printed_by_name));
+      }, "Статус змінив: ", w.printed_by_name), isAdmin && /*#__PURE__*/React.createElement(AttendanceControls, {
+        lesson: lesson,
+        student: s,
+        record: findAttendance(attendance, lesson.id, s.id),
+        subscription: findActiveSubscription(subscriptions, s.id, lesson.course),
+        onMark: markAttendance
+      }));
     }))));
   }
   async function toggleTrial(lessonId, studentId, existingWork) {
