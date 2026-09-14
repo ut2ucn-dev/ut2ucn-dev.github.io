@@ -292,6 +292,12 @@
   .admin-row{ cursor:pointer; }
   .role-badge{ font-family:var(--font-mono); font-size:9.5px; font-weight:700; text-transform:uppercase; background:var(--navy); color:#fff; border-radius:22px; padding:3px 8px; letter-spacing:0.03em; }
   .role-badge.me{ background:var(--brand); }
+  .role-badge.super{ background:var(--alert); }
+  .role-badge.inactive{ background:var(--alert-soft); color:var(--alert-text); }
+  .role-select{
+    font-family:var(--font-body); font-size:12.5px; font-weight:600; color:var(--ink-soft); cursor:pointer;
+    border:1.5px solid var(--line-strong); border-radius:10px; padding:7px 9px; background:var(--card);
+  }
   .avatar{
     width:38px; height:38px; border-radius:50%; background:linear-gradient(135deg, var(--brand), var(--sand-text));
     color:#fff; box-shadow:0 0 0 2px var(--card), 0 0 0 3.5px var(--brand-soft);
@@ -1567,6 +1573,8 @@ function ProfileModal({
 }) {
   const [lastName, setLastName] = useState(target.last_name || "");
   const [firstName, setFirstName] = useState(target.first_name || "");
+  const [photo, setPhoto] = useState(target.photo || "");
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -1574,8 +1582,23 @@ function ProfileModal({
   const [pwSaving, setPwSaving] = useState(false);
   const [pwError, setPwError] = useState("");
   const [pwSuccess, setPwSuccess] = useState(false);
+  const fileRef = useRef(null);
   useEscapeClose(onClose);
   useLockBodyScroll();
+  async function handlePhoto(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    setUploadingPhoto(true);
+    try {
+      const path = `${target.id}/avatar.jpg`;
+      const url = await uploadPhoto("teacher-photos", path, file);
+      setPhoto(url);
+    } catch (err) {
+      setError("Не вдалося завантажити фото: " + err.message);
+    } finally {
+      setUploadingPhoto(false);
+    }
+  }
   async function save(e) {
     if (e) e.preventDefault();
     setSaving(true);
@@ -1584,7 +1607,8 @@ function ProfileModal({
       error
     } = await sb.from("profiles").update({
       last_name: lastName.trim(),
-      first_name: firstName.trim()
+      first_name: firstName.trim(),
+      photo: photo || null
     }).eq("id", target.id);
     setSaving(false);
     if (error) {
@@ -1595,7 +1619,8 @@ function ProfileModal({
     onSaved({
       ...target,
       last_name: lastName.trim(),
-      first_name: firstName.trim()
+      first_name: firstName.trim(),
+      photo: photo || null
     });
   }
   async function changePassword(e) {
@@ -1645,6 +1670,29 @@ function ProfileModal({
   }, error && /*#__PURE__*/React.createElement("div", {
     className: "login-error"
   }, error), /*#__PURE__*/React.createElement("div", {
+    className: "field photo-field"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "avatar lg"
+  }, photo ? /*#__PURE__*/React.createElement("img", {
+    src: photo
+  }) : uploadingPhoto ? /*#__PURE__*/React.createElement("div", {
+    className: "thumb-spinner"
+  }) : /*#__PURE__*/React.createElement(Icon, {
+    name: "camera",
+    size: 22
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "studio-btn",
+    onClick: () => fileRef.current.click()
+  }, photo ? "Замінити фото" : "Додати фото"), /*#__PURE__*/React.createElement("input", {
+    ref: fileRef,
+    type: "file",
+    accept: "image/*",
+    style: {
+      display: "none"
+    },
+    onChange: handlePhoto
+  }))), /*#__PURE__*/React.createElement("div", {
     className: "field-row"
   }, /*#__PURE__*/React.createElement("div", {
     className: "field"
@@ -2265,7 +2313,7 @@ function LessonModal({
     }
   }, /*#__PURE__*/React.createElement("option", {
     value: ""
-  }, "Оберіть викладача…"), teacherOptions.map(t => /*#__PURE__*/React.createElement("option", {
+  }, "Оберіть викладача…"), teacherOptions.filter(t => t.active !== false).map(t => /*#__PURE__*/React.createElement("option", {
     key: t.id,
     value: t.id
   }, fullName(t))))), teacherOptions && lesson && /*#__PURE__*/React.createElement("div", {
@@ -3447,14 +3495,21 @@ function WorkspaceBody({
 // Admin: list of all other users (teachers and admins alike)
 // ---------------------------------------------------------------
 
+const ROLE_LABELS = {
+  teacher: "Викладач",
+  admin: "Адмін",
+  superadmin: "Суперадмін"
+};
 function AdminUserList({
   onSelect,
-  currentUserId
+  currentUserId,
+  isSuperAdmin
 }) {
   const [users, setUsers] = useState([]);
   const [counts, setCounts] = useState({});
   const [loading, setLoading] = useState(true);
   const [togglingId, setTogglingId] = useState(null);
+  const [deactivatingId, setDeactivatingId] = useState(null);
   const [resettingId, setResettingId] = useState(null);
   const [creating, setCreating] = useState(false);
   const [resultFor, setResultFor] = useState(null); // { teacher, password } | null
@@ -3487,11 +3542,12 @@ function AdminUserList({
   useEffect(() => {
     load();
   }, [load]);
-  async function toggleRole(e, t) {
+  async function setRole(e, t, nextRole) {
     e.stopPropagation();
-    const nextRole = t.role === "admin" ? "teacher" : "admin";
-    const verb = nextRole === "admin" ? "зробити адміністратором" : "зробити викладачем";
-    const ok = await confirmDialog(`Ви впевнені, що хочете ${verb} ${fullName(t)}?`, {
+    if (nextRole === t.role) return;
+    // Only a superadmin may grant or revoke the superadmin role itself.
+    if ((nextRole === "superadmin" || t.role === "superadmin") && !isSuperAdmin) return;
+    const ok = await confirmDialog(`Ви впевнені, що хочете призначити ${fullName(t)} роль «${ROLE_LABELS[nextRole]}»?`, {
       title: "Змінити роль",
       confirmLabel: "Так, змінити"
     });
@@ -3511,7 +3567,33 @@ function AdminUserList({
       ...u,
       role: nextRole
     } : u));
-    showToast(nextRole === "admin" ? "Тепер адміністратор" : "Тепер викладач");
+    showToast(`Тепер роль: ${ROLE_LABELS[nextRole]}`);
+  }
+  async function toggleActive(e, t) {
+    e.stopPropagation();
+    if (t.role === "superadmin" && !isSuperAdmin) return;
+    const isActiveUser = t.active !== false;
+    const ok = await confirmDialog(isActiveUser ? `Деактивувати ${fullName(t)}? Викладач більше не зможе увійти, але вся історія занять, учнів і зарплати збережеться.` : `Відновити доступ для ${fullName(t)}?`, {
+      title: isActiveUser ? "Деактивувати викладача" : "Активувати викладача",
+      confirmLabel: isActiveUser ? "Деактивувати" : "Активувати"
+    });
+    if (!ok) return;
+    setDeactivatingId(t.id);
+    const {
+      error
+    } = await sb.from("profiles").update({
+      active: !isActiveUser
+    }).eq("id", t.id);
+    setDeactivatingId(null);
+    if (error) {
+      showToast(error.message, "error");
+      return;
+    }
+    setUsers(us => us.map(u => u.id === t.id ? {
+      ...u,
+      active: !isActiveUser
+    } : u));
+    showToast(isActiveUser ? "Обліковий запис деактивовано" : "Обліковий запис активовано");
   }
   async function resetPassword(e, t) {
     e.stopPropagation();
@@ -3583,14 +3665,20 @@ function AdminUserList({
     className: "students-list"
   }, users.map(t => {
     const c = counts[t.id] || {};
-    const isAdminUser = t.role === "admin";
+    const isActiveUser = t.active !== false;
+    const roleLocked = t.role === "superadmin" && !isSuperAdmin;
     return /*#__PURE__*/React.createElement("div", {
       key: t.id,
       className: "students-row admin-row",
+      style: {
+        opacity: isActiveUser ? 1 : 0.55
+      },
       onClick: () => onSelect(t)
     }, /*#__PURE__*/React.createElement("div", {
       className: "avatar"
-    }, initials(t)), /*#__PURE__*/React.createElement("div", {
+    }, t.photo ? /*#__PURE__*/React.createElement("img", {
+      src: t.photo
+    }) : initials(t)), /*#__PURE__*/React.createElement("div", {
       style: {
         flex: 1,
         minWidth: 0
@@ -3600,29 +3688,44 @@ function AdminUserList({
       style: {
         display: "flex",
         alignItems: "center",
-        gap: 7
+        gap: 7,
+        flexWrap: "wrap"
       }
     }, fullName(t), /*#__PURE__*/React.createElement("span", {
-      className: "role-badge" + (isAdminUser ? "" : " me")
-    }, isAdminUser ? "Адмін" : "Викладач")), /*#__PURE__*/React.createElement("div", {
+      className: "role-badge" + (t.role === "superadmin" ? " super" : t.role === "admin" ? "" : " me")
+    }, ROLE_LABELS[t.role] || "Викладач"), !isActiveUser && /*#__PURE__*/React.createElement("span", {
+      className: "role-badge inactive"
+    }, "Неактивний")), /*#__PURE__*/React.createElement("div", {
       className: "students-sub"
     }, t.email)), /*#__PURE__*/React.createElement("div", {
       className: "students-meta"
-    }, c.lessons != null ? `${c.lessons} занять · ${c.pending} в черзі` : "…"), /*#__PURE__*/React.createElement("button", {
+    }, c.lessons != null ? `${c.lessons} занять · ${c.pending} в черзі` : "…"), roleLocked ? null : /*#__PURE__*/React.createElement("select", {
+      className: "role-select",
+      value: t.role || "teacher",
+      disabled: togglingId === t.id,
+      onClick: e => e.stopPropagation(),
+      onChange: e => setRole(e, t, e.target.value)
+    }, /*#__PURE__*/React.createElement("option", {
+      value: "teacher"
+    }, "Викладач"), /*#__PURE__*/React.createElement("option", {
+      value: "admin"
+    }, "Адмін"), isSuperAdmin && /*#__PURE__*/React.createElement("option", {
+      value: "superadmin"
+    }, "Суперадмін")), /*#__PURE__*/React.createElement("button", {
       className: "studio-btn ghost",
-      disabled: resettingId === t.id,
+      disabled: resettingId === t.id || !isActiveUser || roleLocked,
       onClick: e => resetPassword(e, t),
       title: "Скинути пароль"
     }, /*#__PURE__*/React.createElement(Icon, {
       name: "key",
       size: 14
-    })), /*#__PURE__*/React.createElement("button", {
+    })), !roleLocked && /*#__PURE__*/React.createElement("button", {
       className: "studio-btn ghost",
-      disabled: togglingId === t.id,
-      onClick: e => toggleRole(e, t),
-      title: isAdminUser ? "Зробити викладачем" : "Зробити адміністратором"
+      disabled: deactivatingId === t.id,
+      onClick: e => toggleActive(e, t),
+      title: isActiveUser ? "Деактивувати (звільнити)" : "Активувати"
     }, /*#__PURE__*/React.createElement(Icon, {
-      name: "shield",
+      name: isActiveUser ? "trash" : "repeat",
       size: 14
     })));
   })), creating && /*#__PURE__*/React.createElement(CreateTeacherModal, {
@@ -4345,7 +4448,9 @@ function PayrollTab({
       onClick: () => setExpanded(isOpen ? null : teacherId)
     }, /*#__PURE__*/React.createElement("div", {
       className: "avatar"
-    }, teacher ? initials(teacher) : "?"), /*#__PURE__*/React.createElement("div", {
+    }, teacher && teacher.photo ? /*#__PURE__*/React.createElement("img", {
+      src: teacher.photo
+    }) : teacher ? initials(teacher) : "?"), /*#__PURE__*/React.createElement("div", {
       style: {
         flex: 1,
         minWidth: 0
@@ -4386,7 +4491,8 @@ function Shell({
   theme,
   onToggleTheme
 }) {
-  const isAdmin = profile.role === "admin";
+  const isSuperAdmin = profile.role === "superadmin";
+  const isAdmin = profile.role === "admin" || isSuperAdmin;
   const [section, setSection] = useState("workspace"); // 'workspace' | 'admin'
   const [adminSection, setAdminSection] = useState("users"); // 'users' | 'calendar' | 'rates' (only when no adminTeacher)
   const [adminTeacher, setAdminTeacher] = useState(null);
@@ -4460,7 +4566,9 @@ function Shell({
     title: "Редагувати профіль"
   }, /*#__PURE__*/React.createElement("div", {
     className: "avatar"
-  }, initials(profile)), /*#__PURE__*/React.createElement("div", {
+  }, profile.photo ? /*#__PURE__*/React.createElement("img", {
+    src: profile.photo
+  }) : initials(profile)), /*#__PURE__*/React.createElement("div", {
     style: {
       minWidth: 0
     }
@@ -4473,8 +4581,8 @@ function Shell({
       whiteSpace: "nowrap"
     }
   }, fullName(profile)), /*#__PURE__*/React.createElement("span", {
-    className: "role-badge" + (isAdmin ? "" : " me")
-  }, isAdmin ? "Адмін" : "Викладач"))), isAdmin && /*#__PURE__*/React.createElement("div", {
+    className: "role-badge" + (isSuperAdmin ? " super" : isAdmin ? "" : " me")
+  }, isSuperAdmin ? "Суперадмін" : isAdmin ? "Адмін" : "Викладач"))), isAdmin && /*#__PURE__*/React.createElement("div", {
     className: "section-switch"
   }, /*#__PURE__*/React.createElement("button", {
     className: section === "workspace" ? "active" : "",
@@ -4505,7 +4613,7 @@ function Shell({
   }, /*#__PURE__*/React.createElement(Icon, {
     name: "calendar",
     size: 17
-  }), " Календар"), /*#__PURE__*/React.createElement("button", {
+  }), " Календар"), isSuperAdmin && /*#__PURE__*/React.createElement("button", {
     className: "studio-nav-btn" + (adminSection === "rates" ? " active" : ""),
     onClick: () => setAdminSection("rates")
   }, /*#__PURE__*/React.createElement(Icon, {
@@ -4556,7 +4664,8 @@ function Shell({
     className: "studio-main"
   }, section === "admin" && !adminTeacher && adminSection === "users" && /*#__PURE__*/React.createElement(AdminUserList, {
     onSelect: selectTeacher,
-    currentUserId: profile.id
+    currentUserId: profile.id,
+    isSuperAdmin: isSuperAdmin
   }), section === "admin" && !adminTeacher && adminSection === "calendar" && /*#__PURE__*/React.createElement(StudioCalendarTab, {
     onOpenTeacherWorkspace: selectTeacher
   }), section === "admin" && !adminTeacher && adminSection === "rates" && /*#__PURE__*/React.createElement(RateCardsTab, null), section === "admin" && adminTeacher && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
@@ -4662,6 +4771,13 @@ function App() {
     sb.from("profiles").select("*").eq("id", session.user.id).single().then(({
       data
     }) => {
+      if (data && data.active === false) {
+        setProfile(null);
+        setProfileLoading(false);
+        showToast("Обліковий запис деактивовано. Зверніться до адміністратора.", "error");
+        sb.auth.signOut();
+        return;
+      }
       setProfile(data);
       setProfileLoading(false);
     });
