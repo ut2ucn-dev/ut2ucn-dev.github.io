@@ -1848,10 +1848,19 @@ function StudentCardModal({
   const [lessons, setLessons] = useState([]);
   const [works, setWorks] = useState([]);
   const [profiles, setProfiles] = useState([]);
+  const [subscriptions, setSubscriptions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [preview, setPreview] = useState(null);
   useEscapeClose(preview ? null : onClose);
   useLockBodyScroll();
+  const loadSubscriptions = useCallback(() => {
+    if (!showPhoto) return;
+    sb.from("subscriptions").select("*").eq("student_id", student.id).order("purchased_at", {
+      ascending: false
+    }).then(({
+      data
+    }) => setSubscriptions(data || []));
+  }, [student.id, showPhoto]);
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -1862,10 +1871,38 @@ function StudentCardModal({
       setProfiles(pr.data || []);
       setLoading(false);
     });
+    loadSubscriptions();
     return () => {
       cancelled = true;
     };
-  }, [student.id]);
+  }, [student.id, loadSubscriptions]);
+  async function toggleSubscriptionStatus(sub) {
+    const nextStatus = sub.status === "cancelled" ? "active" : "cancelled";
+    const {
+      error
+    } = await sb.from("subscriptions").update({
+      status: nextStatus
+    }).eq("id", sub.id);
+    if (error) {
+      showToast(error.message, "error");
+      return;
+    }
+    loadSubscriptions();
+  }
+  async function setSubscriptionRemaining(sub, value) {
+    const n = Math.max(0, Math.min(sub.total_lessons, Number(value) || 0));
+    const {
+      error
+    } = await sb.from("subscriptions").update({
+      remaining_lessons: n,
+      status: n > 0 && sub.status === "completed" ? "active" : sub.status
+    }).eq("id", sub.id);
+    if (error) {
+      showToast(error.message, "error");
+      return;
+    }
+    loadSubscriptions();
+  }
   const profilesById = useMemo(() => Object.fromEntries(profiles.map(p => [p.id, p])), [profiles]);
   const sorted = useMemo(() => [...lessons].sort((a, b) => (a.date + (a.time || "")).localeCompare(b.date + (b.time || ""))), [lessons]);
   const courses = useMemo(() => {
@@ -1958,7 +1995,44 @@ function StudentCardModal({
       fontSize: 11.5,
       padding: "5px 11px"
     }
-  }, c)))), /*#__PURE__*/React.createElement("label", {
+  }, c)))), showPhoto && subscriptions.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "field"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "field-label"
+  }, "Абонементи"), subscriptions.map(sub => /*#__PURE__*/React.createElement("div", {
+    key: sub.id,
+    className: "portfolio-row",
+    style: {
+      opacity: sub.status === "cancelled" ? 0.55 : 1
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      minWidth: 0
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "student-name"
+  }, sub.course), /*#__PURE__*/React.createElement("div", {
+    className: "students-sub"
+  }, sub.status === "cancelled" ? "Скасовано" : sub.status === "completed" ? "Використано повністю" : "Активний", " · придбано ", formatDateLong(sub.purchased_at.slice(0, 10)), sub.total_price > 0 && ` · ${formatMoney(sub.total_price)}`)), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    min: "0",
+    max: sub.total_lessons,
+    className: "rate-input",
+    style: {
+      width: 52
+    },
+    value: sub.remaining_lessons,
+    onChange: e => setSubscriptionRemaining(sub, e.target.value)
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "students-sub"
+  }, "/ ", sub.total_lessons), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "studio-btn ghost",
+    onClick: () => toggleSubscriptionStatus(sub)
+  }, sub.status === "cancelled" ? "Відновити" : "Скасувати"))), /*#__PURE__*/React.createElement("div", {
+    className: "hint"
+  }, "Залишок можна виправити вручну, якщо сталася помилка.")), /*#__PURE__*/React.createElement("label", {
     className: "field-label",
     style: {
       display: "block",
@@ -4366,7 +4440,8 @@ const RATE_BUCKETS = [{
 }];
 function blankRateRow(course) {
   const row = {
-    course
+    course,
+    price_subscription: 0
   };
   RATE_BUCKETS.forEach(b => {
     row["zp_" + b.key] = 0;
@@ -4414,6 +4489,7 @@ function RateCardsTab() {
         clean["zp_" + b.key] = Number(r["zp_" + b.key]) || 0;
         clean["price_" + b.key] = Number(r["price_" + b.key]) || 0;
       });
+      clean.price_subscription = Number(r.price_subscription) || 0;
       return clean;
     });
     const {
@@ -4447,7 +4523,7 @@ function RateCardsTab() {
     style: {
       marginBottom: 14
     }
-  }, "Суми — за одне заняття цього типу, у гривнях. «Додаткова послуга» додається зверху, якщо позначена на занятті. Обидві колонки зберігаються разом — перемикач лише впливає на те, що зараз показано."), /*#__PURE__*/React.createElement("div", {
+  }, "Суми — за одне заняття цього типу, у гривнях. «Додаткова послуга» додається зверху, якщо позначена на занятті. «Абонемент» — це ціна ВСІХ 4 занять пакету одразу (не за одне), і не має колонки ЗП: викладачу за кожне заняття все одно платиться за звичайною ставкою його формату. Всі колонки зберігаються разом — перемикач лише впливає на те, що зараз показано."), /*#__PURE__*/React.createElement("div", {
     className: "studio-segmented",
     style: {
       marginBottom: 14
@@ -4466,7 +4542,7 @@ function RateCardsTab() {
     className: "rate-table"
   }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null, "Напрямок"), RATE_BUCKETS.map(b => /*#__PURE__*/React.createElement("th", {
     key: b.key
-  }, b.label)))), /*#__PURE__*/React.createElement("tbody", null, COURSE_OPTIONS.map(c => /*#__PURE__*/React.createElement("tr", {
+  }, b.label)), column === "price" && /*#__PURE__*/React.createElement("th", null, "Абонемент (4 заняття)"))), /*#__PURE__*/React.createElement("tbody", null, COURSE_OPTIONS.map(c => /*#__PURE__*/React.createElement("tr", {
     key: c
   }, /*#__PURE__*/React.createElement("td", {
     className: "rate-course-name"
@@ -4482,7 +4558,14 @@ function RateCardsTab() {
       value: rates[c] ? rates[c][field] : 0,
       onChange: e => setField(c, field, e.target.value)
     }));
-  })))))));
+  }), column === "price" && /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    min: "0",
+    step: "1",
+    className: "rate-input",
+    value: rates[c] ? rates[c].price_subscription : 0,
+    onChange: e => setField(c, "price_subscription", e.target.value)
+  }))))))));
 }
 
 // ---------------------------------------------------------------
