@@ -767,59 +767,74 @@ const WEEKDAY_FULL = ["Неділя", "Понеділок", "Вівторок", 
 const COURSE_OPTIONS = ["3D Tinkercad FIRST (9-12)", "3D Tinkercad PRO (9-12)", "3D Makers FIRST (6-8)", "3D Makers PRO (6-8)", "VR ІГРОВИЙ", "VR РОЗРОБКА (Delightex)", "Robo AI (Ukit 6-8)", "Robo AI (UGot 9-12)", "3D слайсинг"];
 const FORMAT_OPTIONS = [{
   value: "group",
-  label: "Група"
+  label: "Група (очно)"
 }, {
   value: "individual",
-  label: "Індивідуальне"
+  label: "Індив (очно)"
 }, {
-  value: "online_print",
-  label: "Онлайн (+друк)"
+  value: "individual_online_print",
+  label: "Індив (online) +друк"
 }, {
-  value: "online_no_print",
-  label: "Онлайн (-друк)"
+  value: "individual_online_no_print",
+  label: "Індив (online) -друк"
+}, {
+  value: "group_online_print",
+  label: "Група (online) +друк"
+}, {
+  value: "group_online_no_print",
+  label: "Група (online) -друк"
 }];
 function formatLabel(format) {
   const found = FORMAT_OPTIONS.find(f => f.value === format);
-  return found ? found.label : "Група";
+  return found ? found.label : "Група (очно)";
 }
 function formatTagClass(format) {
   if (format === "individual") return " individual";
-  if (format === "online_print") return " online-print";
-  if (format === "online_no_print") return " online-no-print";
+  if (format === "individual_online_print" || format === "group_online_print") return " online-print";
+  if (format === "individual_online_no_print" || format === "group_online_no_print") return " online-no-print";
   return "";
 }
-// Which bucket of the studio's rate card a lesson's payroll falls into.
-// Group lessons are further split by how many students actually attended.
+// Which bucket of the studio's rate card a lesson's amounts fall into.
+// Only the plain in-person "group" format is further split by headcount —
+// every other format is its own fixed bucket regardless of attendance.
 function payrollBucket(format, studentCount) {
   if (format === "individual") return "individual";
-  if (format === "online_print") return "online_print";
-  if (format === "online_no_print") return "online_no_print";
-  if (studentCount <= 1) return "group_1";
-  if (studentCount <= 4) return "group_2_4";
-  return "group_5_6";
+  if (format === "individual_online_print") return "individual_online_print";
+  if (format === "individual_online_no_print") return "individual_online_no_print";
+  if (format === "group_online_print") return "group_online_print";
+  if (format === "group_online_no_print") return "group_online_no_print";
+  return studentCount <= 1 ? "group_1" : "group_2_6";
 }
+// The studio's 8 billable categories. Each has two rate_cards columns:
+// zp_<key> (what the teacher is paid) and price_<key> (what the client is
+// charged) — see RATE_BUCKETS in RateCardsTab for the shared source of truth.
 const PAYROLL_BUCKET_LABELS = {
-  group_1: "Група · 1 учень",
-  group_2_4: "Група · 2–4 учні",
-  group_5_6: "Група · 5–6 учнів",
-  individual: "Індивідуальне",
-  online_print: "Онлайн (+друк)",
-  online_no_print: "Онлайн (-друк)"
+  group_1: "Група (1)",
+  group_2_6: "Група (2-6)",
+  individual: "Індив (очно)",
+  individual_online_print: "Індив (online) +друк",
+  individual_online_no_print: "Індив (online) -друк",
+  group_online_print: "Група (online) +друк",
+  group_online_no_print: "Група (online) -друк",
+  extra_service: "Додаткова послуга"
 };
-const PAYROLL_BUCKET_RATE_FIELD = {
-  group_1: "rate_group_1",
-  group_2_4: "rate_group_2_4",
-  group_5_6: "rate_group_5_6",
-  individual: "rate_individual",
-  online_print: "rate_online_print",
-  online_no_print: "rate_online_no_print"
-};
-function computePayroll(rateCard, format, studentCount, extraPrint) {
-  if (!rateCard) return 0;
+// Computes both amounts for a lesson: zp = what the teacher earns, price =
+// what the client is charged. `zp` is shown to teachers and admins alike;
+// `price` must only ever reach admin/superadmin UI.
+function computeAmounts(rateCard, format, studentCount, extraService) {
+  if (!rateCard) return {
+    zp: 0,
+    price: 0
+  };
   const bucket = payrollBucket(format, studentCount);
-  const base = Number(rateCard[PAYROLL_BUCKET_RATE_FIELD[bucket]]) || 0;
-  const extra = extraPrint ? Number(rateCard.rate_extra_print) || 0 : 0;
-  return base + extra;
+  const zp = Number(rateCard["zp_" + bucket]) || 0;
+  const price = Number(rateCard["price_" + bucket]) || 0;
+  const extraZp = extraService ? Number(rateCard.zp_extra_service) || 0 : 0;
+  const extraPrice = extraService ? Number(rateCard.price_extra_service) || 0 : 0;
+  return {
+    zp: zp + extraZp,
+    price: price + extraPrice
+  };
 }
 function formatMoney(n) {
   return (Math.round((Number(n) || 0) * 100) / 100).toLocaleString("uk-UA", {
@@ -1807,7 +1822,7 @@ function StudentCardModal({
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    Promise.all([sb.from("lessons").select("*").contains("student_ids", [student.id]), sb.from("works").select("*").eq("student_id", student.id), sb.from("profiles").select("*")]).then(([lr, wr, pr]) => {
+    Promise.all([sb.from("lessons_safe").select("*").contains("student_ids", [student.id]), sb.from("works").select("*").eq("student_id", student.id), sb.from("profiles").select("*")]).then(([lr, wr, pr]) => {
       if (cancelled) return;
       setLessons(lr.data || []);
       setWorks(wr.data || []);
@@ -2154,6 +2169,7 @@ function LessonModal({
   lesson,
   presetDate,
   showPhoto,
+  isAdmin,
   onClose,
   onSaved
 }) {
@@ -2165,7 +2181,7 @@ function LessonModal({
   const [theme, setTheme] = useState(lesson ? lesson.theme : "");
   const [course, setCourse] = useState(lesson ? lesson.course || "" : "");
   const [format, setFormat] = useState(lesson ? lesson.format || "group" : "group");
-  const [extraPrint, setExtraPrint] = useState(lesson ? !!lesson.extra_print : false);
+  const [extraService, setExtraService] = useState(lesson ? !!lesson.extra_service : false);
   const [rateCard, setRateCard] = useState(null);
   const [studentIds, setStudentIds] = useState(lesson ? lesson.student_ids : []);
   const [repeatWeekly, setRepeatWeekly] = useState(false);
@@ -2203,7 +2219,7 @@ function LessonModal({
       return;
     }
     let cancelled = false;
-    sb.from("rate_cards").select("*").eq("course", course).maybeSingle().then(({
+    sb.from("rate_cards_safe").select("*").eq("course", course).maybeSingle().then(({
       data
     }) => {
       if (!cancelled) setRateCard(data || null);
@@ -2235,7 +2251,11 @@ function LessonModal({
     }
     setSaving(true);
     setError("");
-    const payrollAmount = computePayroll(rateCard, format, studentIds.length, extraPrint);
+    // payroll_amount / price_amount are computed server-side (by a DB
+    // trigger, from the real un-masked rate card) whenever course, format,
+    // student_ids or extra_service change — never sent from here. That's
+    // what lets a teacher create their own lesson with the right price on
+    // it without ever being able to read that price.
     if (lesson) {
       const {
         error
@@ -2246,8 +2266,7 @@ function LessonModal({
         course,
         format,
         student_ids: studentIds,
-        extra_print: extraPrint,
-        payroll_amount: payrollAmount
+        extra_service: extraService
       }).eq("id", lesson.id);
       setSaving(false);
       if (error) {
@@ -2268,8 +2287,7 @@ function LessonModal({
           course,
           format,
           student_ids: studentIds,
-          extra_print: extraPrint,
-          payroll_amount: payrollAmount
+          extra_service: extraService
         });
       }
       const {
@@ -2284,6 +2302,7 @@ function LessonModal({
     showToast(lesson ? "Заняття оновлено" : "Заняття додано");
     onSaved();
   }
+  const amounts = computeAmounts(rateCard, format, studentIds.length, extraService);
   return ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
     className: "overlay",
     onClick: onClose
@@ -2351,23 +2370,25 @@ function LessonModal({
     type: "button",
     className: format === f.value ? "active" : "",
     onClick: () => setFormat(f.value)
-  }, f.label)))), /*#__PURE__*/React.createElement("div", {
+  }, f.label)))), isAdmin && /*#__PURE__*/React.createElement("div", {
     className: "field"
   }, /*#__PURE__*/React.createElement("label", {
     className: "field-label"
   }, /*#__PURE__*/React.createElement("input", {
     type: "checkbox",
-    checked: extraPrint,
-    onChange: e => setExtraPrint(e.target.checked),
+    checked: extraService,
+    onChange: e => setExtraService(e.target.checked),
     style: {
       marginRight: 6
     }
-  }), "Додаткова послуга з друку")), rateCard && /*#__PURE__*/React.createElement("div", {
+  }), "Додаткова послуга"), /*#__PURE__*/React.createElement("div", {
+    className: "hint"
+  }, "Бачить лише адміністратор і суперадміністратор. Сума береться з тарифів.")), rateCard && /*#__PURE__*/React.createElement("div", {
     className: "payroll-preview"
   }, /*#__PURE__*/React.createElement(Icon, {
     name: "wallet",
     size: 13
-  }), "Нарахування за це заняття: ", /*#__PURE__*/React.createElement("strong", null, formatMoney(computePayroll(rateCard, format, studentIds.length, extraPrint)))), /*#__PURE__*/React.createElement("div", {
+  }), "ЗП за це заняття: ", /*#__PURE__*/React.createElement("strong", null, formatMoney(amounts.zp)), isAdmin && /*#__PURE__*/React.createElement(React.Fragment, null, " · Ціна: ", /*#__PURE__*/React.createElement("strong", null, formatMoney(amounts.price)))), /*#__PURE__*/React.createElement("div", {
     className: "field"
   }, /*#__PURE__*/React.createElement("label", {
     className: "field-label"
@@ -2644,6 +2665,7 @@ function ScheduleTab({
   ownerId,
   ownerProfile,
   canEdit,
+  isAdmin,
   students,
   me,
   aggregateAll
@@ -2659,14 +2681,14 @@ function ScheduleTab({
   const load = useCallback(async () => {
     setLoading(true);
     if (aggregateAll) {
-      const [lr, wr, pr] = await Promise.all([sb.from("lessons").select("*").order("date", {
+      const [lr, wr, pr] = await Promise.all([sb.from("lessons_safe").select("*").order("date", {
         ascending: true
       }), sb.from("works").select("*"), sb.from("profiles").select("*")]);
       setLessons(lr.data || []);
       setWorks(wr.data || []);
       setAllProfiles(pr.data || []);
     } else {
-      const [lr, wr] = await Promise.all([sb.from("lessons").select("*").eq("owner_id", ownerId).order("date", {
+      const [lr, wr] = await Promise.all([sb.from("lessons_safe").select("*").eq("owner_id", ownerId).order("date", {
         ascending: true
       }), sb.from("works").select("*").eq("owner_id", ownerId)]);
       setLessons(lr.data || []);
@@ -3015,6 +3037,7 @@ function ScheduleTab({
     teacherOptions: allProfiles,
     defaultOwnerId: me.id,
     showPhoto: true,
+    isAdmin: isAdmin,
     lesson: modalLesson,
     presetDate: modalLesson ? undefined : modalPresetDate,
     onClose: () => setModalLesson(undefined),
@@ -3026,6 +3049,7 @@ function ScheduleTab({
     ownerId: ownerId,
     ownerProfile: ownerProfile,
     showPhoto: true,
+    isAdmin: isAdmin,
     students: students,
     lesson: modalLesson,
     presetDate: modalLesson ? undefined : modalPresetDate,
@@ -3320,12 +3344,12 @@ function QueueTab({
   const load = useCallback(async () => {
     setLoading(true);
     if (aggregateAll) {
-      const [lr, wr, pr] = await Promise.all([sb.from("lessons").select("*"), sb.from("works").select("*"), sb.from("profiles").select("*")]);
+      const [lr, wr, pr] = await Promise.all([sb.from("lessons_safe").select("*"), sb.from("works").select("*"), sb.from("profiles").select("*")]);
       setLessons(lr.data || []);
       setWorks(wr.data || []);
       setAllProfiles(pr.data || []);
     } else {
-      const [lr, wr] = await Promise.all([sb.from("lessons").select("*").eq("owner_id", ownerId), sb.from("works").select("*").eq("owner_id", ownerId)]);
+      const [lr, wr] = await Promise.all([sb.from("lessons_safe").select("*").eq("owner_id", ownerId), sb.from("works").select("*").eq("owner_id", ownerId)]);
       setLessons(lr.data || []);
       setWorks(wr.data || []);
     }
@@ -3452,6 +3476,7 @@ function WorkspaceBody({
   ownerProfile,
   canEditSchedule,
   showChildPhoto,
+  isAdmin,
   me,
   tab,
   students,
@@ -3479,12 +3504,14 @@ function WorkspaceBody({
     ownerId: ownerId,
     ownerProfile: ownerProfile,
     aggregateAll: aggregateAll,
+    isAdmin: isAdmin,
     me: me
   });
   return /*#__PURE__*/React.createElement(ScheduleTab, {
     ownerId: ownerId,
     ownerProfile: ownerProfile,
     canEdit: canEditSchedule,
+    isAdmin: isAdmin,
     students: students,
     me: me,
     aggregateAll: aggregateAll
@@ -3525,7 +3552,7 @@ function AdminUserList({
     // Students are one shared roster now (not owned per-teacher), so only
     // lessons and pending prints make sense as a per-person count here.
     const results = await Promise.all(list.map(async t => {
-      const [lRes, wRes] = await Promise.all([sb.from("lessons").select("id", {
+      const [lRes, wRes] = await Promise.all([sb.from("lessons_safe").select("id", {
         count: "exact",
         head: true
       }).eq("owner_id", t.id), sb.from("works").select("id", {
@@ -3985,7 +4012,7 @@ function StudioCalendarTab({
   const weekEndExclusiveStr = formatISODateLocal(addDaysDate(weekStart, 7));
   const load = useCallback(async () => {
     setLoading(true);
-    const [lr, pr] = await Promise.all([sb.from("lessons").select("*").gte("date", weekStartStr).lt("date", weekEndExclusiveStr), sb.from("profiles").select("*")]);
+    const [lr, pr] = await Promise.all([sb.from("lessons_safe").select("*").gte("date", weekStartStr).lt("date", weekEndExclusiveStr), sb.from("profiles").select("*")]);
     setLessons(lr.data || []);
     setProfiles(pr.data || []);
     setLoading(false);
@@ -4153,6 +4180,7 @@ function StudioCalendarTab({
     teacherOptions: profiles,
     presetDate: newLessonDate,
     showPhoto: true,
+    isAdmin: true,
     onClose: () => setEditingLesson(undefined),
     onSaved: () => {
       setEditingLesson(undefined);
@@ -4163,6 +4191,7 @@ function StudioCalendarTab({
     ownerProfile: profilesById[editingLesson.owner_id],
     lesson: editingLesson,
     showPhoto: true,
+    isAdmin: true,
     onClose: () => setEditingLesson(undefined),
     onSaved: () => {
       setEditingLesson(undefined);
@@ -4175,34 +4204,41 @@ function StudioCalendarTab({
 // Admin: pay rates per direction — one row per course, editable.
 // ---------------------------------------------------------------
 
-const RATE_FIELDS = [{
-  key: "rate_group_1",
-  label: "Група · 1 учень"
+// The studio's 8 billable categories, shared with PAYROLL_BUCKET_LABELS —
+// each becomes two rate_cards columns, zp_<key> (teacher payout, visible to
+// teachers too) and price_<key> (client price, admin/superadmin only).
+const RATE_BUCKETS = [{
+  key: "group_1",
+  label: "Група (1)"
 }, {
-  key: "rate_group_2_4",
-  label: "Група · 2–4"
+  key: "group_2_6",
+  label: "Група (2-6)"
 }, {
-  key: "rate_group_5_6",
-  label: "Група · 5–6"
+  key: "individual",
+  label: "Індив (очно)"
 }, {
-  key: "rate_individual",
-  label: "Індивідуальне"
+  key: "individual_online_print",
+  label: "Індив (online) +друк"
 }, {
-  key: "rate_online_print",
-  label: "Онлайн (+друк)"
+  key: "individual_online_no_print",
+  label: "Індив (online) -друк"
 }, {
-  key: "rate_online_no_print",
-  label: "Онлайн (-друк)"
+  key: "group_online_print",
+  label: "Група (online) +друк"
 }, {
-  key: "rate_extra_print",
-  label: "Дод. послуга друку"
+  key: "group_online_no_print",
+  label: "Група (online) -друк"
+}, {
+  key: "extra_service",
+  label: "Додаткова послуга"
 }];
 function blankRateRow(course) {
   const row = {
     course
   };
-  RATE_FIELDS.forEach(f => {
-    row[f.key] = 0;
+  RATE_BUCKETS.forEach(b => {
+    row["zp_" + b.key] = 0;
+    row["price_" + b.key] = 0;
   });
   return row;
 }
@@ -4210,11 +4246,12 @@ function RateCardsTab() {
   const [rates, setRates] = useState({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [column, setColumn] = useState("zp"); // 'zp' | 'price'
   const load = useCallback(async () => {
     setLoading(true);
     const {
       data
-    } = await sb.from("rate_cards").select("*");
+    } = await sb.from("rate_cards_safe").select("*");
     const map = {};
     COURSE_OPTIONS.forEach(c => {
       const existing = (data || []).find(r => r.course === c);
@@ -4241,8 +4278,9 @@ function RateCardsTab() {
       const clean = {
         course: r.course
       };
-      RATE_FIELDS.forEach(f => {
-        clean[f.key] = Number(r[f.key]) || 0;
+      RATE_BUCKETS.forEach(b => {
+        clean["zp_" + b.key] = Number(r["zp_" + b.key]) || 0;
+        clean["price_" + b.key] = Number(r["price_" + b.key]) || 0;
       });
       return clean;
     });
@@ -4277,26 +4315,42 @@ function RateCardsTab() {
     style: {
       marginBottom: 14
     }
-  }, "Суми — за одне заняття цього типу, у гривнях. «Додаткова послуга друку» додається зверху, якщо позначена на занятті."), /*#__PURE__*/React.createElement("div", {
+  }, "Суми — за одне заняття цього типу, у гривнях. «Додаткова послуга» додається зверху, якщо позначена на занятті. Обидві колонки зберігаються разом — перемикач лише впливає на те, що зараз показано."), /*#__PURE__*/React.createElement("div", {
+    className: "studio-segmented",
+    style: {
+      marginBottom: 14
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: column === "zp" ? "active" : "",
+    onClick: () => setColumn("zp")
+  }, "ЗП (викладачу)"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: column === "price" ? "active" : "",
+    onClick: () => setColumn("price")
+  }, "ЦІНА (клієнту)")), /*#__PURE__*/React.createElement("div", {
     className: "rate-table-wrap"
   }, /*#__PURE__*/React.createElement("table", {
     className: "rate-table"
-  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null, "Напрямок"), RATE_FIELDS.map(f => /*#__PURE__*/React.createElement("th", {
-    key: f.key
-  }, f.label)))), /*#__PURE__*/React.createElement("tbody", null, COURSE_OPTIONS.map(c => /*#__PURE__*/React.createElement("tr", {
+  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null, "Напрямок"), RATE_BUCKETS.map(b => /*#__PURE__*/React.createElement("th", {
+    key: b.key
+  }, b.label)))), /*#__PURE__*/React.createElement("tbody", null, COURSE_OPTIONS.map(c => /*#__PURE__*/React.createElement("tr", {
     key: c
   }, /*#__PURE__*/React.createElement("td", {
     className: "rate-course-name"
-  }, c), RATE_FIELDS.map(f => /*#__PURE__*/React.createElement("td", {
-    key: f.key
-  }, /*#__PURE__*/React.createElement("input", {
-    type: "number",
-    min: "0",
-    step: "1",
-    className: "rate-input",
-    value: rates[c] ? rates[c][f.key] : 0,
-    onChange: e => setField(c, f.key, e.target.value)
-  })))))))));
+  }, c), RATE_BUCKETS.map(b => {
+    const field = column + "_" + b.key;
+    return /*#__PURE__*/React.createElement("td", {
+      key: b.key
+    }, /*#__PURE__*/React.createElement("input", {
+      type: "number",
+      min: "0",
+      step: "1",
+      className: "rate-input",
+      value: rates[c] ? rates[c][field] : 0,
+      onChange: e => setField(c, field, e.target.value)
+    }));
+  })))))));
 }
 
 // ---------------------------------------------------------------
@@ -4309,6 +4363,7 @@ function PayrollTab({
   ownerId,
   ownerProfile,
   aggregateAll,
+  isAdmin,
   me
 }) {
   const today = todayStr();
@@ -4320,7 +4375,7 @@ function PayrollTab({
   const [expanded, setExpanded] = useState(null);
   const load = useCallback(async () => {
     setLoading(true);
-    let query = sb.from("lessons").select("*").gte("date", from).lte("date", to);
+    let query = sb.from("lessons_safe").select("*").gte("date", from).lte("date", to);
     if (!aggregateAll) query = query.eq("owner_id", ownerId);
     const [lr, pr] = await Promise.all([query, aggregateAll ? sb.from("profiles").select("*") : Promise.resolve({
       data: ownerProfile ? [ownerProfile] : []
@@ -4335,15 +4390,18 @@ function PayrollTab({
   const profilesById = useMemo(() => Object.fromEntries(profiles.map(p => [p.id, p])), [profiles]);
   const sorted = useMemo(() => [...lessons].sort((a, b) => a.date.localeCompare(b.date)), [lessons]);
   const grandTotal = lessons.reduce((sum, l) => sum + (Number(l.payroll_amount) || 0), 0);
+  const grandTotalPrice = lessons.reduce((sum, l) => sum + (Number(l.price_amount) || 0), 0);
   const byTeacher = useMemo(() => {
     const map = {};
     lessons.forEach(l => {
       if (!map[l.owner_id]) map[l.owner_id] = {
         total: 0,
+        totalPrice: 0,
         count: 0,
         lessons: []
       };
       map[l.owner_id].total += Number(l.payroll_amount) || 0;
+      map[l.owner_id].totalPrice += Number(l.price_amount) || 0;
       map[l.owner_id].count += 1;
       map[l.owner_id].lessons.push(l);
     });
@@ -4384,11 +4442,20 @@ function PayrollTab({
       }
     }, lesson.course), /*#__PURE__*/React.createElement("span", {
       className: "format-tag"
-    }, PAYROLL_BUCKET_LABELS[bucket]), lesson.extra_print && /*#__PURE__*/React.createElement("span", {
+    }, PAYROLL_BUCKET_LABELS[bucket]), lesson.extra_service && /*#__PURE__*/React.createElement("span", {
       className: "format-tag online-print"
-    }, "+ дод. друк"))), /*#__PURE__*/React.createElement("div", {
+    }, "+ дод. послуга"))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        textAlign: "right"
+      }
+    }, /*#__PURE__*/React.createElement("div", {
       className: "payroll-amount"
-    }, formatMoney(lesson.payroll_amount)));
+    }, formatMoney(lesson.payroll_amount)), isAdmin && /*#__PURE__*/React.createElement("div", {
+      className: "hint",
+      style: {
+        marginTop: 2
+      }
+    }, "Ціна: ", formatMoney(lesson.price_amount))));
   }
   return /*#__PURE__*/React.createElement("div", {
     className: "tab-fade"
@@ -4421,9 +4488,15 @@ function PayrollTab({
   }, /*#__PURE__*/React.createElement(StatCard, {
     icon: "wallet",
     value: formatMoney(grandTotal),
-    label: aggregateAll ? "усього по студії" : "усього за період",
+    label: (aggregateAll ? "ЗП по студії" : "моя ЗП") + " за період",
     color: "var(--success-text)",
     soft: "var(--success-soft)"
+  }), isAdmin && /*#__PURE__*/React.createElement(StatCard, {
+    icon: "money",
+    value: formatMoney(grandTotalPrice),
+    label: "ціна за період",
+    color: "var(--alert-text)",
+    soft: "var(--alert-soft)"
   }), /*#__PURE__*/React.createElement(StatCard, {
     icon: "calendar",
     value: lessons.length,
@@ -4460,8 +4533,14 @@ function PayrollTab({
     }, teacher ? fullName(teacher) : "Невідомо"), /*#__PURE__*/React.createElement("div", {
       className: "students-sub"
     }, info.count, " занять")), /*#__PURE__*/React.createElement("div", {
-      className: "students-meta payroll-amount"
-    }, formatMoney(info.total)), /*#__PURE__*/React.createElement(Icon, {
+      style: {
+        textAlign: "right"
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "payroll-amount"
+    }, formatMoney(info.total)), isAdmin && /*#__PURE__*/React.createElement("div", {
+      className: "hint"
+    }, "Ціна: ", formatMoney(info.totalPrice))), /*#__PURE__*/React.createElement(Icon, {
       name: "back",
       size: 14,
       style: {
@@ -4696,6 +4775,7 @@ function Shell({
     ownerProfile: targetOwnerProfile,
     canEditSchedule: true,
     showChildPhoto: true,
+    isAdmin: true,
     me: profile,
     tab: tab,
     students: students,
@@ -4706,6 +4786,7 @@ function Shell({
     ownerProfile: targetOwnerProfile,
     canEditSchedule: isAdmin,
     showChildPhoto: isAdmin,
+    isAdmin: isAdmin,
     me: profile,
     tab: tab,
     students: students,
