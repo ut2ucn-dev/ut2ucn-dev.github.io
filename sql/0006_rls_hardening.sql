@@ -31,6 +31,7 @@ $function$;
 -- schedule.
 -- ---------------------------------------------------------------------
 drop policy if exists lessons_select_all on public.lessons;
+drop policy if exists lessons_select_scoped on public.lessons;
 create policy lessons_select_scoped on public.lessons
   for select using (
     owner_id = auth.uid()
@@ -44,6 +45,7 @@ create policy lessons_select_scoped on public.lessons
 -- replaced.
 -- ---------------------------------------------------------------------
 drop policy if exists works_select_all_readonly on public.works;
+drop policy if exists works_select_scoped on public.works;
 create policy works_select_scoped on public.works
   for select using (
     owner_id = auth.uid()
@@ -57,6 +59,10 @@ create policy works_select_scoped on public.works
 -- shared-roster design), but deleting a student is admin/superadmin only.
 -- ---------------------------------------------------------------------
 drop policy if exists students_shared_all on public.students;
+drop policy if exists students_select_shared on public.students;
+drop policy if exists students_insert_shared on public.students;
+drop policy if exists students_update_shared on public.students;
+drop policy if exists students_delete_admin on public.students;
 
 create policy students_select_shared on public.students
   for select using (auth.uid() is not null);
