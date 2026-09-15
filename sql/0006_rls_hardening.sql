@@ -1,12 +1,10 @@
 -- Stage 6: close the two RLS gaps that let any logged-in teacher read
 -- every OTHER teacher's lessons and works directly via the API (the app
--- itself never queries this way, but nothing in the database stopped it).
+-- itself never queries this way, but nothing in the database stopped it),
+-- plus restrict deleting a student to admin/superadmin — viewing, adding
+-- and editing stays shared across every teacher (the "one roster for the
+-- whole studio" design), only deletion is now admin-only.
 -- Run once in Supabase → SQL Editor, after 0001-0005.
---
--- Not touched on purpose: students_shared_all (ALL, any authenticated
--- user) — that one is the intentional "one shared roster for the whole
--- studio" design, not a bug. Tightening it is a product decision, not a
--- pure security fix, so it's left alone unless you ask for it.
 
 -- ---------------------------------------------------------------------
 -- Helper: every student_id this teacher has ever had in one of their own
@@ -52,3 +50,22 @@ create policy works_select_scoped on public.works
     or is_admin()
     or student_id = any(my_taught_student_ids())
   );
+
+-- ---------------------------------------------------------------------
+-- students: split the one blanket ALL-commands policy into per-command
+-- policies so viewing/adding/editing stays open to every teacher (the
+-- shared-roster design), but deleting a student is admin/superadmin only.
+-- ---------------------------------------------------------------------
+drop policy if exists students_shared_all on public.students;
+
+create policy students_select_shared on public.students
+  for select using (auth.uid() is not null);
+
+create policy students_insert_shared on public.students
+  for insert with check (auth.uid() is not null);
+
+create policy students_update_shared on public.students
+  for update using (auth.uid() is not null) with check (auth.uid() is not null);
+
+create policy students_delete_admin on public.students
+  for delete using (is_admin());
