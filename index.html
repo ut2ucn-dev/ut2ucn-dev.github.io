@@ -166,6 +166,9 @@
     box-shadow:0 1px 2px rgba(23,25,35,0.04);
   }
   .stat-card::before{ content:""; position:absolute; left:0; top:0; bottom:0; width:4px; background:var(--stat-color, var(--brand)); }
+  .stat-card.clickable{ cursor:pointer; transition:transform .12s ease, box-shadow .15s ease; }
+  .stat-card.clickable:hover{ border-color:var(--line-strong); box-shadow:0 4px 16px rgba(23,25,35,0.07); transform:translateY(-1px); }
+  .stat-card.clickable:active{ transform:translateY(0); }
   .stat-icon{
     width:38px; height:38px; border-radius:12px; flex-shrink:0; display:flex; align-items:center; justify-content:center;
     background:var(--stat-soft, var(--brand-soft)); color:var(--stat-color, var(--brand-text));
@@ -1313,14 +1316,18 @@ function StatCard({
   value,
   label,
   color,
-  soft
+  soft,
+  onClick
 }) {
   return /*#__PURE__*/React.createElement("div", {
-    className: "stat-card",
+    className: "stat-card" + (onClick ? " clickable" : ""),
     style: {
       "--stat-color": color,
       "--stat-soft": soft
-    }
+    },
+    onClick: onClick,
+    role: onClick ? "button" : undefined,
+    tabIndex: onClick ? 0 : undefined
   }, /*#__PURE__*/React.createElement("div", {
     className: "stat-icon"
   }, /*#__PURE__*/React.createElement(Icon, {
@@ -2844,7 +2851,8 @@ function ScheduleTab({
   isAdmin,
   students,
   me,
-  aggregateAll
+  aggregateAll,
+  onNavigateTab
 }) {
   const [lessons, setLessons] = useState([]);
   const [works, setWorks] = useState([]);
@@ -2948,6 +2956,10 @@ function ScheduleTab({
   lessons.forEach(l => {
     if (!courseHasPrinting(l.course)) return;
     (l.student_ids || []).forEach(sid => {
+      // Skip ids that no longer resolve to a student (e.g. the student was
+      // since deleted) — the queue tab hides these same rows, so counting
+      // them here would make this card disagree with the tab it summarizes.
+      if (!studentById[sid]) return;
       const w = findWork(works, l.id, sid);
       if (!w || !w.printed) pendingCount++;
     });
@@ -3150,7 +3162,8 @@ function ScheduleTab({
     value: students.length,
     label: "учнів",
     color: "var(--brand-text)",
-    soft: "var(--brand-soft)"
+    soft: "var(--brand-soft)",
+    onClick: onNavigateTab ? () => onNavigateTab("students") : undefined
   }), /*#__PURE__*/React.createElement(StatCard, {
     icon: "calendar",
     value: upcomingCount,
@@ -3162,7 +3175,8 @@ function ScheduleTab({
     value: pendingCount,
     label: "в черзі на друк",
     color: "var(--alert-text)",
-    soft: "var(--alert-soft)"
+    soft: "var(--alert-soft)",
+    onClick: onNavigateTab ? () => onNavigateTab("queue") : undefined
   })), next && /*#__PURE__*/React.createElement("div", {
     className: "studio-hero"
   }, /*#__PURE__*/React.createElement("div", {
@@ -3688,7 +3702,8 @@ function WorkspaceBody({
   students,
   loadingStudents,
   reloadStudents,
-  aggregateAll
+  aggregateAll,
+  onNavigateTab
 }) {
   if (loadingStudents) return /*#__PURE__*/React.createElement("div", {
     className: "loading-block"
@@ -3720,7 +3735,8 @@ function WorkspaceBody({
     isAdmin: isAdmin,
     students: students,
     me: me,
-    aggregateAll: aggregateAll
+    aggregateAll: aggregateAll,
+    onNavigateTab: onNavigateTab
   });
 }
 
@@ -5145,7 +5161,8 @@ function Shell({
     tab: tab,
     students: students,
     loadingStudents: loadingStudents,
-    reloadStudents: reloadStudents
+    reloadStudents: reloadStudents,
+    onNavigateTab: setTab
   })), section === "workspace" && /*#__PURE__*/React.createElement(WorkspaceBody, {
     ownerId: targetOwnerId,
     ownerProfile: targetOwnerProfile,
@@ -5157,7 +5174,8 @@ function Shell({
     students: students,
     loadingStudents: loadingStudents,
     reloadStudents: reloadStudents,
-    aggregateAll: isAdmin
+    aggregateAll: isAdmin,
+    onNavigateTab: setTab
   }))), profileModalTarget && /*#__PURE__*/React.createElement(ProfileModal, {
     target: profileModalTarget,
     isAdminEditing: profileModalTarget.id !== profile.id,
