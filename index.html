@@ -678,7 +678,10 @@ function ConfirmHost() {
   }, /*#__PURE__*/React.createElement("button", {
     className: "studio-btn",
     onClick: () => respond(false)
-  }, "Скасувати"), /*#__PURE__*/React.createElement("button", {
+  }, "Скасувати"), state.opts.extraLabel && /*#__PURE__*/React.createElement("button", {
+    className: "studio-btn danger",
+    onClick: () => respond("extra")
+  }, state.opts.extraLabel), /*#__PURE__*/React.createElement("button", {
     className: "studio-btn danger",
     onClick: () => respond(true)
   }, state.opts.confirmLabel || "Видалити")))), document.body);
@@ -2928,10 +2931,32 @@ function ScheduleTab({
   const profilesById = useMemo(() => Object.fromEntries(allProfiles.map(p => [p.id, p])), [allProfiles]);
   const studentById = useMemo(() => Object.fromEntries(students.map(s => [s.id, s])), [students]);
   async function deleteLesson(lesson) {
-    const ok = await confirmDialog(`Видалити заняття «${lesson.theme}»?`, {
-      title: "Видалити заняття"
-    });
-    if (!ok) return;
+    if (lesson.series_id) {
+      const seriesCount = lessons.filter(l => l.series_id === lesson.series_id && l.date >= lesson.date).length;
+      const choice = await confirmDialog(`«${lesson.theme}» — частина серії занять, що повторюється щотижня. Видалити тільки це заняття чи це і всі наступні в серії?`, {
+        title: "Видалити заняття",
+        confirmLabel: "Тільки це",
+        extraLabel: seriesCount > 1 ? `Це і наступні (${seriesCount})` : null
+      });
+      if (choice === false) return;
+      if (choice === "extra") {
+        const {
+          error
+        } = await sb.from("lessons").delete().eq("series_id", lesson.series_id).gte("date", lesson.date);
+        if (error) {
+          showToast(error.message, "error");
+          return;
+        }
+        setLessons(ls => ls.filter(l => !(l.series_id === lesson.series_id && l.date >= lesson.date)));
+        showToast("Заняття видалено");
+        return;
+      }
+    } else {
+      const ok = await confirmDialog(`Видалити заняття «${lesson.theme}»?`, {
+        title: "Видалити заняття"
+      });
+      if (!ok) return;
+    }
     const {
       error
     } = await sb.from("lessons").delete().eq("id", lesson.id);
