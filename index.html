@@ -288,6 +288,7 @@
   .payment-chip{ font-size:11.5px; padding:6px 11px; gap:4px; }
   .payment-chip .sub-hint{ font-family:var(--font-mono); font-weight:700; opacity:0.85; }
   .payment-amount{ font-family:var(--font-mono); font-weight:700; font-size:11.5px; color:var(--success-text); }
+  .discount-badge{ font-family:var(--font-mono); font-weight:700; font-size:10px; color:var(--alert-text); background:var(--alert-soft); border-radius:22px; padding:2px 7px; margin-left:5px; cursor:help; }
   .chip{
     display:inline-flex; align-items:center; gap:6px; padding:8px 15px; border-radius:22px; border:1.5px solid var(--line-strong);
     background:var(--card); font-size:13.5px; font-weight:500; cursor:pointer; user-select:none; color:var(--ink-soft);
@@ -2840,7 +2841,10 @@ function AttendanceControls({
     className: "sub-hint"
   }, " ", subscription.remaining_lessons, "/", subscription.total_lessons)))), status === "present" && record.payment_method && /*#__PURE__*/React.createElement("span", {
     className: "payment-amount"
-  }, formatMoney(record.amount)));
+  }, formatMoney(record.amount)), status === "present" && ["card", "cash"].includes(record.payment_method) && lesson.price_amount != null && record.amount < lesson.price_amount && /*#__PURE__*/React.createElement("span", {
+    className: "discount-badge",
+    title: "У цей день в учня 2+ оплачених занять — знижка 10% на дорожче з них"
+  }, "−10%"));
 }
 
 // ---------------------------------------------------------------
