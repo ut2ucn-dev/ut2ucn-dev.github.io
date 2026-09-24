@@ -60,36 +60,72 @@
   }
   .studio-shell{ position:relative; display:flex; min-height:100vh; max-width:1240px; margin:0 auto; }
   .studio-sidebar{
-    width:232px; flex-shrink:0; padding:24px 16px; display:flex; flex-direction:column; gap:4px;
+    width:264px; flex-shrink:0; padding:22px 14px; display:flex; flex-direction:column; gap:2px;
     background:var(--card); border-right:1px solid var(--line); box-shadow:1px 0 0 var(--line);
   }
-  .studio-brand{ padding:2px 6px 20px; display:flex; align-items:center; gap:10px; }
+  .studio-brand{ padding:4px 10px 22px; display:flex; align-items:center; gap:11px; }
   .studio-brand-title{ font-family:var(--font-display); font-weight:800; font-size:19px; letter-spacing:-0.02em; line-height:1.15; color:var(--ink); }
-  .studio-brand-sub{ font-family:var(--font-mono); font-size:9.5px; color:var(--ink-soft); margin-top:3px; letter-spacing:0.02em; text-transform:uppercase; }
-  .section-switch{ display:flex; flex-direction:column; gap:2px; border:1.5px solid var(--line); border-radius:13px; padding:4px; margin-bottom:16px; background:var(--card); }
-  .section-switch button{
-    font-family:var(--font-body); font-size:13.5px; font-weight:600; border:none; background:transparent; color:var(--ink-soft);
-    padding:9px 12px; border-radius:10px; cursor:pointer; text-align:left; display:flex; align-items:center; gap:8px; transition:background .15s ease, color .15s ease;
+  .studio-brand-sub{ font-family:var(--font-mono); font-size:9.5px; color:var(--ink-soft); margin-top:2px; letter-spacing:0.03em; text-transform:uppercase; }
+  .sidebar-profile{
+    display:flex; align-items:center; gap:10px; padding:10px; border-radius:14px; cursor:pointer;
+    margin-bottom:18px; transition:background .15s ease, border-color .15s ease; border:1px solid transparent;
   }
-  .section-switch button.active{ background:var(--brand); color:#fff; box-shadow:0 3px 10px rgba(91,79,224,0.32); }
-  .nav-group{ display:flex; flex-direction:column; gap:5px; }
+  .sidebar-profile:hover{ background:var(--paper); border-color:var(--line); }
+  .sidebar-profile-name{ font-size:13.5px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  /* Mode switch: two full-width rows with a one-line description each, so
+     what's behind each option is legible before clicking (replaces the
+     old two-pill section-switch, which just said "Мій кабінет"/"Адмін"
+     with no hint of what either contained). */
+  .mode-switch{ display:flex; flex-direction:column; gap:6px; margin-bottom:20px; }
+  .mode-btn{
+    display:flex; align-items:flex-start; gap:11px; text-align:left; width:100%;
+    border:1.5px solid var(--line); background:var(--card); border-radius:14px; padding:11px 12px;
+    cursor:pointer; transition:border-color .15s ease, background .15s ease, box-shadow .15s ease;
+  }
+  .mode-btn:hover{ border-color:var(--brand); background:var(--brand-soft); }
+  .mode-btn .mode-ic{
+    width:32px; height:32px; border-radius:10px; flex-shrink:0; display:flex; align-items:center; justify-content:center;
+    background:var(--brand-soft); color:var(--brand-text); margin-top:1px; transition:background .15s ease, color .15s ease;
+  }
+  .mode-btn-title{ font-size:13.5px; font-weight:700; color:var(--ink); line-height:1.3; }
+  .mode-btn-sub{ font-size:11px; color:var(--ink-soft); margin-top:2px; line-height:1.35; }
+  .mode-btn.active{ border-color:var(--brand); background:var(--brand); box-shadow:0 4px 14px rgba(91,79,224,0.28); }
+  .mode-btn.active .mode-ic{ background:rgba(255,255,255,0.2); color:#fff; }
+  .mode-btn.active .mode-btn-title{ color:#fff; }
+  .mode-btn.active .mode-btn-sub{ color:rgba(255,255,255,0.78); }
+  /* "viewing as" chip: sits right in the sidebar next to the mode switch,
+     so it's always obvious you're still inside "Адміністрування", just
+     scoped to one teacher — replaces the old banner that lived in the
+     main content area (easy to miss/scroll past). */
+  .viewing-chip{ display:flex; align-items:center; gap:9px; background:var(--sand); border-radius:13px; padding:8px 9px 8px 8px; margin:-4px 0 16px; }
+  .viewing-chip-label{ font-family:var(--font-mono); font-size:8.5px; text-transform:uppercase; letter-spacing:0.04em; color:var(--sand-text); }
+  .viewing-chip-name{ font-size:12.5px; font-weight:700; color:var(--navy); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  :root.theme-dark .viewing-chip-name{ color:var(--ink); }
+  .viewing-chip-close{
+    margin-left:auto; width:22px; height:22px; border-radius:50%; border:none; background:var(--card);
+    color:var(--ink-soft); display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; transition:background .15s ease, color .15s ease;
+  }
+  .viewing-chip-close:hover{ background:var(--alert-soft); color:var(--alert-text); }
+  .nav-group{ display:flex; flex-direction:column; gap:3px; margin-bottom:16px; }
   .studio-nav-btn{
-    display:flex; align-items:center; gap:11px; padding:11px 13px; border-radius:12px; border:none; background:transparent;
-    font-family:var(--font-body); font-size:14.5px; font-weight:600; color:var(--ink-soft); cursor:pointer; text-align:left;
-    width:100%; transition:background .15s ease, color .15s ease, transform .15s ease;
+    display:flex; align-items:center; gap:11px; padding:10px 12px; border-radius:11px; border:none; background:transparent;
+    font-family:var(--font-body); font-size:14px; font-weight:600; color:var(--ink-soft); cursor:pointer; text-align:left;
+    width:100%; transition:background .15s ease, color .15s ease;
   }
-  .studio-nav-btn:hover{ background:var(--brand-soft); color:var(--brand-text); transform:translateX(1px); }
-  .studio-nav-btn.active{ background:var(--brand); color:#fff; box-shadow:0 4px 12px rgba(91,79,224,0.35); }
+  .studio-nav-btn:hover{ background:var(--paper); color:var(--ink); }
+  .studio-nav-btn.active{ background:var(--brand-soft); color:var(--brand-text); }
+  .nav-ic{ color:var(--ink-soft); flex-shrink:0; display:flex; transition:color .15s ease; }
+  .studio-nav-btn.active .nav-ic{ color:var(--brand-text); }
   .studio-nav-badge{
-    margin-left:auto; font-family:var(--font-mono); font-size:10.5px; font-weight:700; background:var(--alert); color:#fff;
+    margin-left:auto; font-family:var(--font-mono); font-size:10.5px; font-weight:700; background:var(--sand); color:var(--sand-text);
     border-radius:22px; padding:2px 7px; min-width:19px; text-align:center; line-height:1.4;
   }
-  .studio-nav-btn.active .studio-nav-badge{ background:rgba(255,255,255,0.3); }
-  .studio-sync{ margin-top:auto; padding:10px 8px 2px; font-family:var(--font-mono); font-size:10px; color:var(--ink-soft); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:flex; align-items:center; gap:6px; }
+  .studio-nav-btn.active .studio-nav-badge{ background:var(--brand); color:#fff; }
+  .studio-sync{ margin-top:auto; padding:12px 10px 4px; font-family:var(--font-mono); font-size:10px; color:var(--ink-soft); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:flex; align-items:center; gap:6px; }
   .studio-sync-dot{ width:6px; height:6px; border-radius:50%; background:var(--brand); flex-shrink:0; transition:background .2s ease; }
   .studio-sync-dot.error{ background:var(--alert); }
   .studio-sync-dot.pulsing{ animation:dotPulse 1s ease-in-out infinite; }
-  .logout-btn{ margin:2px 8px 0; justify-content:flex-start; color:var(--ink-soft); }
+  .logout-btn{ margin:2px 4px 0; justify-content:flex-start; color:var(--ink-soft); }
   .logout-btn:hover{ color:var(--alert-text); background:var(--alert-soft); }
   .studio-main{ flex:1; min-width:0; padding:26px 30px 60px; overflow:hidden; }
   .tab-fade{ animation:fadeIn .28s ease both; }
@@ -130,7 +166,7 @@
     border-radius:11px; padding:10px 14px; font-size:12.5px; font-weight:600; margin-bottom:14px;
   }
 
-  .rate-table-wrap{ overflow-x:auto; border:1px solid var(--line); border-radius:14px; box-shadow:0 1px 2px rgba(23,25,35,0.04); }
+  .rate-table-wrap{ overflow-x:auto; border:1px solid var(--line); border-radius:16px; box-shadow:0 1px 2px rgba(23,25,35,0.04); }
   .rate-table{ border-collapse:collapse; width:100%; min-width:820px; }
   .rate-table th, .rate-table td{ padding:9px 10px; border-bottom:1px solid var(--line); text-align:left; }
   .rate-table th{ font-family:var(--font-mono); font-size:10px; text-transform:uppercase; letter-spacing:0.02em; color:var(--ink-soft); background:var(--paper); white-space:nowrap; }
@@ -183,50 +219,57 @@
   .datecard-day{ font-family:var(--font-display); font-size:23px; font-weight:700; line-height:1; color:var(--ink); }
   .datecard-weekday{ font-family:var(--font-mono); font-size:9px; color:var(--ink-soft); margin-top:3px; letter-spacing:0.04em; }
   .datecard-time{ font-family:var(--font-mono); font-size:10.5px; font-weight:700; color:var(--brand-text); margin-top:4px; padding-top:4px; border-top:1px solid var(--line); }
+  /* Redesigned lesson card: a plain header (time + theme + actions), a
+     separate meta row for tags, and a roster where each student gets its
+     own block — replaces the old single dense flex row that crammed date
+     card, theme, tags, actions, students and (for admin) attendance/
+     payment chips all together. */
   .lesson-card{
-    border:1px solid var(--line); background:var(--card); border-radius:16px; padding:16px 18px 16px 22px; margin-bottom:14px;
-    display:flex; gap:16px; animation:fadeInUp .3s ease both; transition:border-color .15s ease, box-shadow .15s ease;
+    border:1px solid var(--line); background:var(--card); border-radius:18px; margin-bottom:14px;
+    animation:fadeInUp .3s ease both; transition:border-color .15s ease, box-shadow .15s ease;
     position:relative; overflow:hidden; box-shadow:0 1px 2px rgba(23,25,35,0.04);
   }
   .lesson-card::before{
     content:""; position:absolute; left:0; top:0; bottom:0; width:5px;
     background:var(--lesson-accent, var(--line-strong));
   }
-  .lesson-card:hover{ border-color:var(--line-strong); box-shadow:0 4px 16px rgba(23,25,35,0.07); }
-  .lesson-card.past{ opacity:0.6; }
-  .lesson-main{ flex:1; min-width:0; }
-  .lesson-top{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
-  .lesson-heading{ min-width:0; }
+  .lesson-card:hover{ border-color:var(--line-strong); box-shadow:0 6px 20px rgba(23,25,35,0.08); }
+  .lesson-card.past{ opacity:0.62; }
+  .lesson-card-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:14px; padding:18px 18px 0 22px; }
+  .lesson-head-left{ display:flex; align-items:baseline; gap:12px; min-width:0; }
+  .lesson-time-block{ font-family:var(--font-mono); font-size:13px; font-weight:700; color:var(--brand-text); background:var(--brand-soft); border-radius:9px; padding:4px 9px; flex-shrink:0; }
   .lesson-theme{ font-family:var(--font-display); font-size:17.5px; font-weight:700; line-height:1.3; }
-  .lesson-meta-row{ display:flex; align-items:center; flex-wrap:wrap; gap:10px; margin-top:6px; }
+  .lesson-meta-row{ display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-top:6px; padding:10px 18px 0 22px; }
   .lesson-time{ font-family:var(--font-mono); font-size:11.5px; color:var(--ink-soft); display:inline-flex; align-items:center; gap:4px; }
-  .lesson-progress{ font-family:var(--font-mono); font-weight:700; font-size:10.5px; color:var(--brand-text); background:var(--brand-soft); border-radius:22px; padding:3px 9px; }
   .lesson-actions{ display:flex; gap:3px; flex-shrink:0; }
   .lesson-series-tag{ display:inline-flex; align-items:center; gap:4px; font-family:var(--font-mono); font-size:10px; color:var(--brand-text); }
-  .course-tag{
+  .course-tag, .tag.course{
     font-family:var(--font-mono); font-weight:700; font-size:10px; color:var(--sand-text); background:var(--sand);
-    border-radius:8px; padding:3px 8px; text-transform:uppercase; letter-spacing:0.02em;
+    border-radius:8px; padding:4px 9px; text-transform:uppercase; letter-spacing:0.02em;
   }
-  .format-tag{
+  .format-tag, .tag.format{
     font-family:var(--font-mono); font-weight:700; font-size:10px; color:var(--brand-text); background:var(--brand-soft);
-    border-radius:8px; padding:3px 8px;
+    border-radius:8px; padding:4px 9px;
   }
-  .format-tag.individual{ color:var(--alert-text); background:var(--alert-soft); }
-  .format-tag.online-print{ color:#8B5CF6; background:rgba(139,92,246,0.14); }
-  .format-tag.online-no-print{ color:var(--sand-text); background:var(--sand); }
-  .teacher-tag{
-    display:inline-flex; align-items:center; gap:4px; font-family:var(--font-mono); font-weight:600; font-size:10px;
-    color:var(--ink-soft); background:var(--paper); border:1px solid var(--line); border-radius:8px; padding:3px 8px;
-  }
-  .teacher-tag{
+  .format-tag.individual, .tag.format.individual{ color:var(--alert-text); background:var(--alert-soft); }
+  .format-tag.online-print, .tag.format.online-print{ color:#8B5CF6; background:rgba(139,92,246,0.14); }
+  .format-tag.online-no-print, .tag.format.online-no-print{ color:var(--sand-text); background:var(--sand); }
+  .teacher-tag, .tag.teacher{
     display:inline-flex; align-items:center; gap:4px; font-family:var(--font-mono); font-weight:700; font-size:10px;
-    color:var(--navy); background:var(--sand); border-radius:8px; padding:3px 8px 3px 6px;
+    color:var(--navy); background:var(--sand); border-radius:8px; padding:4px 9px 4px 7px;
   }
-  :root.theme-dark .teacher-tag{ color:var(--ink); }
-  .student-panel{ margin-top:14px; background:var(--paper); border-radius:12px; padding:6px 12px; }
-  .student-row{ display:flex; align-items:center; gap:11px; padding:10px 0; border-top:1px solid var(--line); flex-wrap:wrap; }
-  .student-row:first-child{ border-top:none; }
-  .student-name{ font-size:14px; font-weight:600; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  :root.theme-dark .teacher-tag, :root.theme-dark .tag.teacher{ color:var(--ink); }
+  .tag.progress{ font-family:var(--font-mono); font-weight:700; font-size:10.5px; color:var(--brand-text); background:var(--brand-soft); border-radius:22px; padding:4px 10px; margin-left:auto; }
+  .tag.series{ display:inline-flex; align-items:center; gap:4px; font-family:var(--font-mono); font-size:10px; color:var(--brand-text); }
+  /* Roster: one visually separated block per student instead of one long
+     wrapping row — the avatar/name/status-pill line stays compact, and
+     (for admin) the attendance/payment controls live in their own tinted
+     sub-panel below it rather than tacked onto the same line. */
+  .roster{ margin:14px 20px 16px 22px; border-top:1px solid var(--line); }
+  .roster-row{ padding:12px 0; border-bottom:1px solid var(--line); }
+  .roster-row:last-child{ border-bottom:none; }
+  .roster-top{ display:flex; align-items:center; gap:11px; flex-wrap:wrap; }
+  .roster-name, .student-name{ font-size:14px; font-weight:600; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .info-banner{
     display:flex; align-items:center; gap:8px; background:var(--brand-soft); color:var(--brand-text); font-size:12.5px; font-weight:500;
     border-radius:12px; padding:10px 14px; margin-bottom:18px;
@@ -272,11 +315,10 @@
   .trial-pill:active{ transform:scale(0.95); }
   .trial-pill.off{ color:#8B5CF6; background:rgba(139,92,246,0.12); }
   .printed-by{ font-family:var(--font-mono); font-size:9.5px; color:var(--ink-soft); flex-basis:100%; padding-left:2px; }
-  .attendance-controls{
-    display:flex; align-items:center; gap:8px; flex-wrap:wrap; flex-basis:100%;
-    margin-top:8px; padding-top:8px; border-top:1px dashed var(--line);
-  }
-  .attend-switch{ display:inline-flex; border:1.5px solid var(--line-strong); border-radius:11px; padding:2px; gap:2px; flex-shrink:0; }
+  .attend-block{ margin:10px 0 0 49px; background:var(--paper); border-radius:12px; padding:10px 12px; display:flex; flex-direction:column; gap:9px; }
+  .attend-line{ display:flex; align-items:center; gap:9px; flex-wrap:wrap; }
+  .attend-line-label{ font-family:var(--font-mono); font-size:9px; text-transform:uppercase; letter-spacing:0.04em; color:var(--ink-soft); min-width:48px; flex-shrink:0; }
+  .attend-switch{ display:inline-flex; border:1.5px solid var(--line-strong); border-radius:11px; padding:2px; gap:2px; flex-shrink:0; background:var(--card); }
   .attend-btn{
     font-family:var(--font-mono); font-size:10.5px; font-weight:700; border:none; background:transparent; color:var(--ink-soft);
     padding:6px 10px; border-radius:9px; cursor:pointer; transition:background .15s ease, color .15s ease;
@@ -287,7 +329,7 @@
   .attend-btn.active.excused{ background:var(--sand-text); color:#fff; }
   .payment-chip{ font-size:11.5px; padding:6px 11px; gap:4px; }
   .payment-chip .sub-hint{ font-family:var(--font-mono); font-weight:700; opacity:0.85; }
-  .payment-amount{ font-family:var(--font-mono); font-weight:700; font-size:11.5px; color:var(--success-text); }
+  .payment-amount{ font-family:var(--font-mono); font-weight:700; font-size:11.5px; color:var(--success-text); margin-left:auto; }
   .discount-badge{ font-family:var(--font-mono); font-weight:700; font-size:10px; color:var(--alert-text); background:var(--alert-soft); border-radius:22px; padding:2px 7px; margin-left:5px; cursor:help; }
   .chip{
     display:inline-flex; align-items:center; gap:6px; padding:8px 15px; border-radius:22px; border:1.5px solid var(--line-strong);
@@ -305,7 +347,7 @@
   .empty-mascot{ display:flex; justify-content:center; margin-bottom:14px; font-size:48px; animation:floaty 3s ease-in-out infinite; }
   .empty-state-title{ font-family:var(--font-display); font-size:16.5px; font-weight:700; color:var(--ink); margin-bottom:5px; }
   .empty-state-sub{ font-size:13px; max-width:320px; margin:0 auto; }
-  .students-list{ border:1px solid var(--line); border-radius:14px; overflow:hidden; background:var(--card); box-shadow:0 1px 2px rgba(23,25,35,0.04); }
+  .students-list{ border:1px solid var(--line); border-radius:16px; overflow:hidden; background:var(--card); box-shadow:0 1px 2px rgba(23,25,35,0.04); }
   .students-row{ display:flex; align-items:center; gap:14px; padding:13px 16px; border-bottom:1px solid var(--line); animation:fadeInUp .25s ease both; transition:background .15s ease; }
   .students-row:hover{ background:var(--paper); }
   .students-row:last-child{ border-bottom:none; }
@@ -328,8 +370,8 @@
   .avatar.sm{ width:28px; height:28px; font-size:11px; box-shadow:0 0 0 1.5px var(--card), 0 0 0 2.5px var(--brand-soft); flex-shrink:0; }
   .students-meta{ font-family:var(--font-mono); font-size:11.5px; color:var(--ink-soft); }
   .students-sub{ font-size:12.5px; color:var(--ink-soft); margin-top:2px; }
-  .print-item{ display:flex; gap:14px; align-items:center; border:1px solid var(--line); background:var(--card); border-radius:16px; padding:14px 16px; margin-bottom:12px; animation:fadeInUp .3s ease both; transition:box-shadow .15s ease, border-color .15s ease; flex-wrap:wrap; box-shadow:0 1px 2px rgba(23,25,35,0.04); }
-  .print-item:hover{ box-shadow:0 4px 16px rgba(23,25,35,0.08); border-color:var(--line-strong); }
+  .print-item{ display:flex; gap:14px; align-items:center; border:1px solid var(--line); background:var(--card); border-radius:18px; padding:14px 18px; margin-bottom:12px; animation:fadeInUp .3s ease both; transition:box-shadow .15s ease, border-color .15s ease; flex-wrap:wrap; box-shadow:0 1px 2px rgba(23,25,35,0.04); }
+  .print-item:hover{ box-shadow:0 6px 20px rgba(23,25,35,0.08); border-color:var(--line-strong); }
   .print-thumb{
     width:58px; height:58px; border-radius:12px; flex-shrink:0; cursor:pointer; border:2px dashed var(--line-strong);
     transition:transform .15s ease, border-color .15s ease; background:var(--paper); position:relative; overflow:hidden;
@@ -419,15 +461,12 @@
   .tel-link{ color:var(--brand-text); text-decoration:none; display:inline-flex; align-items:center; gap:3px; }
   .tel-link:hover{ text-decoration:underline; }
 
-  .admin-view-bar{ display:flex; align-items:center; gap:14px; padding:0 0 18px; flex-wrap:wrap; }
-  .admin-view-title{ font-family:var(--font-mono); font-size:11.5px; color:var(--ink-soft); display:flex; align-items:center; gap:6px; }
-
   .calendar-header{ display:flex; align-items:center; gap:10px; margin-bottom:18px; }
   .calendar-month-label{ font-family:var(--font-display); font-size:15.5px; font-weight:700; min-width:190px; text-align:center; }
 
   .week-list{ display:flex; flex-direction:column; gap:10px; }
   .week-day{
-    border:1px solid var(--line); background:var(--card); border-radius:14px; padding:14px 16px;
+    border:1px solid var(--line); background:var(--card); border-radius:16px; padding:14px 16px;
     animation:fadeInUp .25s ease both; box-shadow:0 1px 2px rgba(23,25,35,0.04);
   }
   .week-day.today{ border-color:var(--brand); box-shadow:0 0 0 1px var(--brand); }
@@ -513,9 +552,10 @@
     .nav-group{ flex-direction:row; flex-wrap:wrap; }
     .studio-nav-btn{ flex:1; justify-content:center; }
     .studio-sync{ display:none; }
-    .section-switch{ flex-direction:row; }
+    .mode-switch{ flex-direction:row; }
+    .mode-btn-sub{ display:none; }
+    .viewing-chip{ margin-top:0; }
     .studio-main{ padding:18px 16px 40px; }
-    .admin-view-bar{ padding:14px 0 0; }
 
     /* Prevent iOS Safari's auto-zoom-on-focus (triggered by inputs under 16px),
        which otherwise misaligns fixed-position modals right after a field is tapped. */
@@ -2821,8 +2861,12 @@ function AttendanceControls({
   const status = record ? record.status : null;
   const unpaid = status === "present" && !record.payment_method;
   return /*#__PURE__*/React.createElement("div", {
-    className: "attendance-controls"
+    className: "attend-block"
   }, /*#__PURE__*/React.createElement("div", {
+    className: "attend-line"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "attend-line-label"
+  }, "Статус"), /*#__PURE__*/React.createElement("div", {
     className: "attend-switch"
   }, ATTENDANCE_STATUSES.map(st => /*#__PURE__*/React.createElement("button", {
     key: st.value,
@@ -2830,7 +2874,11 @@ function AttendanceControls({
     title: st.value === "present" ? "Присутній" : st.value === "absent" ? "Відсутній" : "Відсутній з поважної причини",
     className: "attend-btn" + (status === st.value ? " active " + st.value + (st.value === "present" && unpaid ? " unpaid" : "") : ""),
     onClick: () => onMark(lesson.id, student.id, st.value, st.value === "present" ? record && record.payment_method || null : null)
-  }, st.label))), status === "present" && /*#__PURE__*/React.createElement("div", {
+  }, st.label)))), status === "present" && /*#__PURE__*/React.createElement("div", {
+    className: "attend-line"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "attend-line-label"
+  }, "Оплата"), /*#__PURE__*/React.createElement("div", {
     className: "chip-wrap"
   }, PAYMENT_METHODS.map(pm => /*#__PURE__*/React.createElement("button", {
     key: pm.value,
@@ -2839,12 +2887,12 @@ function AttendanceControls({
     onClick: () => onMark(lesson.id, student.id, "present", pm.value)
   }, pm.label, pm.value === "subscription" && subscription && /*#__PURE__*/React.createElement("span", {
     className: "sub-hint"
-  }, " ", subscription.remaining_lessons, "/", subscription.total_lessons)))), status === "present" && record.payment_method && /*#__PURE__*/React.createElement("span", {
+  }, " ", subscription.remaining_lessons, "/", subscription.total_lessons)))), record.payment_method && /*#__PURE__*/React.createElement("span", {
     className: "payment-amount"
-  }, formatMoney(record.amount)), status === "present" && ["card", "cash"].includes(record.payment_method) && lesson.price_amount != null && record.amount < lesson.price_amount && /*#__PURE__*/React.createElement("span", {
+  }, formatMoney(record.amount)), ["card", "cash"].includes(record.payment_method) && lesson.price_amount != null && record.amount < lesson.price_amount && /*#__PURE__*/React.createElement("span", {
     className: "discount-badge",
     title: "У цей день в учня 2+ оплачених занять — знижка 10% на дорожче з них"
-  }, "−10%"));
+  }, "−10%")));
 }
 
 // ---------------------------------------------------------------
@@ -3021,48 +3069,16 @@ function ScheduleTab({
         "--lesson-accent": accent
       }
     }, /*#__PURE__*/React.createElement("div", {
-      className: "datecard"
+      className: "lesson-card-head"
     }, /*#__PURE__*/React.createElement("div", {
-      className: "datecard-top"
-    }, dateCardParts(lesson.date).month), /*#__PURE__*/React.createElement("div", {
-      className: "datecard-body"
+      className: "lesson-head-left"
+    }, lesson.time && /*#__PURE__*/React.createElement("div", {
+      className: "lesson-time-block"
     }, /*#__PURE__*/React.createElement("div", {
-      className: "datecard-day"
-    }, dateCardParts(lesson.date).day), /*#__PURE__*/React.createElement("div", {
-      className: "datecard-weekday"
-    }, dateCardParts(lesson.date).weekday), lesson.time && /*#__PURE__*/React.createElement("div", {
-      className: "datecard-time"
-    }, lesson.time))), /*#__PURE__*/React.createElement("div", {
-      className: "lesson-main"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "lesson-top"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "lesson-heading"
-    }, /*#__PURE__*/React.createElement("div", {
+      className: "lesson-time-num"
+    }, lesson.time)), /*#__PURE__*/React.createElement("div", {
       className: "lesson-theme"
-    }, lesson.theme), /*#__PURE__*/React.createElement("div", {
-      className: "lesson-meta-row"
-    }, rowOwnerProfile && /*#__PURE__*/React.createElement("span", {
-      className: "teacher-tag"
-    }, /*#__PURE__*/React.createElement(Icon, {
-      name: "user",
-      size: 10
-    }), " ", fullName(rowOwnerProfile)), lesson.course && /*#__PURE__*/React.createElement("span", {
-      className: "course-tag",
-      style: {
-        color: courseAccent(lesson.course).color,
-        background: courseAccent(lesson.course).soft
-      }
-    }, lesson.course), lesson.format && /*#__PURE__*/React.createElement("span", {
-      className: "format-tag" + formatTagClass(lesson.format)
-    }, formatLabel(lesson.format)), printable && present.length > 0 && /*#__PURE__*/React.createElement("span", {
-      className: "lesson-progress"
-    }, doneCount, "/", present.length, " надруковано"), lesson.series_id && /*#__PURE__*/React.createElement("span", {
-      className: "lesson-series-tag"
-    }, /*#__PURE__*/React.createElement(Icon, {
-      name: "repeat",
-      size: 11
-    }), " щотижня"))), canEdit && /*#__PURE__*/React.createElement("div", {
+    }, lesson.theme)), canEdit && /*#__PURE__*/React.createElement("div", {
       className: "lesson-actions"
     }, /*#__PURE__*/React.createElement("button", {
       className: "studio-btn ghost",
@@ -3079,15 +3095,39 @@ function ScheduleTab({
     }, /*#__PURE__*/React.createElement(Icon, {
       name: "trash",
       size: 16
-    })))), present.length > 0 && /*#__PURE__*/React.createElement("div", {
-      className: "student-panel"
+    })))), /*#__PURE__*/React.createElement("div", {
+      className: "lesson-meta-row"
+    }, rowOwnerProfile && /*#__PURE__*/React.createElement("span", {
+      className: "tag teacher"
+    }, /*#__PURE__*/React.createElement(Icon, {
+      name: "user",
+      size: 10
+    }), " ", fullName(rowOwnerProfile)), lesson.course && /*#__PURE__*/React.createElement("span", {
+      className: "tag course",
+      style: {
+        color: courseAccent(lesson.course).color,
+        background: courseAccent(lesson.course).soft
+      }
+    }, lesson.course), lesson.format && /*#__PURE__*/React.createElement("span", {
+      className: "tag format" + formatTagClass(lesson.format)
+    }, formatLabel(lesson.format)), printable && present.length > 0 && /*#__PURE__*/React.createElement("span", {
+      className: "tag progress"
+    }, doneCount, "/", present.length, " надруковано"), lesson.series_id && /*#__PURE__*/React.createElement("span", {
+      className: "tag series"
+    }, /*#__PURE__*/React.createElement(Icon, {
+      name: "repeat",
+      size: 11
+    }), " щотижня")), present.length > 0 && /*#__PURE__*/React.createElement("div", {
+      className: "roster"
     }, present.map(s => {
       const w = findWork(works, lesson.id, s.id);
       const printed = w && w.printed;
       const trialEligible = lessons.filter(l => (l.student_ids || []).includes(s.id)).length <= 1;
       return /*#__PURE__*/React.createElement("div", {
         key: s.id,
-        className: "student-row"
+        className: "roster-row"
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "roster-top"
       }, /*#__PURE__*/React.createElement("div", {
         className: "avatar sm"
       }, canEdit && s.photo ? /*#__PURE__*/React.createElement("img", {
@@ -3099,7 +3139,7 @@ function ScheduleTab({
         onUpload: f => attachPhoto(lesson.id, s.id, f),
         onPreview: setPreview
       }), /*#__PURE__*/React.createElement("div", {
-        className: "student-name"
+        className: "roster-name"
       }, s.name), (trialEligible || w && w.trial) && /*#__PURE__*/React.createElement("button", {
         className: "trial-pill" + (w && w.trial ? "" : " off"),
         title: "Пробне заняття для цього учня",
@@ -3130,14 +3170,14 @@ function ScheduleTab({
         size: 11
       }), " ", printed ? "Надруковано" : "Не надруковано"), printable && printed && w.printed_by_name && /*#__PURE__*/React.createElement("span", {
         className: "printed-by"
-      }, "Статус змінив: ", w.printed_by_name), isAdmin && /*#__PURE__*/React.createElement(AttendanceControls, {
+      }, "Статус змінив: ", w.printed_by_name)), isAdmin && /*#__PURE__*/React.createElement(AttendanceControls, {
         lesson: lesson,
         student: s,
         record: findAttendance(attendance, lesson.id, s.id),
         subscription: findActiveSubscription(subscriptions, s.id, lesson.course),
         onMark: markAttendance
       }));
-    }))));
+    })));
   }
   async function toggleTrial(lessonId, studentId, existingWork) {
     const nextTrial = !(existingWork && existingWork.trial);
@@ -5038,13 +5078,7 @@ function Shell({
     theme: theme,
     onToggle: onToggleTheme
   })), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      alignItems: "center",
-      gap: 9,
-      padding: "0 6px 16px",
-      cursor: "pointer"
-    },
+    className: "sidebar-profile",
     onClick: () => setProfileModalTarget(profile),
     title: "Редагувати профіль"
   }, /*#__PURE__*/React.createElement("div", {
@@ -5056,90 +5090,138 @@ function Shell({
       minWidth: 0
     }
   }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 13,
-      fontWeight: 600,
-      overflow: "hidden",
-      textOverflow: "ellipsis",
-      whiteSpace: "nowrap"
-    }
+    className: "sidebar-profile-name"
   }, fullName(profile)), /*#__PURE__*/React.createElement("span", {
     className: "role-badge" + (isSuperAdmin ? " super" : isAdmin ? "" : " me")
   }, isSuperAdmin ? "Суперадмін" : isAdmin ? "Адмін" : "Викладач"))), isAdmin && /*#__PURE__*/React.createElement("div", {
-    className: "section-switch"
+    className: "mode-switch"
   }, /*#__PURE__*/React.createElement("button", {
-    className: section === "workspace" ? "active" : "",
+    className: "mode-btn" + (section === "workspace" ? " active" : ""),
     onClick: () => selectSection("workspace")
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "mode-ic"
   }, /*#__PURE__*/React.createElement(Icon, {
-    name: "user",
-    size: 15
-  }), " Мій кабінет"), /*#__PURE__*/React.createElement("button", {
-    className: section === "admin" ? "active" : "",
+    name: "calendar",
+    size: 16
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "mode-btn-title"
+  }, "Робочий кабінет"), /*#__PURE__*/React.createElement("div", {
+    className: "mode-btn-sub"
+  }, "Розклад, учні, черга друку, зарплата"))), /*#__PURE__*/React.createElement("button", {
+    className: "mode-btn" + (section === "admin" ? " active" : ""),
     onClick: () => selectSection("admin")
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "mode-ic"
   }, /*#__PURE__*/React.createElement(Icon, {
     name: "shield",
-    size: 15
-  }), " Адмін")), section === "admin" && !adminTeacher && /*#__PURE__*/React.createElement("div", {
-    className: "nav-group",
+    size: 16
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "mode-btn-title"
+  }, "Адміністрування"), /*#__PURE__*/React.createElement("div", {
+    className: "mode-btn-sub"
+  }, isSuperAdmin ? "Викладачі, календар, тарифи, звіт" : "Викладачі, календар студії")))), section === "admin" && adminTeacher && /*#__PURE__*/React.createElement("div", {
+    className: "viewing-chip"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "avatar",
     style: {
-      marginBottom: 14
-    }
+      width: 26,
+      height: 26,
+      fontSize: 10,
+      cursor: "pointer"
+    },
+    onClick: () => setProfileModalTarget(adminTeacher),
+    title: "Редагувати профіль викладача"
+  }, adminTeacher.photo ? /*#__PURE__*/React.createElement("img", {
+    src: adminTeacher.photo
+  }) : initials(adminTeacher)), /*#__PURE__*/React.createElement("div", {
+    style: {
+      minWidth: 0,
+      cursor: "pointer"
+    },
+    onClick: () => setProfileModalTarget(adminTeacher),
+    title: "Редагувати профіль викладача"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "viewing-chip-label"
+  }, "Переглядаєте як"), /*#__PURE__*/React.createElement("div", {
+    className: "viewing-chip-name"
+  }, fullName(adminTeacher))), /*#__PURE__*/React.createElement("button", {
+    className: "viewing-chip-close",
+    onClick: () => setAdminTeacher(null),
+    title: "Повернутись до списку викладачів"
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "x",
+    size: 13
+  }))), section === "admin" && !adminTeacher && /*#__PURE__*/React.createElement("div", {
+    className: "nav-group"
   }, /*#__PURE__*/React.createElement("button", {
     className: "studio-nav-btn" + (adminSection === "users" ? " active" : ""),
     onClick: () => setAdminSection("users")
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "nav-ic"
   }, /*#__PURE__*/React.createElement(Icon, {
     name: "users",
     size: 17
-  }), " Викладачі"), /*#__PURE__*/React.createElement("button", {
+  })), " Викладачі"), /*#__PURE__*/React.createElement("button", {
     className: "studio-nav-btn" + (adminSection === "calendar" ? " active" : ""),
     onClick: () => setAdminSection("calendar")
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "nav-ic"
   }, /*#__PURE__*/React.createElement(Icon, {
     name: "calendar",
     size: 17
-  }), " Календар"), isSuperAdmin && /*#__PURE__*/React.createElement("button", {
+  })), " Календар"), isSuperAdmin && /*#__PURE__*/React.createElement("button", {
     className: "studio-nav-btn" + (adminSection === "rates" ? " active" : ""),
     onClick: () => setAdminSection("rates")
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "nav-ic"
   }, /*#__PURE__*/React.createElement(Icon, {
     name: "money",
     size: 17
-  }), " Тарифи"), isSuperAdmin && /*#__PURE__*/React.createElement("button", {
+  })), " Тарифи"), isSuperAdmin && /*#__PURE__*/React.createElement("button", {
     className: "studio-nav-btn" + (adminSection === "report" ? " active" : ""),
     onClick: () => setAdminSection("report")
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "nav-ic"
   }, /*#__PURE__*/React.createElement(Icon, {
     name: "chart",
     size: 17
-  }), " Звіт")), (section === "workspace" || section === "admin" && adminTeacher) && /*#__PURE__*/React.createElement("div", {
-    className: "nav-group",
-    style: {
-      marginBottom: 14
-    }
+  })), " Звіт")), (section === "workspace" || section === "admin" && adminTeacher) && /*#__PURE__*/React.createElement("div", {
+    className: "nav-group"
   }, /*#__PURE__*/React.createElement("button", {
     className: "studio-nav-btn" + (tab === "schedule" ? " active" : ""),
     onClick: () => setTab("schedule")
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "nav-ic"
   }, /*#__PURE__*/React.createElement(Icon, {
     name: "calendar",
     size: 17
-  }), " Розклад"), /*#__PURE__*/React.createElement("button", {
+  })), " Розклад"), /*#__PURE__*/React.createElement("button", {
     className: "studio-nav-btn" + (tab === "students" ? " active" : ""),
     onClick: () => setTab("students")
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "nav-ic"
   }, /*#__PURE__*/React.createElement(Icon, {
     name: "users",
     size: 17
-  }), " Учні", students.length > 0 && /*#__PURE__*/React.createElement("span", {
+  })), " Учні", students.length > 0 && /*#__PURE__*/React.createElement("span", {
     className: "studio-nav-badge"
   }, students.length)), /*#__PURE__*/React.createElement("button", {
     className: "studio-nav-btn" + (tab === "queue" ? " active" : ""),
     onClick: () => setTab("queue")
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "nav-ic"
   }, /*#__PURE__*/React.createElement(Icon, {
     name: "printer",
     size: 17
-  }), " Черга друку"), /*#__PURE__*/React.createElement("button", {
+  })), " Черга друку"), /*#__PURE__*/React.createElement("button", {
     className: "studio-nav-btn" + (tab === "payroll" ? " active" : ""),
     onClick: () => setTab("payroll")
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "nav-ic"
   }, /*#__PURE__*/React.createElement(Icon, {
     name: "wallet",
     size: 17
-  }), " Зарплата")), /*#__PURE__*/React.createElement("div", {
+  })), " Зарплата")), /*#__PURE__*/React.createElement("div", {
     className: "studio-sync"
   }, /*#__PURE__*/React.createElement("span", {
     className: "studio-sync-dot"
@@ -5157,30 +5239,7 @@ function Shell({
     isSuperAdmin: isSuperAdmin
   }), section === "admin" && !adminTeacher && adminSection === "calendar" && /*#__PURE__*/React.createElement(StudioCalendarTab, {
     onOpenTeacherWorkspace: selectTeacher
-  }), section === "admin" && !adminTeacher && adminSection === "rates" && /*#__PURE__*/React.createElement(RateCardsTab, null), section === "admin" && !adminTeacher && adminSection === "report" && /*#__PURE__*/React.createElement(ReportTab, null), section === "admin" && adminTeacher && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
-    className: "admin-view-bar"
-  }, /*#__PURE__*/React.createElement("button", {
-    className: "studio-btn ghost",
-    onClick: () => setAdminTeacher(null)
-  }, /*#__PURE__*/React.createElement(Icon, {
-    name: "back",
-    size: 15
-  })), /*#__PURE__*/React.createElement("div", {
-    className: "admin-view-title"
-  }, /*#__PURE__*/React.createElement(Icon, {
-    name: "shield",
-    size: 13
-  }), " Ви переглядаєте: ", /*#__PURE__*/React.createElement("strong", {
-    style: {
-      color: "var(--ink)"
-    }
-  }, fullName(adminTeacher))), /*#__PURE__*/React.createElement("button", {
-    className: "studio-btn ghost",
-    onClick: () => setProfileModalTarget(adminTeacher)
-  }, /*#__PURE__*/React.createElement(Icon, {
-    name: "edit",
-    size: 16
-  }), " Профіль")), /*#__PURE__*/React.createElement(WorkspaceBody, {
+  }), section === "admin" && !adminTeacher && adminSection === "rates" && /*#__PURE__*/React.createElement(RateCardsTab, null), section === "admin" && !adminTeacher && adminSection === "report" && /*#__PURE__*/React.createElement(ReportTab, null), section === "admin" && adminTeacher && /*#__PURE__*/React.createElement(WorkspaceBody, {
     ownerId: targetOwnerId,
     ownerProfile: targetOwnerProfile,
     canEditSchedule: true,
@@ -5192,7 +5251,7 @@ function Shell({
     loadingStudents: loadingStudents,
     reloadStudents: reloadStudents,
     onNavigateTab: setTab
-  })), section === "workspace" && /*#__PURE__*/React.createElement(WorkspaceBody, {
+  }), section === "workspace" && /*#__PURE__*/React.createElement(WorkspaceBody, {
     ownerId: targetOwnerId,
     ownerProfile: targetOwnerProfile,
     canEditSchedule: isAdmin,
