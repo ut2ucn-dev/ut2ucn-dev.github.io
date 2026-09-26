@@ -796,6 +796,11 @@ function formatDateLong(d) {
   const dt = parseDate(d);
   return `${dt.getDate()} ${MONTHS[dt.getMonth()]} ${dt.getFullYear()} · ${WEEKDAYS[dt.getDay()]}`;
 }
+function formatDateDMY(d) {
+  if (!d) return "";
+  const dt = parseDate(d);
+  return `${String(dt.getDate()).padStart(2, "0")}.${String(dt.getMonth() + 1).padStart(2, "0")}.${dt.getFullYear()}`;
+}
 function dateCardParts(d) {
   const dt = parseDate(d);
   return {
@@ -1999,7 +2004,18 @@ function StudentCardModal({
   }, /*#__PURE__*/React.createElement(Icon, {
     name: "phone",
     size: 11
-  }), " ", student.phone)), /*#__PURE__*/React.createElement("button", {
+  }), " ", student.phone), student.birthday && /*#__PURE__*/React.createElement("div", {
+    className: "students-sub",
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 4,
+      marginTop: 3
+    }
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "calendar",
+    size: 11
+  }), " День народження: ", formatDateDMY(student.birthday))), /*#__PURE__*/React.createElement("button", {
     className: "studio-btn ghost",
     onClick: onEdit,
     title: "Редагувати"
@@ -2174,6 +2190,7 @@ function StudentModal({
 }) {
   const [name, setName] = useState(student ? student.name : "");
   const [phone, setPhone] = useState(student ? student.phone || "" : "");
+  const [birthday, setBirthday] = useState(student ? student.birthday || "" : "");
   const [parentLast, setParentLast] = useState(student ? student.parent_last_name || "" : "");
   const [parentFirst, setParentFirst] = useState(student ? student.parent_first_name || "" : "");
   const [photo, setPhoto] = useState(student ? student.photo || "" : "");
@@ -2209,6 +2226,7 @@ function StudentModal({
       owner_id: ownerId,
       name: name.trim(),
       phone: phone.trim(),
+      birthday: birthday || null,
       parent_last_name: parentLast.trim(),
       parent_first_name: parentFirst.trim(),
       photo: photo || null
@@ -2283,6 +2301,14 @@ function StudentModal({
     value: phone,
     onChange: e => setPhone(e.target.value),
     placeholder: "+380 XX XXX XX XX"
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "field"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "field-label"
+  }, "День народження"), /*#__PURE__*/React.createElement("input", {
+    type: "date",
+    value: birthday,
+    onChange: e => setBirthday(e.target.value)
   })), /*#__PURE__*/React.createElement("div", {
     className: "field-row"
   }, /*#__PURE__*/React.createElement("div", {
@@ -2415,6 +2441,12 @@ function LessonModal({
     // what lets a teacher create their own lesson with the right price on
     // it without ever being able to read that price.
     if (lesson) {
+      // Reuse the lesson's own series_id if it's already part of one (so
+      // "repeat weekly" here just adds more occurrences to that same
+      // series instead of starting a disconnected parallel one); mint a
+      // fresh id only when repeat is requested on a lesson that wasn't
+      // already in a series.
+      const seriesId = repeatWeekly ? lesson.series_id || crypto.randomUUID() : lesson.series_id;
       const {
         error
       } = await sb.from("lessons").update({
@@ -2424,12 +2456,40 @@ function LessonModal({
         course,
         format,
         student_ids: studentIds,
-        extra_service: extraService
+        extra_service: extraService,
+        series_id: seriesId
       }).eq("id", lesson.id);
-      setSaving(false);
       if (error) {
+        setSaving(false);
         setError(error.message);
         return;
+      }
+      const addCount = repeatWeekly ? Math.max(1, Number(weeks) || 1) - 1 : 0;
+      if (addCount > 0) {
+        const rows = [];
+        for (let i = 1; i <= addCount; i++) {
+          rows.push({
+            owner_id: lesson.owner_id,
+            series_id: seriesId,
+            date: addDays(date, i * 7),
+            time: time || null,
+            theme: theme.trim(),
+            course,
+            format,
+            student_ids: studentIds,
+            extra_service: extraService
+          });
+        }
+        const {
+          error: repeatError
+        } = await sb.from("lessons").insert(rows);
+        setSaving(false);
+        if (repeatError) {
+          setError(repeatError.message);
+          return;
+        }
+      } else {
+        setSaving(false);
       }
     } else {
       const seriesId = repeatWeekly ? crypto.randomUUID() : null;
@@ -2594,7 +2654,7 @@ function LessonModal({
     size: 12
   }), s.name)), !loadingRoster && roster.length === 0 && /*#__PURE__*/React.createElement("div", {
     className: "hint"
-  }, "Спершу додайте учнів на вкладці «Учні»."))), !lesson && /*#__PURE__*/React.createElement("div", {
+  }, "Спершу додайте учнів на вкладці «Учні»."))), /*#__PURE__*/React.createElement("div", {
     className: "field"
   }, /*#__PURE__*/React.createElement("label", {
     className: "field-label"
@@ -2617,7 +2677,9 @@ function LessonModal({
     max: "52",
     value: weeks,
     onChange: e => setWeeks(e.target.value)
-  }))), /*#__PURE__*/React.createElement("div", {
+  }), lesson && /*#__PURE__*/React.createElement("div", {
+    className: "hint"
+  }, "Це заняття залишиться на своєму місці, а ще ", Math.max(0, (Number(weeks) || 1) - 1), " з'являться на наступні тижні з тими самими темою, напрямком і учнями."))), /*#__PURE__*/React.createElement("div", {
     className: "modal-actions"
   }, /*#__PURE__*/React.createElement("button", {
     type: "button",
@@ -2907,7 +2969,8 @@ function ScheduleTab({
   students,
   me,
   aggregateAll,
-  onNavigateTab
+  onNavigateTab,
+  reloadStudents
 }) {
   const [lessons, setLessons] = useState([]);
   const [works, setWorks] = useState([]);
@@ -2918,6 +2981,8 @@ function ScheduleTab({
   const [modalLesson, setModalLesson] = useState(undefined); // undefined = closed, null = new
   const [modalPresetDate, setModalPresetDate] = useState(null);
   const [preview, setPreview] = useState(null);
+  const [viewingStudent, setViewingStudent] = useState(null);
+  const [editingStudent, setEditingStudent] = useState(undefined); // undefined = closed
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
   const loadAttendance = useCallback(async () => {
     if (!isAdmin) return;
@@ -3129,7 +3194,12 @@ function ScheduleTab({
       }, /*#__PURE__*/React.createElement("div", {
         className: "roster-top"
       }, /*#__PURE__*/React.createElement("div", {
-        className: "avatar sm"
+        className: "avatar sm",
+        onClick: () => setViewingStudent(s),
+        style: {
+          cursor: "pointer"
+        },
+        title: "Картка учня"
       }, canEdit && s.photo ? /*#__PURE__*/React.createElement("img", {
         src: s.photo
       }) : initialsFromName(s.name)), printable && /*#__PURE__*/React.createElement(PhotoSlot, {
@@ -3139,7 +3209,12 @@ function ScheduleTab({
         onUpload: f => attachPhoto(lesson.id, s.id, f),
         onPreview: setPreview
       }), /*#__PURE__*/React.createElement("div", {
-        className: "roster-name"
+        className: "roster-name",
+        onClick: () => setViewingStudent(s),
+        style: {
+          cursor: "pointer"
+        },
+        title: "Картка учня"
       }, s.name), (trialEligible || w && w.trial) && /*#__PURE__*/React.createElement("button", {
         className: "trial-pill" + (w && w.trial ? "" : " off"),
         title: "Пробне заняття для цього учня",
@@ -3350,6 +3425,23 @@ function ScheduleTab({
   })), preview && /*#__PURE__*/React.createElement(PreviewModal, {
     url: preview,
     onClose: () => setPreview(null)
+  }), viewingStudent && /*#__PURE__*/React.createElement(StudentCardModal, {
+    student: viewingStudent,
+    showPhoto: isAdmin,
+    onClose: () => setViewingStudent(null),
+    onEdit: () => {
+      setEditingStudent(viewingStudent);
+      setViewingStudent(null);
+    }
+  }), editingStudent !== undefined && /*#__PURE__*/React.createElement(StudentModal, {
+    ownerId: ownerId,
+    student: editingStudent,
+    showPhoto: isAdmin,
+    onClose: () => setEditingStudent(undefined),
+    onSaved: async () => {
+      setEditingStudent(undefined);
+      if (reloadStudents) await reloadStudents();
+    }
   }));
 }
 
@@ -3805,7 +3897,8 @@ function WorkspaceBody({
     students: students,
     me: me,
     aggregateAll: aggregateAll,
-    onNavigateTab: onNavigateTab
+    onNavigateTab: onNavigateTab,
+    reloadStudents: reloadStudents
   });
 }
 
