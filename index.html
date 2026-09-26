@@ -4630,22 +4630,69 @@ function RateCardsTab() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [column, setColumn] = useState("zp"); // 'zp' | 'price'
+  const [calcStartDate, setCalcStartDate] = useState("");
+  const [calcStartInput, setCalcStartInput] = useState("");
+  const [savingThreshold, setSavingThreshold] = useState(false);
   const load = useCallback(async () => {
     setLoading(true);
-    const {
+    const [{
       data
-    } = await sb.from("rate_cards_safe").select("*");
+    }, {
+      data: settings
+    }] = await Promise.all([sb.from("rate_cards_safe").select("*"), sb.from("studio_settings").select("calc_start_date").single()]);
     const map = {};
     COURSE_OPTIONS.forEach(c => {
       const existing = (data || []).find(r => r.course === c);
       map[c] = existing || blankRateRow(c);
     });
     setRates(map);
+    setCalcStartDate(settings ? settings.calc_start_date || "" : "");
+    setCalcStartInput(settings ? settings.calc_start_date || "" : "");
     setLoading(false);
   }, []);
   useEffect(() => {
     load();
   }, [load]);
+  async function applyCalcStartDate() {
+    const ok = await confirmDialog(`Усі заняття до ${formatDateDMY(calcStartInput)} (включно з уже проведеними) отримають ЗП і Ціну = 0 назавжди. Заняття з цієї дати й пізніше рахуються як завжди. Це незворотно. Продовжити?`, {
+      title: "Увімкнути розрахунок з дати",
+      confirmLabel: "Так, застосувати"
+    });
+    if (!ok) return;
+    setSavingThreshold(true);
+    const {
+      error
+    } = await sb.rpc("set_calc_start_date", {
+      p_date: calcStartInput
+    });
+    setSavingThreshold(false);
+    if (error) {
+      showToast(error.message, "error");
+      return;
+    }
+    showToast("Дату застосовано, старі заняття обнулено");
+    load();
+  }
+  async function clearCalcStartDate() {
+    const ok = await confirmDialog("Прибрати поріг? Нові й відредаговані заняття знову рахуватимуться незалежно від дати. Уже обнулені старі заняття залишаться з сумою 0 — це не відновлюється.", {
+      title: "Вимкнути поріг"
+    });
+    if (!ok) return;
+    setSavingThreshold(true);
+    const {
+      error
+    } = await sb.rpc("set_calc_start_date", {
+      p_date: null
+    });
+    setSavingThreshold(false);
+    if (error) {
+      showToast(error.message, "error");
+      return;
+    }
+    showToast("Поріг вимкнено");
+    setCalcStartInput("");
+    load();
+  }
   function setField(course, field, value) {
     setRates(r => ({
       ...r,
@@ -4695,6 +4742,54 @@ function RateCardsTab() {
     onClick: saveAll,
     disabled: saving
   }, saving ? "Збереження…" : "Зберегти всі тарифи")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      border: "1.5px solid var(--alert)",
+      background: "var(--alert-soft)",
+      borderRadius: 16,
+      padding: "14px 16px",
+      marginBottom: 18
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "field-label",
+    style: {
+      color: "var(--alert-text)"
+    }
+  }, "Дата початку розрахунку для студії"), /*#__PURE__*/React.createElement("div", {
+    className: "hint",
+    style: {
+      marginBottom: 10
+    }
+  }, calcStartDate ? `Зараз увімкнено з ${formatDateDMY(calcStartDate)}: усі заняття до цієї дати мають ЗП і Ціну = 0.` : "Поки вимкнено — всі заняття рахуються як завжди, незалежно від дати.", " Зміна цієї дати одразу обнулить ЗП і Ціну (назавжди) для всіх занять до неї, включно з уже проведеними."), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 10,
+      alignItems: "center",
+      flexWrap: "wrap"
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "date",
+    value: calcStartInput,
+    onChange: e => setCalcStartInput(e.target.value),
+    style: {
+      border: "1px solid var(--line-strong)",
+      borderRadius: 10,
+      padding: "9px 10px",
+      fontFamily: "var(--font-body)",
+      fontSize: 13.5,
+      background: "var(--card)",
+      color: "var(--ink)"
+    }
+  }), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "studio-btn danger",
+    disabled: savingThreshold || !calcStartInput || calcStartInput === calcStartDate,
+    onClick: applyCalcStartDate
+  }, savingThreshold ? "Застосування…" : "Застосувати"), calcStartDate && /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "studio-btn ghost",
+    disabled: savingThreshold,
+    onClick: clearCalcStartDate
+  }, "Вимкнути поріг"))), /*#__PURE__*/React.createElement("div", {
     className: "hint",
     style: {
       marginBottom: 14
