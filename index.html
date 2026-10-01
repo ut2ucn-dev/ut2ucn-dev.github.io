@@ -3241,7 +3241,6 @@ function ScheduleTab({
     }, present.map(s => {
       const w = findWork(works, lesson.id, s.id);
       const printed = w && w.printed;
-      const trialEligible = lessons.filter(l => (l.student_ids || []).includes(s.id)).length <= 1;
       return /*#__PURE__*/React.createElement("div", {
         key: s.id,
         className: "roster-row"
@@ -3269,7 +3268,7 @@ function ScheduleTab({
           cursor: "pointer"
         },
         title: "Картка учня"
-      }, s.name), (trialEligible || w && w.trial) && /*#__PURE__*/React.createElement("button", {
+      }, s.name), /*#__PURE__*/React.createElement("button", {
         className: "trial-pill" + (w && w.trial ? "" : " off"),
         title: "Пробне заняття для цього учня",
         onClick: () => toggleTrial(lesson.id, s.id, w)
