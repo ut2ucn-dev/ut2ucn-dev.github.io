@@ -5257,11 +5257,33 @@ function Shell({
 }) {
   const isSuperAdmin = profile.role === "superadmin";
   const isAdmin = profile.role === "admin" || isSuperAdmin;
-  const [section, setSection] = useState("workspace"); // 'workspace' | 'admin'
-  const [adminSection, setAdminSection] = useState("users"); // 'users' | 'calendar' | 'rates' (only when no adminTeacher)
+  // Restore which tab was open before a browser-forced reload (see
+  // readCachedNav) — but only values this profile is actually allowed to
+  // land on, in case the cache is left over from a different role on the
+  // same device (e.g. a superadmin's "rates" tab cached, then a plain
+  // admin signs in here).
+  const cachedNav = readCachedNav() || {};
+  const [section, setSection] = useState(() => isAdmin && cachedNav.section === "admin" ? "admin" : "workspace"); // 'workspace' | 'admin'
+  const [adminSection, setAdminSection] = useState(() => {
+    if (cachedNav.adminSection === "rates" || cachedNav.adminSection === "report") {
+      return isSuperAdmin ? cachedNav.adminSection : "users";
+    }
+    return cachedNav.adminSection || "users";
+  }); // 'users' | 'calendar' | 'rates' | 'report' (only when no adminTeacher)
   const [adminTeacher, setAdminTeacher] = useState(null);
-  const [tab, setTab] = useState("schedule");
+  const [tab, setTab] = useState(() => cachedNav.tab || "schedule");
   const [profileModalTarget, setProfileModalTarget] = useState(null);
+  // adminTeacher (viewing a specific teacher's workspace as admin) isn't
+  // restored — it'd need a fresh fetch of that teacher's profile — so a
+  // reload while deep in someone's workspace just lands back on the
+  // teacher list, which is still far better than a blank loading screen.
+  useEffect(() => {
+    writeCachedNav({
+      section,
+      adminSection,
+      tab
+    });
+  }, [section, adminSection, tab]);
   const targetOwnerId = section === "admin" && adminTeacher ? adminTeacher.id : profile.id;
   const targetOwnerProfile = section === "admin" && adminTeacher ? adminTeacher : profile;
   const [students, setStudents] = useState([]);
@@ -5528,10 +5550,49 @@ function getInitialTheme() {
   } catch (e) {}
   return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
+
+// A browser that discards/sleeps an inactive tab to save memory (Edge
+// "Efficiency mode", Chrome "Memory Saver" — most aggressive in InPrivate
+// windows) throws the whole page away; switching back re-runs this script
+// from scratch, same as a hard reload. We can't stop that — it's the
+// browser's call, not ours — but we can make it invisible: stash the last
+// known profile (and which tab was open) in localStorage and paint them
+// immediately on the next mount instead of a blank "Завантаження…"
+// screen, then quietly confirm against Supabase in the background.
+const PROFILE_CACHE_KEY = "stemik-cached-profile";
+const NAV_CACHE_KEY = "stemik-cached-nav";
+function readCachedProfile() {
+  try {
+    const raw = localStorage.getItem(PROFILE_CACHE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    return null;
+  }
+}
+function writeCachedProfile(profile) {
+  try {
+    if (profile) localStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(profile));else localStorage.removeItem(PROFILE_CACHE_KEY);
+  } catch (e) {}
+}
+function readCachedNav() {
+  try {
+    const raw = localStorage.getItem(NAV_CACHE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    return null;
+  }
+}
+function writeCachedNav(nav) {
+  try {
+    localStorage.setItem(NAV_CACHE_KEY, JSON.stringify(nav));
+  } catch (e) {}
+}
 function App() {
   const [session, setSession] = useState(undefined); // undefined = unknown yet
-  const [profile, setProfile] = useState(null);
-  const [profileLoading, setProfileLoading] = useState(false);
+  // Seed from whatever we last knew, if anything, so a thrown-away/reloaded
+  // tab can paint straight away instead of flashing a loading screen while
+  // we re-confirm with Supabase that it's still accurate.
+  const [profile, setProfile] = useState(readCachedProfile);
   const [theme, setTheme] = useState(getInitialTheme);
   const [recovery, setRecovery] = useState(false);
   useEffect(() => {
@@ -5543,6 +5604,12 @@ function App() {
   function toggleTheme() {
     setTheme(t => t === "dark" ? "light" : "dark");
   }
+  // Keep the cache in sync with every way `profile` can change — the
+  // background re-fetch below, but also a direct edit via ProfileModal
+  // (Shell calls this same setter through its `setProfile` prop).
+  useEffect(() => {
+    writeCachedProfile(profile);
+  }, [profile]);
   useEffect(() => {
     sb.auth.getSession().then(({
       data
@@ -5556,44 +5623,51 @@ function App() {
     return () => sub.subscription.unsubscribe();
   }, []);
   useEffect(() => {
+    if (session === undefined) return; // not resolved yet — keep showing whatever we have
     if (!session) {
       setProfile(null);
       return;
     }
-    setProfileLoading(true);
     sb.from("profiles").select("*").eq("id", session.user.id).single().then(({
       data
     }) => {
       if (data && data.active === false) {
         setProfile(null);
-        setProfileLoading(false);
         showToast("Обліковий запис деактивовано. Зверніться до адміністратора.", "error");
         sb.auth.signOut();
         return;
       }
       setProfile(data);
-      setProfileLoading(false);
     });
   }, [session]);
-  if (session === undefined) return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
-    className: "studio-app"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "loading-block"
-  }, "Завантаження…")), /*#__PURE__*/React.createElement(ToastHost, null), /*#__PURE__*/React.createElement(ConfirmHost, null));
   if (recovery) return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(SetNewPasswordScreen, {
     theme: theme,
     onToggleTheme: toggleTheme,
     onDone: () => setRecovery(false)
   }), /*#__PURE__*/React.createElement(ToastHost, null), /*#__PURE__*/React.createElement(ConfirmHost, null));
-  if (!session) return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(LoginScreen, {
-    theme: theme,
-    onToggleTheme: toggleTheme
-  }), /*#__PURE__*/React.createElement(ToastHost, null), /*#__PURE__*/React.createElement(ConfirmHost, null));
-  if (profileLoading || !profile) return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
-    className: "studio-app"
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "loading-block"
-  }, "Завантаження профілю…")), /*#__PURE__*/React.createElement(ToastHost, null), /*#__PURE__*/React.createElement(ConfirmHost, null));
+  if (!profile) {
+    // Nothing cached to show optimistically — fall back to the honest
+    // step-by-step loading states, same as a genuine first-ever visit.
+    if (session === undefined) return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+      className: "studio-app"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "loading-block"
+    }, "Завантаження…")), /*#__PURE__*/React.createElement(ToastHost, null), /*#__PURE__*/React.createElement(ConfirmHost, null));
+    if (!session) return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(LoginScreen, {
+      theme: theme,
+      onToggleTheme: toggleTheme
+    }), /*#__PURE__*/React.createElement(ToastHost, null), /*#__PURE__*/React.createElement(ConfirmHost, null));
+    return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+      className: "studio-app"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "loading-block"
+    }, "Завантаження профілю…")), /*#__PURE__*/React.createElement(ToastHost, null), /*#__PURE__*/React.createElement(ConfirmHost, null));
+  }
+  // We have a profile — cached or freshly confirmed — so paint the real
+  // app right away. If getSession() comes back with no session after all
+  // (cache was stale, e.g. signed out elsewhere), the effect above clears
+  // it and this falls through to the loading/login states on the next
+  // render instead of staying stuck here.
   return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Shell, {
     session: session,
     profile: profile,
