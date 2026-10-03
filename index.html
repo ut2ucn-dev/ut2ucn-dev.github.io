@@ -418,6 +418,10 @@
     padding:9px 10px; border-radius:10px; background:var(--paper); border:1px solid var(--line); color:var(--ink-soft);
     font-size:13.5px; font-weight:500;
   }
+  .student-notes{
+    padding:10px 12px; border-radius:10px; background:var(--alert-soft); border:1px solid var(--line); color:var(--ink);
+    font-size:13.5px; line-height:1.5; white-space:pre-wrap;
+  }
   .field input:focus, .field select:focus{ outline:none; border-color:var(--brand); box-shadow:0 0 0 3px var(--brand-soft); }
   .chip-wrap{ display:flex; flex-wrap:wrap; gap:6px; }
   .student-search-input{ margin-bottom:8px; }
@@ -2070,7 +2074,13 @@ function StudentCardModal({
       fontSize: 11.5,
       padding: "5px 11px"
     }
-  }, c)))), showPhoto && subscriptions.length > 0 && /*#__PURE__*/React.createElement("div", {
+  }, c)))), student.notes && /*#__PURE__*/React.createElement("div", {
+    className: "field"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "field-label"
+  }, "Нотатки"), /*#__PURE__*/React.createElement("div", {
+    className: "student-notes"
+  }, student.notes)), showPhoto && subscriptions.length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "field"
   }, /*#__PURE__*/React.createElement("label", {
     className: "field-label"
@@ -2201,6 +2211,7 @@ function StudentModal({
   const [birthday, setBirthday] = useState(student ? student.birthday || "" : "");
   const [parentLast, setParentLast] = useState(student ? student.parent_last_name || "" : "");
   const [parentFirst, setParentFirst] = useState(student ? student.parent_first_name || "" : "");
+  const [notes, setNotes] = useState(student ? student.notes || "" : "");
   const [photo, setPhoto] = useState(student ? student.photo || "" : "");
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -2237,6 +2248,7 @@ function StudentModal({
       birthday: birthday || null,
       parent_last_name: parentLast.trim(),
       parent_first_name: parentFirst.trim(),
+      notes: notes.trim() || null,
       photo: photo || null
     };
     let res;
@@ -2336,6 +2348,16 @@ function StudentModal({
     value: parentFirst,
     onChange: e => setParentFirst(e.target.value)
   }))), /*#__PURE__*/React.createElement("div", {
+    className: "field"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "field-label"
+  }, "Нотатки"), /*#__PURE__*/React.createElement("textarea", {
+    className: "bulk-textarea",
+    value: notes,
+    onChange: e => setNotes(e.target.value),
+    placeholder: "Будь-що важливе про учня — видно лише в його картці",
+    rows: 3
+  })), /*#__PURE__*/React.createElement("div", {
     className: "modal-actions"
   }, /*#__PURE__*/React.createElement("button", {
     type: "button",
@@ -2937,7 +2959,8 @@ function AttendanceControls({
   student,
   record,
   subscription,
-  onMark
+  onMark,
+  onUnmark
 }) {
   const status = record ? record.status : null;
   const unpaid = status === "present" && !record.payment_method;
@@ -2965,9 +2988,9 @@ function AttendanceControls({
   }, ATTENDANCE_STATUSES.map(st => /*#__PURE__*/React.createElement("button", {
     key: st.value,
     type: "button",
-    title: st.value === "present" ? "Присутній" : st.value === "absent" ? "Відсутній" : "Відсутній з поважної причини",
     className: "attend-btn" + (status === st.value ? " active " + st.value + (st.value === "present" && unpaid ? " unpaid" : "") : ""),
-    onClick: () => onMark(lesson.id, student.id, st.value, st.value === "present" ? record && record.payment_method || null : null, st.value === "present" ? currentDiscount : 0)
+    title: status === st.value ? "Зняти позначку" : st.value === "present" ? "Присутній" : st.value === "absent" ? "Відсутній" : "Відсутній з поважної причини",
+    onClick: () => status === st.value ? onUnmark(lesson.id, student.id) : onMark(lesson.id, student.id, st.value, st.value === "present" ? record && record.payment_method || null : null, st.value === "present" ? currentDiscount : 0)
   }, st.label)))), status === "present" && /*#__PURE__*/React.createElement("div", {
     className: "attend-line"
   }, /*#__PURE__*/React.createElement("span", {
@@ -3073,6 +3096,19 @@ function ScheduleTab({
       p_status: status,
       p_payment_method: paymentMethod,
       p_discount_percent: discountPercent || 0
+    });
+    if (error) {
+      showToast(error.message, "error");
+      return;
+    }
+    loadAttendance();
+  }
+  async function unmarkAttendance(lessonId, studentId) {
+    const {
+      error
+    } = await sb.rpc("unmark_attendance", {
+      p_lesson_id: lessonId,
+      p_student_id: studentId
     });
     if (error) {
       showToast(error.message, "error");
@@ -3303,7 +3339,8 @@ function ScheduleTab({
         student: s,
         record: findAttendance(attendance, lesson.id, s.id),
         subscription: findActiveSubscription(subscriptions, s.id, lesson.course),
-        onMark: markAttendance
+        onMark: markAttendance,
+        onUnmark: unmarkAttendance
       }));
     })));
   }
