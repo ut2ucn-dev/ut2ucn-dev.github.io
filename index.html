@@ -2490,19 +2490,37 @@ function LessonModal({
         format,
         student_ids: studentIds,
         extra_service: extraService,
-        series_id: seriesId
+        series_id: seriesId,
+        owner_id: ownerId
       }).eq("id", lesson.id);
       if (error) {
         setSaving(false);
         setError(error.message);
         return;
       }
+      // Reassigning the teacher only moves the lesson row itself above —
+      // any photos/prints and attendance already logged against it still
+      // say the old teacher, which would make them invisible in the new
+      // teacher's own (non-aggregate) workspace and vice versa.
+      if (ownerId !== lesson.owner_id) {
+        const [wr, ar] = await Promise.all([sb.from("works").update({
+          owner_id: ownerId
+        }).eq("lesson_id", lesson.id), sb.from("lesson_attendance").update({
+          owner_id: ownerId
+        }).eq("lesson_id", lesson.id)]);
+        const reassignError = wr.error || ar.error;
+        if (reassignError) {
+          setSaving(false);
+          setError(reassignError.message);
+          return;
+        }
+      }
       const addCount = repeatWeekly ? Math.max(1, Number(weeks) || 1) - 1 : 0;
       if (addCount > 0) {
         const rows = [];
         for (let i = 1; i <= addCount; i++) {
           rows.push({
-            owner_id: lesson.owner_id,
+            owner_id: ownerId,
             series_id: seriesId,
             date: addDays(date, i * 7),
             time: time || null,
@@ -2590,9 +2608,15 @@ function LessonModal({
     className: "field"
   }, /*#__PURE__*/React.createElement("label", {
     className: "field-label"
-  }, "Викладач"), /*#__PURE__*/React.createElement("div", {
-    className: "static-field-value"
-  }, fullName(teacherOptions.find(t => t.id === lesson.owner_id) || {}))), !teacherOptions && ownerProfile && /*#__PURE__*/React.createElement("div", {
+  }, "Викладач"), /*#__PURE__*/React.createElement("select", {
+    value: ownerId,
+    onChange: e => setOwnerId(e.target.value)
+  }, teacherOptions.filter(t => t.active !== false || t.id === ownerId).map(t => /*#__PURE__*/React.createElement("option", {
+    key: t.id,
+    value: t.id
+  }, fullName(t)))), ownerId !== lesson.owner_id && /*#__PURE__*/React.createElement("div", {
+    className: "hint"
+  }, "Заняття, фото робіт і відмітки відвідування перейдуть до нового викладача.")), !teacherOptions && ownerProfile && /*#__PURE__*/React.createElement("div", {
     className: "field"
   }, /*#__PURE__*/React.createElement("label", {
     className: "field-label"
@@ -3277,6 +3301,9 @@ function ScheduleTab({
     }, present.map(s => {
       const w = findWork(works, lesson.id, s.id);
       const printed = w && w.printed;
+      // "Trial" is per direction, not per student overall — a student who's
+      // already had lessons in another course is still a first-timer here.
+      const trialEligible = lessons.filter(l => l.course === lesson.course && (l.student_ids || []).includes(s.id)).length <= 1;
       return /*#__PURE__*/React.createElement("div", {
         key: s.id,
         className: "roster-row"
@@ -3304,7 +3331,7 @@ function ScheduleTab({
           cursor: "pointer"
         },
         title: "Картка учня"
-      }, s.name), /*#__PURE__*/React.createElement("button", {
+      }, s.name), (trialEligible || w && w.trial) && /*#__PURE__*/React.createElement("button", {
         className: "trial-pill" + (w && w.trial ? "" : " off"),
         title: "Пробне заняття для цього учня",
         onClick: () => toggleTrial(lesson.id, s.id, w)
