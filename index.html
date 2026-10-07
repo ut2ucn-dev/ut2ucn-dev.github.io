@@ -3218,13 +3218,18 @@ function ScheduleTab({
   const next = sorted.find(l => !isPast(l.date));
   const upcomingCount = sorted.filter(l => !isPast(l.date)).length;
   let pendingCount = 0;
+  const pendingToday = todayStr();
   lessons.forEach(l => {
     if (!courseHasPrinting(l.course)) return;
+    if (l.date > pendingToday) return;
     (l.student_ids || []).forEach(sid => {
       // Skip ids that no longer resolve to a student (e.g. the student was
-      // since deleted) — the queue tab hides these same rows, so counting
-      // them here would make this card disagree with the tab it summarizes.
+      // since deleted), and anyone not actually marked "П" — the queue tab
+      // hides these same rows, so counting them here would make this card
+      // disagree with the tab it summarizes.
       if (!studentById[sid]) return;
+      const att = findAttendance(attendance, l.id, sid);
+      if (!att || att.status !== "present") return;
       const w = findWork(works, l.id, sid);
       if (!w || !w.printed) pendingCount++;
     });
