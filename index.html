@@ -235,6 +235,8 @@
   }
   .lesson-card:hover{ border-color:var(--line-strong); box-shadow:0 6px 20px rgba(23,25,35,0.08); }
   .lesson-card.past{ opacity:0.62; }
+  .lesson-card.clickable{ cursor:pointer; }
+  .lesson-card.clickable:active{ transform:scale(0.997); }
   .lesson-card-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:14px; padding:18px 18px 0 22px; }
   .lesson-head-left{ display:flex; align-items:flex-start; gap:12px; min-width:0; }
   .lesson-time-block{ font-family:var(--font-mono); font-size:13px; font-weight:700; color:var(--brand-text); background:var(--brand-soft); border-radius:9px; padding:4px 9px; flex-shrink:0; }
@@ -262,6 +264,7 @@
   }
   :root.theme-dark .teacher-tag, :root.theme-dark .tag.teacher{ color:var(--ink); }
   .tag.progress{ font-family:var(--font-mono); font-weight:700; font-size:10.5px; color:var(--brand-text); background:var(--brand-soft); border-radius:22px; padding:4px 10px; margin-left:auto; }
+  .tag.roster-count{ display:inline-flex; align-items:center; gap:4px; font-family:var(--font-mono); font-weight:700; font-size:10px; color:var(--ink-soft); background:var(--paper); border-radius:8px; padding:4px 9px; }
   .tag.series{ display:inline-flex; align-items:center; gap:4px; font-family:var(--font-mono); font-size:10px; color:var(--brand-text); }
   /* Roster: one visually separated block per student instead of one long
      wrapping row — the avatar/name/status-pill line stays compact, and
@@ -433,6 +436,7 @@
   .photo-field{ display:flex; align-items:center; gap:12px; }
 
   .student-card-modal{ max-width:560px; }
+  .lesson-card-modal{ max-width:560px; }
   .student-card-head{ display:flex; align-items:center; gap:14px; padding-bottom:16px; border-bottom:1px solid var(--line); margin-bottom:4px; }
   .student-card-name{ font-family:var(--font-display); font-size:18px; font-weight:700; }
   .portfolio-row{
@@ -3057,6 +3061,195 @@ function AttendanceControls({
 }
 
 // ---------------------------------------------------------------
+// Lesson card: full detail view for one lesson, opened by clicking its
+// (now collapsed) row in the schedule — roster, photo/print handling and
+// attendance all live here instead of being inline in the list.
+// ---------------------------------------------------------------
+
+function LessonCardModal({
+  lesson,
+  present,
+  lessons,
+  works,
+  attendance,
+  subscriptions,
+  rowOwnerProfile,
+  isAdmin,
+  canEdit,
+  onClose,
+  onEdit,
+  onDelete,
+  onViewStudent,
+  attachPhoto,
+  togglePrinted,
+  toggleTrial,
+  markAttendance,
+  unmarkAttendance,
+  onPreview
+}) {
+  useEscapeClose(onClose);
+  useLockBodyScroll();
+  const printable = courseHasPrinting(lesson.course);
+  const attendingStudents = present.filter(s => {
+    const att = findAttendance(attendance, lesson.id, s.id);
+    return att && att.status === "present";
+  });
+  const doneCount = attendingStudents.filter(s => {
+    const w = findWork(works, lesson.id, s.id);
+    return w && w.printed;
+  }).length;
+  return ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
+    className: "overlay",
+    onClick: onClose
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "modal lesson-card-modal",
+    onClick: e => e.stopPropagation()
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "modal-title"
+  }, "Картка заняття", /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 6
+    }
+  }, canEdit && /*#__PURE__*/React.createElement("button", {
+    className: "studio-btn ghost",
+    onClick: onEdit,
+    title: "Редагувати заняття"
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "edit",
+    size: 16
+  })), canEdit && /*#__PURE__*/React.createElement("button", {
+    className: "studio-btn ghost",
+    onClick: onDelete,
+    title: "Видалити заняття"
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "trash",
+    size: 16
+  })), /*#__PURE__*/React.createElement("button", {
+    className: "studio-btn ghost",
+    onClick: onClose
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "x"
+  })))), /*#__PURE__*/React.createElement("div", {
+    className: "lesson-head-left"
+  }, lesson.time && /*#__PURE__*/React.createElement("div", {
+    className: "lesson-time-block"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "lesson-time-num"
+  }, lesson.time)), /*#__PURE__*/React.createElement("div", {
+    className: "lesson-title-block"
+  }, lesson.course && /*#__PURE__*/React.createElement("div", {
+    className: "lesson-course-line",
+    style: {
+      color: courseAccent(lesson.course).color
+    }
+  }, lesson.course), /*#__PURE__*/React.createElement("div", {
+    className: "lesson-theme"
+  }, lesson.theme))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      alignItems: "center",
+      flexWrap: "wrap",
+      gap: 8,
+      margin: "10px 0 6px"
+    }
+  }, rowOwnerProfile && /*#__PURE__*/React.createElement("span", {
+    className: "tag teacher"
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "user",
+    size: 10
+  }), " ", fullName(rowOwnerProfile)), lesson.format && /*#__PURE__*/React.createElement("span", {
+    className: "tag format" + formatTagClass(lesson.format)
+  }, formatLabel(lesson.format)), printable && attendingStudents.length > 0 && /*#__PURE__*/React.createElement("span", {
+    className: "tag progress"
+  }, doneCount, "/", attendingStudents.length, " надруковано"), lesson.series_id && /*#__PURE__*/React.createElement("span", {
+    className: "tag series"
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "repeat",
+    size: 11
+  }), " щотижня")), present.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    className: "hint"
+  }, "На цьому занятті ще немає учнів.") : /*#__PURE__*/React.createElement("div", {
+    className: "roster",
+    style: {
+      margin: "14px 0 0"
+    }
+  }, present.map(s => {
+    const w = findWork(works, lesson.id, s.id);
+    const printed = w && w.printed;
+    const att = findAttendance(attendance, lesson.id, s.id);
+    const wasPresent = att && att.status === "present";
+    const canHandlePrint = printable && wasPresent;
+    const trialEligible = lessons.filter(l => l.course === lesson.course && (l.student_ids || []).includes(s.id)).length <= 1;
+    return /*#__PURE__*/React.createElement("div", {
+      key: s.id,
+      className: "roster-row"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "roster-top"
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "avatar sm",
+      onClick: () => onViewStudent(s),
+      style: {
+        cursor: "pointer"
+      },
+      title: "Картка учня"
+    }, canEdit && s.photo ? /*#__PURE__*/React.createElement("img", {
+      src: s.photo
+    }) : initialsFromName(s.name)), canHandlePrint && /*#__PURE__*/React.createElement(PhotoSlot, {
+      url: w && w.photo,
+      uploading: w && w._uploading,
+      size: 17,
+      onUpload: f => attachPhoto(lesson.id, s.id, f),
+      onPreview: onPreview
+    }), /*#__PURE__*/React.createElement("div", {
+      className: "roster-name",
+      onClick: () => onViewStudent(s),
+      style: {
+        cursor: "pointer"
+      },
+      title: "Картка учня"
+    }, s.name), (trialEligible || w && w.trial) && /*#__PURE__*/React.createElement("button", {
+      className: "trial-pill" + (w && w.trial ? "" : " off"),
+      title: "Пробне заняття для цього учня",
+      onClick: () => toggleTrial(lesson.id, s.id, w)
+    }, "Пробне"), canHandlePrint && lesson.date <= todayStr() && (!w || !w.photo) && !printed && /*#__PURE__*/React.createElement("label", {
+      className: "due-flag",
+      title: "Прикріпити фото роботи"
+    }, "Немає фото", /*#__PURE__*/React.createElement("input", {
+      type: "file",
+      accept: "image/*",
+      style: {
+        display: "none"
+      },
+      onChange: e => {
+        const f = e.target.files[0];
+        if (f) attachPhoto(lesson.id, s.id, f);
+        e.target.value = "";
+      }
+    })), canHandlePrint && /*#__PURE__*/React.createElement("button", {
+      className: "printed-pill" + (printed ? "" : " off"),
+      onClick: async () => {
+        const willComplete = !printed && doneCount + 1 === attendingStudents.length;
+        await togglePrinted(lesson.id, s.id);
+        if (willComplete) showToast("🎉 Усі роботи цього заняття надруковано!");
+      }
+    }, /*#__PURE__*/React.createElement(Icon, {
+      name: "printer",
+      size: 11
+    }), " ", printed ? "Надруковано" : "Не надруковано"), canHandlePrint && printed && w.printed_by_name && /*#__PURE__*/React.createElement("span", {
+      className: "printed-by"
+    }, "Статус змінив: ", w.printed_by_name)), isAdmin && /*#__PURE__*/React.createElement(AttendanceControls, {
+      lesson: lesson,
+      student: s,
+      record: att,
+      subscription: findActiveSubscription(subscriptions, s.id, lesson.course),
+      onMark: markAttendance,
+      onUnmark: unmarkAttendance
+    }));
+  })))), document.body);
+}
+
+// ---------------------------------------------------------------
 // Schedule tab
 // ---------------------------------------------------------------
 
@@ -3082,6 +3275,7 @@ function ScheduleTab({
   const [preview, setPreview] = useState(null);
   const [viewingStudent, setViewingStudent] = useState(null);
   const [editingStudent, setEditingStudent] = useState(undefined); // undefined = closed
+  const [viewingLesson, setViewingLesson] = useState(null);
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
   const loadAttendance = useCallback(async () => {
     // Everyone needs to know who was actually marked "П" — printing is
@@ -3178,34 +3372,35 @@ function ScheduleTab({
         confirmLabel: "Тільки це",
         extraLabel: seriesCount > 1 ? `Це і наступні (${seriesCount})` : null
       });
-      if (choice === false) return;
+      if (choice === false) return false;
       if (choice === "extra") {
         const {
           error
         } = await sb.from("lessons").delete().eq("series_id", lesson.series_id).gte("date", lesson.date);
         if (error) {
           showToast(error.message, "error");
-          return;
+          return false;
         }
         setLessons(ls => ls.filter(l => !(l.series_id === lesson.series_id && l.date >= lesson.date)));
         showToast("Заняття видалено");
-        return;
+        return true;
       }
     } else {
       const ok = await confirmDialog(`Видалити заняття «${lesson.theme}»?`, {
         title: "Видалити заняття"
       });
-      if (!ok) return;
+      if (!ok) return false;
     }
     const {
       error
     } = await sb.from("lessons").delete().eq("id", lesson.id);
     if (error) {
       showToast(error.message, "error");
-      return;
+      return false;
     }
     setLessons(ls => ls.filter(l => l.id !== lesson.id));
     showToast("Заняття видалено");
+    return true;
   }
   function openNewLesson(presetDate) {
     setModalPresetDate(presetDate || formatISODateLocal(weekStart));
@@ -3264,10 +3459,13 @@ function ScheduleTab({
     } else if (!past) accent = "var(--brand)";
     return /*#__PURE__*/React.createElement("div", {
       key: lesson.id,
-      className: "lesson-card" + (past ? " past" : ""),
+      className: "lesson-card clickable" + (past ? " past" : ""),
       style: {
-        "--lesson-accent": accent
-      }
+        "--lesson-accent": accent,
+        paddingBottom: 18
+      },
+      onClick: () => setViewingLesson(lesson),
+      title: "Відкрити картку заняття"
     }, /*#__PURE__*/React.createElement("div", {
       className: "lesson-card-head"
     }, /*#__PURE__*/React.createElement("div", {
@@ -3289,7 +3487,8 @@ function ScheduleTab({
       className: "lesson-actions"
     }, /*#__PURE__*/React.createElement("button", {
       className: "studio-btn ghost",
-      onClick: () => {
+      onClick: e => {
+        e.stopPropagation();
         setModalPresetDate(null);
         setModalLesson(lesson);
       }
@@ -3298,7 +3497,10 @@ function ScheduleTab({
       size: 16
     })), /*#__PURE__*/React.createElement("button", {
       className: "studio-btn ghost",
-      onClick: () => deleteLesson(lesson)
+      onClick: e => {
+        e.stopPropagation();
+        deleteLesson(lesson);
+      }
     }, /*#__PURE__*/React.createElement(Icon, {
       name: "trash",
       size: 16
@@ -3318,85 +3520,12 @@ function ScheduleTab({
     }, /*#__PURE__*/React.createElement(Icon, {
       name: "repeat",
       size: 11
-    }), " щотижня")), present.length > 0 && /*#__PURE__*/React.createElement("div", {
-      className: "roster"
-    }, present.map(s => {
-      const w = findWork(works, lesson.id, s.id);
-      const printed = w && w.printed;
-      const att = findAttendance(attendance, lesson.id, s.id);
-      // Nothing to print for a student who wasn't actually there — no photo
-      // slot, no "Немає фото" nag, no print toggle, until they're marked "П".
-      const wasPresent = att && att.status === "present";
-      const canHandlePrint = printable && wasPresent;
-      // "Trial" is per direction, not per student overall — a student who's
-      // already had lessons in another course is still a first-timer here.
-      const trialEligible = lessons.filter(l => l.course === lesson.course && (l.student_ids || []).includes(s.id)).length <= 1;
-      return /*#__PURE__*/React.createElement("div", {
-        key: s.id,
-        className: "roster-row"
-      }, /*#__PURE__*/React.createElement("div", {
-        className: "roster-top"
-      }, /*#__PURE__*/React.createElement("div", {
-        className: "avatar sm",
-        onClick: () => setViewingStudent(s),
-        style: {
-          cursor: "pointer"
-        },
-        title: "Картка учня"
-      }, canEdit && s.photo ? /*#__PURE__*/React.createElement("img", {
-        src: s.photo
-      }) : initialsFromName(s.name)), canHandlePrint && /*#__PURE__*/React.createElement(PhotoSlot, {
-        url: w && w.photo,
-        uploading: w && w._uploading,
-        size: 17,
-        onUpload: f => attachPhoto(lesson.id, s.id, f),
-        onPreview: setPreview
-      }), /*#__PURE__*/React.createElement("div", {
-        className: "roster-name",
-        onClick: () => setViewingStudent(s),
-        style: {
-          cursor: "pointer"
-        },
-        title: "Картка учня"
-      }, s.name), (trialEligible || w && w.trial) && /*#__PURE__*/React.createElement("button", {
-        className: "trial-pill" + (w && w.trial ? "" : " off"),
-        title: "Пробне заняття для цього учня",
-        onClick: () => toggleTrial(lesson.id, s.id, w)
-      }, "Пробне"), canHandlePrint && lesson.date <= todayStr() && (!w || !w.photo) && !printed && /*#__PURE__*/React.createElement("label", {
-        className: "due-flag",
-        title: "Прикріпити фото роботи"
-      }, "Немає фото", /*#__PURE__*/React.createElement("input", {
-        type: "file",
-        accept: "image/*",
-        style: {
-          display: "none"
-        },
-        onChange: e => {
-          const f = e.target.files[0];
-          if (f) attachPhoto(lesson.id, s.id, f);
-          e.target.value = "";
-        }
-      })), canHandlePrint && /*#__PURE__*/React.createElement("button", {
-        className: "printed-pill" + (printed ? "" : " off"),
-        onClick: async () => {
-          const willComplete = !printed && doneCount + 1 === attendingStudents.length;
-          await togglePrinted(lesson.id, s.id);
-          if (willComplete) showToast("🎉 Усі роботи цього заняття надруковано!");
-        }
-      }, /*#__PURE__*/React.createElement(Icon, {
-        name: "printer",
-        size: 11
-      }), " ", printed ? "Надруковано" : "Не надруковано"), canHandlePrint && printed && w.printed_by_name && /*#__PURE__*/React.createElement("span", {
-        className: "printed-by"
-      }, "Статус змінив: ", w.printed_by_name)), isAdmin && /*#__PURE__*/React.createElement(AttendanceControls, {
-        lesson: lesson,
-        student: s,
-        record: att,
-        subscription: findActiveSubscription(subscriptions, s.id, lesson.course),
-        onMark: markAttendance,
-        onUnmark: unmarkAttendance
-      }));
-    })));
+    }), " щотижня"), present.length > 0 && /*#__PURE__*/React.createElement("span", {
+      className: "tag roster-count"
+    }, /*#__PURE__*/React.createElement(Icon, {
+      name: "users",
+      size: 10
+    }), " ", present.length)));
   }
   async function toggleTrial(lessonId, studentId, existingWork) {
     const nextTrial = !(existingWork && existingWork.trial);
@@ -3586,6 +3715,33 @@ function ScheduleTab({
       setEditingStudent(undefined);
       if (reloadStudents) await reloadStudents();
     }
+  }), viewingLesson && /*#__PURE__*/React.createElement(LessonCardModal, {
+    lesson: viewingLesson,
+    present: (viewingLesson.student_ids || []).map(id => studentById[id]).filter(Boolean),
+    lessons: lessons,
+    works: works,
+    attendance: attendance,
+    subscriptions: subscriptions,
+    rowOwnerProfile: aggregateAll ? profilesById[viewingLesson.owner_id] : ownerProfile,
+    isAdmin: isAdmin,
+    canEdit: canEdit,
+    onClose: () => setViewingLesson(null),
+    onEdit: () => {
+      setViewingLesson(null);
+      setModalPresetDate(null);
+      setModalLesson(viewingLesson);
+    },
+    onDelete: async () => {
+      const deleted = await deleteLesson(viewingLesson);
+      if (deleted) setViewingLesson(null);
+    },
+    onViewStudent: s => setViewingStudent(s),
+    attachPhoto: attachPhoto,
+    togglePrinted: togglePrinted,
+    toggleTrial: toggleTrial,
+    markAttendance: markAttendance,
+    unmarkAttendance: unmarkAttendance,
+    onPreview: setPreview
   }));
 }
 
