@@ -3084,8 +3084,18 @@ function ScheduleTab({
   const [editingStudent, setEditingStudent] = useState(undefined); // undefined = closed
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
   const loadAttendance = useCallback(async () => {
-    if (!isAdmin) return;
-    const [ar, sr] = await Promise.all([aggregateAll ? sb.from("lesson_attendance").select("*") : sb.from("lesson_attendance").select("*").eq("owner_id", ownerId), sb.from("subscriptions").select("*")]);
+    // Everyone needs to know who was actually marked "П" — printing is
+    // gated on it — but only admin/superadmin also needs subscriptions
+    // (that's purely a payment-marking concern, never shown to a teacher).
+    const attQuery = aggregateAll ? sb.from("lesson_attendance").select("*") : sb.from("lesson_attendance").select("*").eq("owner_id", ownerId);
+    if (!isAdmin) {
+      const {
+        data
+      } = await attQuery;
+      setAttendance(data || []);
+      return;
+    }
+    const [ar, sr] = await Promise.all([attQuery, sb.from("subscriptions").select("*")]);
     setAttendance(ar.data || []);
     setSubscriptions(sr.data || []);
   }, [ownerId, aggregateAll, isAdmin]);
@@ -3230,15 +3240,22 @@ function ScheduleTab({
   function renderLessonCard(lesson) {
     const present = (lesson.student_ids || []).map(id => studentById[id]).filter(Boolean);
     const printable = courseHasPrinting(lesson.course);
-    const doneCount = present.filter(s => {
+    // Printing only makes sense for students actually marked "П" — an
+    // absent/excused student never has a photo to print, so they shouldn't
+    // count toward (or block) this lesson's print progress.
+    const attendingStudents = present.filter(s => {
+      const att = findAttendance(attendance, lesson.id, s.id);
+      return att && att.status === "present";
+    });
+    const doneCount = attendingStudents.filter(s => {
       const w = findWork(works, lesson.id, s.id);
       return w && w.printed;
     }).length;
     const past = isPast(lesson.date);
     const rowOwnerProfile = aggregateAll ? profilesById[lesson.owner_id] : ownerProfile;
     let accent = "var(--line-strong)";
-    if (printable && present.length > 0) {
-      if (doneCount === present.length) accent = "var(--success)";else if (past) accent = "var(--alert)";else accent = "var(--brand)";
+    if (printable && attendingStudents.length > 0) {
+      if (doneCount === attendingStudents.length) accent = "var(--success)";else if (past) accent = "var(--alert)";else accent = "var(--brand)";
     } else if (!past) accent = "var(--brand)";
     return /*#__PURE__*/React.createElement("div", {
       key: lesson.id,
@@ -3289,9 +3306,9 @@ function ScheduleTab({
       size: 10
     }), " ", fullName(rowOwnerProfile)), lesson.format && /*#__PURE__*/React.createElement("span", {
       className: "tag format" + formatTagClass(lesson.format)
-    }, formatLabel(lesson.format)), printable && present.length > 0 && /*#__PURE__*/React.createElement("span", {
+    }, formatLabel(lesson.format)), printable && attendingStudents.length > 0 && /*#__PURE__*/React.createElement("span", {
       className: "tag progress"
-    }, doneCount, "/", present.length, " надруковано"), lesson.series_id && /*#__PURE__*/React.createElement("span", {
+    }, doneCount, "/", attendingStudents.length, " надруковано"), lesson.series_id && /*#__PURE__*/React.createElement("span", {
       className: "tag series"
     }, /*#__PURE__*/React.createElement(Icon, {
       name: "repeat",
@@ -3301,6 +3318,11 @@ function ScheduleTab({
     }, present.map(s => {
       const w = findWork(works, lesson.id, s.id);
       const printed = w && w.printed;
+      const att = findAttendance(attendance, lesson.id, s.id);
+      // Nothing to print for a student who wasn't actually there — no photo
+      // slot, no "Немає фото" nag, no print toggle, until they're marked "П".
+      const wasPresent = att && att.status === "present";
+      const canHandlePrint = printable && wasPresent;
       // "Trial" is per direction, not per student overall — a student who's
       // already had lessons in another course is still a first-timer here.
       const trialEligible = lessons.filter(l => l.course === lesson.course && (l.student_ids || []).includes(s.id)).length <= 1;
@@ -3318,7 +3340,7 @@ function ScheduleTab({
         title: "Картка учня"
       }, canEdit && s.photo ? /*#__PURE__*/React.createElement("img", {
         src: s.photo
-      }) : initialsFromName(s.name)), printable && /*#__PURE__*/React.createElement(PhotoSlot, {
+      }) : initialsFromName(s.name)), canHandlePrint && /*#__PURE__*/React.createElement(PhotoSlot, {
         url: w && w.photo,
         uploading: w && w._uploading,
         size: 17,
@@ -3335,7 +3357,7 @@ function ScheduleTab({
         className: "trial-pill" + (w && w.trial ? "" : " off"),
         title: "Пробне заняття для цього учня",
         onClick: () => toggleTrial(lesson.id, s.id, w)
-      }, "Пробне"), printable && lesson.date <= todayStr() && (!w || !w.photo) && !printed && /*#__PURE__*/React.createElement("label", {
+      }, "Пробне"), canHandlePrint && lesson.date <= todayStr() && (!w || !w.photo) && !printed && /*#__PURE__*/React.createElement("label", {
         className: "due-flag",
         title: "Прикріпити фото роботи"
       }, "Немає фото", /*#__PURE__*/React.createElement("input", {
@@ -3349,22 +3371,22 @@ function ScheduleTab({
           if (f) attachPhoto(lesson.id, s.id, f);
           e.target.value = "";
         }
-      })), printable && /*#__PURE__*/React.createElement("button", {
+      })), canHandlePrint && /*#__PURE__*/React.createElement("button", {
         className: "printed-pill" + (printed ? "" : " off"),
         onClick: async () => {
-          const willComplete = !printed && doneCount + 1 === present.length;
+          const willComplete = !printed && doneCount + 1 === attendingStudents.length;
           await togglePrinted(lesson.id, s.id);
           if (willComplete) showToast("🎉 Усі роботи цього заняття надруковано!");
         }
       }, /*#__PURE__*/React.createElement(Icon, {
         name: "printer",
         size: 11
-      }), " ", printed ? "Надруковано" : "Не надруковано"), printable && printed && w.printed_by_name && /*#__PURE__*/React.createElement("span", {
+      }), " ", printed ? "Надруковано" : "Не надруковано"), canHandlePrint && printed && w.printed_by_name && /*#__PURE__*/React.createElement("span", {
         className: "printed-by"
       }, "Статус змінив: ", w.printed_by_name)), isAdmin && /*#__PURE__*/React.createElement(AttendanceControls, {
         lesson: lesson,
         student: s,
-        record: findAttendance(attendance, lesson.id, s.id),
+        record: att,
         subscription: findActiveSubscription(subscriptions, s.id, lesson.course),
         onMark: markAttendance,
         onUnmark: unmarkAttendance
@@ -3835,6 +3857,7 @@ function QueueTab({
 }) {
   const [lessons, setLessons] = useState([]);
   const [works, setWorks] = useState([]);
+  const [attendance, setAttendance] = useState([]);
   const [allProfiles, setAllProfiles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("pending");
@@ -3842,14 +3865,16 @@ function QueueTab({
   const load = useCallback(async () => {
     setLoading(true);
     if (aggregateAll) {
-      const [lr, wr, pr] = await Promise.all([sb.from("lessons_safe").select("*"), sb.from("works").select("*"), sb.from("profiles").select("*")]);
+      const [lr, wr, pr, ar] = await Promise.all([sb.from("lessons_safe").select("*"), sb.from("works").select("*"), sb.from("profiles").select("*"), sb.from("lesson_attendance").select("*")]);
       setLessons(lr.data || []);
       setWorks(wr.data || []);
       setAllProfiles(pr.data || []);
+      setAttendance(ar.data || []);
     } else {
-      const [lr, wr] = await Promise.all([sb.from("lessons_safe").select("*").eq("owner_id", ownerId), sb.from("works").select("*").eq("owner_id", ownerId)]);
+      const [lr, wr, ar] = await Promise.all([sb.from("lessons_safe").select("*").eq("owner_id", ownerId), sb.from("works").select("*").eq("owner_id", ownerId), sb.from("lesson_attendance").select("*").eq("owner_id", ownerId)]);
       setLessons(lr.data || []);
       setWorks(wr.data || []);
+      setAttendance(ar.data || []);
     }
     setLoading(false);
   }, [ownerId, aggregateAll]);
@@ -3870,15 +3895,21 @@ function QueueTab({
   const profilesById = useMemo(() => Object.fromEntries(allProfiles.map(p => [p.id, p])), [allProfiles]);
   const studentById = useMemo(() => Object.fromEntries(students.map(s => [s.id, s])), [students]);
 
-  // build one row per (lesson, student) pair that has at least a scheduled
-  // presence — but only for courses that actually involve a printed model
-  // (VR and Robo AI lessons have nothing to send to the printer)
+  // build one row per (lesson, student) pair — only for courses that
+  // actually involve a printed model (VR and Robo AI have nothing to send
+  // to the printer), only for lessons that have already happened, and only
+  // for a student actually marked "П" there — no attendance, no absence,
+  // no excuse means nothing to print.
+  const today = todayStr();
   const rows = [];
   lessons.forEach(lesson => {
     if (!courseHasPrinting(lesson.course)) return;
+    if (lesson.date > today) return;
     (lesson.student_ids || []).forEach(sid => {
       const student = studentById[sid];
       if (!student) return;
+      const att = findAttendance(attendance, lesson.id, sid);
+      if (!att || att.status !== "present") return;
       const w = findWork(works, lesson.id, sid);
       rows.push({
         lesson,
