@@ -562,7 +562,7 @@
      different rooms at the same hour) land in side-by-side lanes instead of
      stacking on top of each other. */
   .week-grid-wrap{ overflow-x:auto; border:1px solid var(--line); border-radius:14px; background:var(--card); }
-  .week-grid{ display:flex; flex-direction:column; min-width:820px; }
+  .week-grid{ display:flex; flex-direction:column; }
   .week-grid-header{ display:flex; border-bottom:2px solid var(--line); position:sticky; top:0; background:var(--card); z-index:3; }
   .week-grid-axis-head{ width:46px; flex-shrink:0; position:sticky; left:0; z-index:4; background:var(--card); }
   .week-grid-day-head{
@@ -694,6 +694,7 @@
     .stat-card{ min-width:0; padding:11px 12px; }
     .calendar-month-label{ min-width:150px; }
     .week-lesson-row{ flex-wrap:wrap; }
+    .calendar-header{ flex-wrap:wrap; row-gap:8px; }
   }
 
   @media (max-width: 420px){
@@ -936,11 +937,17 @@ function startOfWeek(d) {
   const weekday = (d.getDay() + 6) % 7; // Mon=0 ... Sun=6
   return addDaysDate(new Date(d.getFullYear(), d.getMonth(), d.getDate()), -weekday);
 }
+function dateRangeLabel(start, days) {
+  if (days === 1) {
+    return `${start.getDate()} ${MONTHS[start.getMonth()]} ${start.getFullYear()}, ${WEEKDAYS[start.getDay()]}`;
+  }
+  const end = addDaysDate(start, days - 1);
+  const startPart = `${start.getDate()} ${MONTHS[start.getMonth()]}`;
+  const endPart = `${end.getDate()} ${MONTHS[end.getMonth()]}`;
+  return `${startPart} – ${endPart} ${end.getFullYear()}`;
+}
 function weekRangeLabel(weekStart) {
-  const weekEnd = addDaysDate(weekStart, 6);
-  const startPart = `${weekStart.getDate()} ${MONTHS[weekStart.getMonth()]}`;
-  const endPart = `${weekEnd.getDate()} ${MONTHS[weekEnd.getMonth()]}`;
-  return `${startPart} – ${endPart} ${weekEnd.getFullYear()}`;
+  return dateRangeLabel(weekStart, 7);
 }
 function timeToMinutes(t) {
   if (!t) return null;
@@ -3756,9 +3763,38 @@ function ScheduleTab({
   const [editingStudent, setEditingStudent] = useState(undefined); // undefined = closed
   const [viewingLesson, setViewingLesson] = useState(null);
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
+  const [viewMode, setViewMode] = useState("week"); // 'week' | '3day' | 'day'
   const [filterTeacherIds, setFilterTeacherIds] = useState([]);
   const [filterCourses, setFilterCourses] = useState([]);
   const [filterRooms, setFilterRooms] = useState([]);
+  const VIEW_DAY_COUNTS = {
+    week: 7,
+    "3day": 3,
+    day: 1
+  };
+  const viewDays = VIEW_DAY_COUNTS[viewMode];
+  function shiftView(dir) {
+    setWeekStart(w => addDaysDate(w, dir * viewDays));
+  }
+  function changeViewMode(mode) {
+    if (mode !== viewMode) setWeekStart(w => {
+      if (mode === "week") return startOfWeek(w);
+      // Switching to a narrower view: jump to today if it's part of the
+      // range currently on screen, otherwise keep showing the same range's
+      // first day rather than jumping somewhere the teacher wasn't looking.
+      const today = new Date();
+      const todayStr = formatISODateLocal(today);
+      for (let i = 0; i < viewDays; i++) {
+        if (formatISODateLocal(addDaysDate(w, i)) === todayStr) return today;
+      }
+      return w;
+    });
+    setViewMode(mode);
+  }
+  function jumpToToday() {
+    const today = new Date();
+    setWeekStart(viewMode === "week" ? startOfWeek(today) : today);
+  }
   const loadAttendance = useCallback(async () => {
     // Everyone needs to know who was actually marked "П" — printing is
     // gated on it — but only admin/superadmin also needs subscriptions
@@ -3948,9 +3984,10 @@ function ScheduleTab({
   });
   Object.values(lessonsByDate).forEach(arr => arr.sort((a, b) => (a.time || "").localeCompare(b.time || "")));
   const weekDays = [];
-  for (let i = 0; i < 7; i++) weekDays.push(addDaysDate(weekStart, i));
+  for (let i = 0; i < viewDays; i++) weekDays.push(addDaysDate(weekStart, i));
   const todayLocal = formatISODateLocal(new Date());
   const GRID_HOUR_PX = 56;
+  const gridMinWidth = viewDays * 108 + 46;
   // The grid always spans at least the studio's normal working hours, but
   // widens for an outlier lesson booked earlier/later than that so nothing
   // this week ever falls outside (or gets clipped by) the visible grid.
@@ -4143,28 +4180,42 @@ function ScheduleTab({
     className: "calendar-header"
   }, /*#__PURE__*/React.createElement("button", {
     className: "studio-btn ghost",
-    onClick: () => setWeekStart(w => addDaysDate(w, -7))
+    onClick: () => shiftView(-1)
   }, /*#__PURE__*/React.createElement(Icon, {
     name: "back",
     size: 16
   })), /*#__PURE__*/React.createElement("div", {
     className: "calendar-month-label"
-  }, weekRangeLabel(weekStart)), /*#__PURE__*/React.createElement("button", {
+  }, dateRangeLabel(weekStart, viewDays)), /*#__PURE__*/React.createElement("button", {
     className: "studio-btn ghost",
-    onClick: () => setWeekStart(w => addDaysDate(w, 7))
+    onClick: () => shiftView(1)
   }, /*#__PURE__*/React.createElement(Icon, {
     name: "back",
     size: 16,
     style: {
       transform: "rotate(180deg)"
     }
-  })), /*#__PURE__*/React.createElement("button", {
-    className: "studio-btn",
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "studio-segmented",
     style: {
       marginLeft: "auto"
-    },
-    onClick: () => setWeekStart(startOfWeek(new Date()))
-  }, "Цей тиждень")), aggregateAll && /*#__PURE__*/React.createElement("div", {
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: viewMode === "day" ? "active" : "",
+    onClick: () => changeViewMode("day")
+  }, "День"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: viewMode === "3day" ? "active" : "",
+    onClick: () => changeViewMode("3day")
+  }, "3 дні"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: viewMode === "week" ? "active" : "",
+    onClick: () => changeViewMode("week")
+  }, "Тиждень")), /*#__PURE__*/React.createElement("button", {
+    className: "studio-btn",
+    onClick: jumpToToday
+  }, viewMode === "week" ? "Цей тиждень" : "Сьогодні")), aggregateAll && /*#__PURE__*/React.createElement("div", {
     className: "schedule-filters"
   }, /*#__PURE__*/React.createElement(MultiSelectDropdown, {
     label: "Викладач",
@@ -4196,7 +4247,10 @@ function ScheduleTab({
   }, canEdit ? "Додайте перше заняття кнопкою вище." : "Розклад формує адміністратор — тут з'являться заплановані заняття.")) : /*#__PURE__*/React.createElement("div", {
     className: "week-grid-wrap"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "week-grid"
+    className: "week-grid",
+    style: {
+      minWidth: gridMinWidth
+    }
   }, /*#__PURE__*/React.createElement("div", {
     className: "week-grid-header"
   }, /*#__PURE__*/React.createElement("div", {
