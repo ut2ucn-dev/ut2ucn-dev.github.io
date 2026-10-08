@@ -33,12 +33,18 @@ alter table public.lessons
 -- 1b. lessons_safe is what every tab actually reads from (it masks
 --     price_amount from non-admin — see 0002), not the bare table, so the
 --     four new columns are invisible through it until it's rebuilt too.
---     CREATE OR REPLACE VIEW can only append columns, never drop/retype
---     the existing ones, so this is safe to run even if a column here
---     turns out to be named slightly differently than Supabase expects —
---     it will fail loudly and nothing else is affected.
+--     CREATE OR REPLACE VIEW requires the existing columns to keep their
+--     exact names *and* ordinal position — the actual live column order
+--     here doesn't match this file's guess (it errors with "cannot change
+--     name of view column ... to ..."), so drop and recreate instead. This
+--     is safe: it's a plain view (no stored data to lose), nothing else in
+--     the schema references it, and Supabase's default privileges on
+--     public-schema objects apply to the recreated view the same way they
+--     did to the original — same as every other table/view in this
+--     project, nothing here ever needed an explicit GRANT.
 -- ---------------------------------------------------------------------
-create or replace view public.lessons_safe as
+drop view if exists public.lessons_safe;
+create view public.lessons_safe as
 select
   id, owner_id, date, time, theme, course, format, student_ids,
   extra_service, series_id, payroll_amount,
