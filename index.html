@@ -93,6 +93,13 @@
   .mode-btn.active .mode-ic{ background:rgba(255,255,255,0.2); color:#fff; }
   .mode-btn.active .mode-btn-title{ color:#fff; }
   .mode-btn.active .mode-btn-sub{ color:rgba(255,255,255,0.78); }
+  .peek-toggle{
+    display:flex; align-items:center; gap:7px; width:100%; margin:-6px 0 16px; padding:9px 11px;
+    border:1.5px dashed var(--line-strong); border-radius:12px; background:none; color:var(--ink-soft);
+    font-family:var(--font-body); font-size:11.5px; font-weight:600; cursor:pointer; text-align:left;
+  }
+  .peek-toggle:hover{ border-color:var(--brand); color:var(--brand-text); }
+  .peek-toggle.active{ border-style:solid; border-color:var(--brand); background:var(--brand-soft); color:var(--brand-text); }
   /* "viewing as" chip: sits right in the sidebar next to the mode switch,
      so it's always obvious you're still inside "Адміністрування", just
      scoped to one teacher — replaces the old banner that lived in the
@@ -147,6 +154,7 @@
     border-color:var(--line); background:var(--paper); padding:9px 10px; box-shadow:none; color:var(--ink-soft);
   }
   .studio-btn.ghost:hover{ background:var(--brand-soft); border-color:var(--brand); color:var(--brand-text); transform:translateY(-1px); }
+  .studio-btn.ghost.active{ background:var(--alert-soft); border-color:var(--alert); color:var(--alert-text); }
   .studio-btn:disabled{ opacity:0.45; cursor:not-allowed; transform:none; box-shadow:none; }
   .theme-toggle{
     width:38px; height:38px; border-radius:50%; border:1.5px solid var(--line-strong); background:var(--card);
@@ -197,7 +205,7 @@
 
   .stats-row{ display:flex; gap:12px; margin-bottom:20px; flex-wrap:wrap; }
   .stat-card{
-    flex:1; min-width:140px; border-radius:16px; padding:14px 16px; display:flex; align-items:center; gap:12px;
+    flex:1; min-width:140px; border-radius:10px; padding:13px 15px; display:flex; align-items:center; gap:12px;
     border:1px solid var(--line); background:var(--card); position:relative; overflow:hidden;
     box-shadow:0 1px 2px rgba(23,25,35,0.04);
   }
@@ -224,19 +232,6 @@
      own block — replaces the old single dense flex row that crammed date
      card, theme, tags, actions, students and (for admin) attendance/
      payment chips all together. */
-  .lesson-card{
-    border:1px solid var(--line); background:var(--card); border-radius:18px; margin-bottom:14px;
-    animation:fadeInUp .3s ease both; transition:border-color .15s ease, box-shadow .15s ease;
-    position:relative; overflow:hidden; box-shadow:0 1px 2px rgba(23,25,35,0.04);
-  }
-  .lesson-card::before{
-    content:""; position:absolute; left:0; top:0; bottom:0; width:5px;
-    background:var(--lesson-accent, var(--line-strong));
-  }
-  .lesson-card:hover{ border-color:var(--line-strong); box-shadow:0 6px 20px rgba(23,25,35,0.08); }
-  .lesson-card.past{ opacity:0.62; }
-  .lesson-card.clickable{ cursor:pointer; }
-  .lesson-card.clickable:active{ transform:scale(0.997); }
   .lesson-card-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:14px; padding:18px 18px 0 22px; }
   .lesson-head-left{ display:flex; align-items:flex-start; gap:12px; min-width:0; }
   .lesson-time-block{ font-family:var(--font-mono); font-size:13px; font-weight:700; color:var(--brand-text); background:var(--brand-soft); border-radius:9px; padding:4px 9px; flex-shrink:0; }
@@ -306,6 +301,11 @@
     animation:softPulse 2.4s ease-in-out infinite;
   }
   .due-flag img{ width:22px; height:22px; border-radius:8px; object-fit:cover; }
+  .emergency-contacts{ background:var(--alert-soft); border-radius:12px; padding:10px 14px; margin:0 0 14px; }
+  .contact-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:7px 0; border-top:1px solid rgba(0,0,0,0.07); }
+  .contact-row:first-of-type{ border-top:none; }
+  .contact-name{ display:flex; flex-direction:column; gap:1px; font-weight:700; font-size:13px; color:var(--ink); min-width:0; }
+  .contact-parent{ font-weight:500; font-size:11.5px; color:var(--ink-soft); }
   .printed-pill{ font-family:var(--font-mono); font-weight:700; font-size:11px; color:var(--success-text); background:var(--success-soft); border-radius:22px; padding:6px 12px; flex-shrink:0; display:inline-flex; align-items:center; gap:5px; border:1.5px solid transparent; cursor:pointer; transition:transform .12s ease, box-shadow .15s ease; }
   .printed-pill:hover{ box-shadow:0 2px 8px rgba(22,163,74,0.25); }
   .printed-pill:active{ transform:scale(0.95); }
@@ -355,7 +355,7 @@
     flex-shrink:0;
   }
   .chip-avatar img{ width:100%; height:100%; object-fit:cover; }
-  .empty-state{ border:2px dashed var(--line-strong); border-radius:18px; padding:40px 20px 44px; text-align:center; color:var(--ink-soft); animation:fadeIn .3s ease both; }
+  .empty-state{ border:2px dashed var(--line-strong); border-radius:12px; padding:34px 20px 38px; text-align:center; color:var(--ink-soft); animation:fadeIn .3s ease both; }
   .empty-mascot{ display:flex; justify-content:center; margin-bottom:14px; font-size:48px; animation:floaty 3s ease-in-out infinite; }
   .empty-state-title{ font-family:var(--font-display); font-size:16.5px; font-weight:700; color:var(--ink); margin-bottom:5px; }
   .empty-state-sub{ font-size:13px; max-width:320px; margin:0 auto; }
@@ -382,7 +382,7 @@
   .avatar.sm{ width:28px; height:28px; font-size:11px; box-shadow:0 0 0 1.5px var(--card), 0 0 0 2.5px var(--brand-soft); flex-shrink:0; }
   .students-meta{ font-family:var(--font-mono); font-size:11.5px; color:var(--ink-soft); }
   .students-sub{ font-size:12.5px; color:var(--ink-soft); margin-top:2px; }
-  .print-item{ display:flex; gap:14px; align-items:center; border:1px solid var(--line); background:var(--card); border-radius:18px; padding:14px 18px; margin-bottom:12px; animation:fadeInUp .3s ease both; transition:box-shadow .15s ease, border-color .15s ease; flex-wrap:wrap; box-shadow:0 1px 2px rgba(23,25,35,0.04); }
+  .print-item{ display:flex; gap:14px; align-items:center; border:1px solid var(--line); background:var(--card); border-radius:10px; padding:13px 16px; margin-bottom:10px; animation:fadeInUp .3s ease both; transition:box-shadow .15s ease, border-color .15s ease; flex-wrap:wrap; box-shadow:0 1px 2px rgba(23,25,35,0.04); }
   .print-item:hover{ box-shadow:0 6px 20px rgba(23,25,35,0.08); border-color:var(--line-strong); }
   .print-thumb{
     width:58px; height:58px; border-radius:12px; flex-shrink:0; cursor:pointer; border:2px dashed var(--line-strong);
@@ -396,7 +396,7 @@
   .print-item-origin{ font-size:12.5px; color:var(--ink-soft); margin-top:2px; }
   .print-item-due{ font-family:var(--font-mono); font-size:11px; color:var(--alert-text); margin-top:3px; display:flex; align-items:center; gap:4px; }
   .overlay{ position:fixed; inset:0; background:rgba(23,25,35,0.5); display:flex; align-items:center; justify-content:center; padding:20px; z-index:50; animation:fadeIn .18s ease both; }
-  .modal{ background:var(--card); border-radius:20px; padding:26px; width:100%; max-width:440px; max-height:88vh; overflow-y:auto; animation:modalIn .22s cubic-bezier(.22,.9,.36,1) both; box-shadow:0 20px 50px rgba(23,25,35,0.18); }
+  .modal{ background:var(--card); border-radius:12px; padding:22px; width:100%; max-width:440px; max-height:88vh; overflow-y:auto; animation:modalIn .22s cubic-bezier(.22,.9,.36,1) both; box-shadow:0 10px 28px rgba(23,25,35,0.14); }
   .modal-title{ font-family:var(--font-display); font-size:18.5px; font-weight:700; margin-bottom:18px; display:flex; align-items:center; justify-content:space-between; }
   .field-label{ font-size:12.5px; font-weight:700; color:var(--ink-soft); margin-bottom:6px; display:block; }
   .field{ margin-bottom:14px; }
@@ -421,10 +421,14 @@
     padding:9px 10px; border-radius:10px; background:var(--paper); border:1px solid var(--line); color:var(--ink-soft);
     font-size:13.5px; font-weight:500;
   }
-  .student-notes{
-    padding:10px 12px; border-radius:10px; background:var(--alert-soft); border:1px solid var(--line); color:var(--ink);
-    font-size:13.5px; line-height:1.5; white-space:pre-wrap;
+  .modal-tabs{ display:flex; gap:4px; border-bottom:1.5px solid var(--line); margin:16px 0 14px; overflow-x:auto; }
+  .modal-tab{
+    padding:9px 13px; font-family:var(--font-body); font-size:13px; font-weight:600; color:var(--ink-soft);
+    background:none; border:none; cursor:pointer; white-space:nowrap; border-bottom:2.5px solid transparent;
+    margin-bottom:-1.5px; flex-shrink:0;
   }
+  .modal-tab:hover{ color:var(--ink); }
+  .modal-tab.active{ color:var(--brand-text); border-bottom-color:var(--brand); }
   .field input:focus, .field select:focus{ outline:none; border-color:var(--brand); box-shadow:0 0 0 3px var(--brand-soft); }
   .chip-wrap{ display:flex; flex-wrap:wrap; gap:6px; }
   .student-search-input{ margin-bottom:8px; }
@@ -439,6 +443,13 @@
   .lesson-card-modal{ max-width:560px; }
   .student-card-head{ display:flex; align-items:center; gap:14px; padding-bottom:16px; border-bottom:1px solid var(--line); margin-bottom:4px; }
   .student-card-name{ font-family:var(--font-display); font-size:18px; font-weight:700; }
+  .comment-compose{ display:flex; flex-direction:column; gap:8px; margin-bottom:16px; }
+  .comment-row{ padding:10px 0; border-top:1px solid var(--line); }
+  .comment-row:first-of-type{ border-top:none; }
+  .comment-row-head{ display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin-bottom:3px; }
+  .comment-author{ font-size:12.5px; font-weight:700; color:var(--ink); }
+  .comment-date{ font-family:var(--font-mono); font-size:10.5px; color:var(--ink-soft); flex-shrink:0; }
+  .comment-body{ font-size:13.5px; color:var(--ink); line-height:1.45; white-space:pre-wrap; }
   .portfolio-row{
     display:flex; align-items:center; gap:14px; padding:12px 0; border-top:1px solid var(--line); flex-wrap:wrap;
   }
@@ -499,21 +510,100 @@
   }
   .week-lesson-row:first-of-type{ border-top:none; }
 
-  .day-section{ margin-bottom:20px; }
-  .day-section-head{
-    display:flex; align-items:baseline; gap:9px; margin-bottom:12px; padding-bottom:9px;
-    border-bottom:2px solid var(--line);
-  }
-  .day-section-name{ font-family:var(--font-display); font-size:15px; font-weight:700; text-transform:uppercase; letter-spacing:0.02em; color:var(--ink); }
-  .day-section-head.today{ border-bottom-color:var(--brand); }
-  .day-section-head.today .day-section-name{ color:var(--brand-text); }
-  .day-section-date{ font-family:var(--font-mono); font-size:11.5px; color:var(--ink-soft); }
   .today-badge{
     font-family:var(--font-mono); font-size:9.5px; font-weight:700; background:var(--brand); color:#fff;
     border-radius:22px; padding:3px 9px; text-transform:uppercase; letter-spacing:0.03em;
   }
-  .day-section-add{ margin-left:auto; }
-  .day-section-empty{ font-size:12.5px; color:var(--ink-soft); padding:0 4px 6px; font-style:italic; }
+
+  /* Schedule filter row (teacher / course / room) — aggregate ("studio")
+     schedule view only. */
+  .schedule-filters{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
+  .multiselect{ position:relative; }
+  .multiselect-trigger{
+    display:flex; align-items:center; gap:6px; border:1.5px solid var(--line-strong); background:var(--card);
+    color:var(--ink); border-radius:11px; padding:7px 11px; font-family:var(--font-body); font-size:12.5px;
+    font-weight:600; cursor:pointer; white-space:nowrap; max-width:180px;
+  }
+  .multiselect-trigger span{ overflow:hidden; text-overflow:ellipsis; }
+  .multiselect-trigger:hover{ border-color:var(--brand); }
+  .multiselect-trigger.active{ border-color:var(--brand); background:var(--brand-soft); color:var(--brand-text); }
+  .multiselect-panel{
+    position:absolute; top:calc(100% + 6px); left:0; z-index:20; min-width:220px; max-height:280px; overflow-y:auto;
+    background:var(--card); border:1.5px solid var(--line-strong); border-radius:13px; padding:8px;
+    box-shadow:0 10px 30px rgba(23,25,35,0.14); animation:fadeIn .15s ease both;
+  }
+  .multiselect-option{
+    display:flex; align-items:center; gap:9px; padding:7px 8px; border-radius:9px; cursor:pointer;
+    font-size:13px; color:var(--ink);
+  }
+  .multiselect-option:hover{ background:var(--brand-soft); }
+  .multiselect-option input{ accent-color:var(--brand); width:15px; height:15px; flex-shrink:0; }
+  .multiselect-empty{ font-size:12.5px; color:var(--ink-soft); padding:6px 8px; font-style:italic; }
+  .multiselect-clear{
+    width:100%; margin-top:4px; border:none; background:none; border-top:1px solid var(--line);
+    color:var(--brand-text); font-family:var(--font-body); font-size:12px; font-weight:600; cursor:pointer;
+    padding:8px 4px 2px; text-align:center;
+  }
+  .multiselect-clear:hover{ text-decoration:underline; }
+
+  /* Hour-grid week calendar — replaces the old flat day-list. A fixed hour
+     axis on the left, 7 day columns on the right; lesson blocks are
+     absolutely positioned within their day column by start time/duration
+     (see layoutDayLessons in ScheduleTab), so two overlapping lessons (e.g.
+     different rooms at the same hour) land in side-by-side lanes instead of
+     stacking on top of each other. */
+  .week-grid-wrap{ overflow-x:auto; border:1px solid var(--line); border-radius:14px; background:var(--card); }
+  .week-grid{ display:flex; flex-direction:column; min-width:820px; }
+  .week-grid-header{ display:flex; border-bottom:2px solid var(--line); position:sticky; top:0; background:var(--card); z-index:3; }
+  .week-grid-axis-head{ width:46px; flex-shrink:0; position:sticky; left:0; z-index:4; background:var(--card); }
+  .week-grid-day-head{
+    position:relative; flex:1; min-width:108px; text-align:center; padding:10px 6px; border-left:1px solid var(--line);
+    display:flex; flex-direction:column; gap:2px;
+  }
+  .week-grid-day-head.today{ background:var(--brand-soft); }
+  .week-grid-day-name{ font-family:var(--font-display); font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.03em; color:var(--ink); }
+  .week-grid-day-head.today .week-grid-day-name{ color:var(--brand-text); }
+  .week-grid-day-date{ font-family:var(--font-mono); font-size:11px; color:var(--ink-soft); }
+  .week-grid-day-head .today-badge{ align-self:center; margin-top:1px; padding:2px 7px; font-size:8.5px; }
+  .week-grid-day-add{
+    position:absolute; top:4px; right:4px; width:22px; height:22px; padding:0;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .week-grid-body{ display:flex; }
+  .week-grid-axis{ width:46px; flex-shrink:0; position:sticky; left:0; z-index:2; background:var(--card); }
+  .week-grid-hour-label{
+    display:flex; justify-content:flex-end; padding:2px 7px 0 0; box-sizing:border-box;
+    font-family:var(--font-mono); font-size:10px; color:var(--ink-soft);
+  }
+  .week-grid-day-col{ position:relative; flex:1; min-width:108px; border-left:1px solid var(--line); }
+  .week-grid-day-col.today{ background:var(--brand-soft); opacity:0.5; }
+  .week-grid-cell{ position:absolute; left:0; right:0; border-top:1px solid var(--line); box-sizing:border-box; }
+  .week-grid-cell.clickable{ cursor:pointer; }
+  .week-grid-cell.clickable:hover{ background:rgba(91,79,224,0.07); }
+  .grid-lesson{
+    position:absolute; box-sizing:border-box; border-radius:8px; padding:3px 7px 2px; overflow:hidden;
+    background:var(--card); border:1px solid var(--line); border-left:3px solid var(--lesson-accent, var(--line-strong));
+    cursor:pointer; z-index:2; box-shadow:0 1px 2px rgba(23,25,35,0.05); transition:box-shadow .15s ease;
+  }
+  .grid-lesson:hover{ box-shadow:0 5px 16px rgba(23,25,35,0.14); z-index:5; }
+  .grid-lesson.past{ opacity:0.58; }
+  .grid-lesson-done{
+    position:absolute; top:3px; right:3px; width:15px; height:15px; border-radius:50%; background:var(--success);
+    color:#fff; display:flex; align-items:center; justify-content:center;
+  }
+  .grid-lesson-time{ font-family:var(--font-mono); font-size:9.5px; font-weight:700; color:var(--ink-soft); }
+  .grid-lesson-course{
+    font-family:var(--font-mono); font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:0.02em;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .grid-lesson-theme{
+    font-size:11.5px; font-weight:700; line-height:1.25; color:var(--ink);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .grid-lesson-teacher{
+    font-size:9.5px; color:var(--ink-soft); margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .grid-lesson-progress{ position:absolute; bottom:2px; right:5px; font-family:var(--font-mono); font-size:9px; font-weight:700; color:var(--brand-text); }
 
   .login-app{ display:flex; align-items:center; justify-content:center; overflow:hidden; }
   .login-theme-toggle{ position:absolute; top:18px; right:18px; z-index:2; }
@@ -533,8 +623,8 @@
   .login-footer a:hover{ text-decoration:underline; }
   .login-wrap{ position:relative; width:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:20px; gap:4px; }
   .login-card{
-    background:var(--card); border:1.5px solid var(--line); border-radius:24px; padding:36px 32px 32px;
-    width:100%; max-width:390px; text-align:center; box-shadow:0 16px 42px rgba(23,25,35,0.12);
+    background:var(--card); border:1.5px solid var(--line); border-radius:14px; padding:32px 30px 30px;
+    width:100%; max-width:390px; text-align:center; box-shadow:0 10px 28px rgba(23,25,35,0.1);
     animation:modalIn .32s cubic-bezier(.22,.9,.36,1) both;
   }
   .login-card.shake{ animation:shake .42s ease; }
@@ -585,14 +675,10 @@
     /* Modals become bottom sheets on mobile: full width, anchored to the bottom edge,
        so they can never appear off-center or clipped at the top. */
     .overlay{ align-items:flex-end; padding:0; }
-    .modal{ width:100%; max-width:100%; border-radius:20px 18px 0 0; max-height:85vh; animation:sheetUp .25s cubic-bezier(.22,.9,.36,1) both; padding-bottom:max(22px, env(safe-area-inset-bottom)); }
+    .modal{ width:100%; max-width:100%; border-radius:14px 14px 0 0; max-height:85vh; animation:sheetUp .25s cubic-bezier(.22,.9,.36,1) both; padding-bottom:max(22px, env(safe-area-inset-bottom)); }
     .confirm-modal{ max-width:100%; }
 
     .studio-page-head{ align-items:center; }
-    .lesson-card{ flex-direction:column; gap:10px; }
-    .lesson-card .datecard{ flex-direction:row; width:auto; align-items:center; gap:8px; padding:2px 8px; }
-    .lesson-card .datecard-top{ padding:2px 6px; }
-    .lesson-card .datecard-body{ padding:0; }
     .print-item{ flex-wrap:wrap; }
     .toast-stack{ bottom:calc(14px + env(safe-area-inset-bottom)); }
     .stats-row{ gap:8px; }
@@ -847,6 +933,17 @@ function weekRangeLabel(weekStart) {
   const endPart = `${weekEnd.getDate()} ${MONTHS[weekEnd.getMonth()]}`;
   return `${startPart} – ${endPart} ${weekEnd.getFullYear()}`;
 }
+function timeToMinutes(t) {
+  if (!t) return null;
+  const [h, m] = t.split(":").map(Number);
+  if (Number.isNaN(h)) return null;
+  return h * 60 + (Number.isNaN(m) ? 0 : m);
+}
+function minutesToTime(mins) {
+  const h = Math.floor(mins / 60) % 24;
+  const m = mins % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
 const WEEKDAY_FULL = ["Неділя", "Понеділок", "Вівторок", "Середа", "Четвер", "П'ятниця", "Субота"];
 const COURSE_OPTIONS = ["3D Tinkercad FIRST (9-12)", "3D Tinkercad PRO (9-12)", "3D Makers FIRST (6-8)", "3D Makers PRO (6-8)", "VR ІГРОВИЙ", "VR РОЗРОБКА (Delightex)", "Robo AI (Ukit 6-8)", "Robo AI (UGot 9-12)", "3D слайсинг"];
 const FORMAT_OPTIONS = [{
@@ -878,6 +975,7 @@ function formatTagClass(format) {
   if (format === "individual_online_no_print" || format === "group_online_no_print") return " online-no-print";
   return "";
 }
+const ROOM_OPTIONS = ["Клас AI", "Клас VR", "Комп'ютерний клас", "3D-майстерня"];
 // Which bucket of the studio's rate card a lesson's amounts fall into.
 // Only the plain in-person "group" format is further split by headcount —
 // every other format is its own fixed bucket regardless of attendance.
@@ -1405,6 +1503,71 @@ function StatCard({
   }, label)));
 }
 
+// Generic checkbox-list popover filter, e.g. "Викладач", "Курс", "Кабінет"
+// above the schedule grid. `options` is either a flat list of strings (the
+// string is both the value and the label, e.g. a course name) or a list of
+// {value, label} pairs (e.g. teacher id + full name). `selected` holds the
+// matching `value`s; an empty selection means "all, no filter applied".
+function MultiSelectDropdown({
+  label,
+  icon,
+  options,
+  selected,
+  onChange
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    function onDocClick(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, []);
+  const norm = options.map(o => typeof o === "string" ? {
+    value: o,
+    label: o
+  } : o);
+  const selectedLabel = v => {
+    const found = norm.find(o => o.value === v);
+    return found ? found.label : v;
+  };
+  const summary = selected.length === 0 ? label : selected.length === 1 ? selectedLabel(selected[0]) : `${label} (${selected.length})`;
+  return /*#__PURE__*/React.createElement("div", {
+    className: "multiselect",
+    ref: ref
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "multiselect-trigger" + (selected.length ? " active" : ""),
+    onClick: () => setOpen(o => !o)
+  }, icon && /*#__PURE__*/React.createElement(Icon, {
+    name: icon,
+    size: 13
+  }), /*#__PURE__*/React.createElement("span", null, summary), /*#__PURE__*/React.createElement(Icon, {
+    name: "back",
+    size: 11,
+    style: {
+      transform: open ? "rotate(90deg)" : "rotate(-90deg)",
+      flexShrink: 0
+    }
+  })), open && /*#__PURE__*/React.createElement("div", {
+    className: "multiselect-panel"
+  }, norm.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    className: "multiselect-empty"
+  }, "Немає варіантів") : norm.map(opt => /*#__PURE__*/React.createElement("label", {
+    key: opt.value,
+    className: "multiselect-option"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: selected.includes(opt.value),
+    onChange: () => onChange(selected.includes(opt.value) ? selected.filter(x => x !== opt.value) : [...selected, opt.value])
+  }), /*#__PURE__*/React.createElement("span", null, opt.label))), selected.length > 0 && /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "multiselect-clear",
+    onClick: () => onChange([])
+  }, "Очистити")));
+}
+
 // ---------------------------------------------------------------
 // Login screen
 // ---------------------------------------------------------------
@@ -1914,6 +2077,7 @@ function ProfileModal({
 function StudentCardModal({
   student,
   showPhoto,
+  me,
   onClose,
   onEdit
 }) {
@@ -1921,8 +2085,13 @@ function StudentCardModal({
   const [works, setWorks] = useState([]);
   const [profiles, setProfiles] = useState([]);
   const [subscriptions, setSubscriptions] = useState([]);
+  const [attendance, setAttendance] = useState([]);
+  const [comments, setComments] = useState([]);
+  const [commentDraft, setCommentDraft] = useState("");
+  const [savingComment, setSavingComment] = useState(false);
   const [loading, setLoading] = useState(true);
   const [preview, setPreview] = useState(null);
+  const [activeTab, setActiveTab] = useState("profile");
   useEscapeClose(preview ? null : onClose);
   useLockBodyScroll();
   const loadSubscriptions = useCallback(() => {
@@ -1933,21 +2102,50 @@ function StudentCardModal({
       data
     }) => setSubscriptions(data || []));
   }, [student.id, showPhoto]);
+  const loadComments = useCallback(() => {
+    sb.from("student_comments").select("*").eq("student_id", student.id).order("created_at", {
+      ascending: false
+    }).then(({
+      data
+    }) => setComments(data || []));
+  }, [student.id]);
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    Promise.all([sb.from("lessons_safe").select("*").contains("student_ids", [student.id]), sb.from("works").select("*").eq("student_id", student.id), sb.from("profiles").select("*")]).then(([lr, wr, pr]) => {
+    Promise.all([sb.from("lessons_safe").select("*").contains("student_ids", [student.id]), sb.from("works").select("*").eq("student_id", student.id), sb.from("profiles").select("*"), sb.from("lesson_attendance").select("*").eq("student_id", student.id)]).then(([lr, wr, pr, ar]) => {
       if (cancelled) return;
       setLessons(lr.data || []);
       setWorks(wr.data || []);
       setProfiles(pr.data || []);
+      setAttendance(ar.data || []);
       setLoading(false);
     });
     loadSubscriptions();
+    loadComments();
     return () => {
       cancelled = true;
     };
-  }, [student.id, loadSubscriptions]);
+  }, [student.id, loadSubscriptions, loadComments]);
+  async function addComment() {
+    const body = commentDraft.trim();
+    if (!body) return;
+    setSavingComment(true);
+    const {
+      data,
+      error
+    } = await sb.from("student_comments").insert({
+      student_id: student.id,
+      author_id: me ? me.id : null,
+      body
+    }).select().single();
+    setSavingComment(false);
+    if (error) {
+      showToast(error.message, "error");
+      return;
+    }
+    setComments(cs => [data, ...cs]);
+    setCommentDraft("");
+  }
   async function toggleSubscriptionStatus(sub) {
     const nextStatus = sub.status === "cancelled" ? "active" : "cancelled";
     const {
@@ -1977,6 +2175,7 @@ function StudentCardModal({
   }
   const profilesById = useMemo(() => Object.fromEntries(profiles.map(p => [p.id, p])), [profiles]);
   const sorted = useMemo(() => [...lessons].sort((a, b) => (a.date + (a.time || "")).localeCompare(b.date + (b.time || ""))), [lessons]);
+  const lessonById = useMemo(() => Object.fromEntries(lessons.map(l => [l.id, l])), [lessons]);
   const courses = useMemo(() => {
     const set = new Set();
     lessons.forEach(l => {
@@ -1986,6 +2185,33 @@ function StudentCardModal({
   }, [lessons]);
   const firstLesson = sorted[0];
   const workByLesson = useMemo(() => Object.fromEntries(works.map(w => [w.lesson_id, w])), [works]);
+  const payments = useMemo(() => {
+    return attendance.filter(a => a.payment_method).map(a => ({
+      ...a,
+      lesson: lessonById[a.lesson_id]
+    })).sort((a, b) => {
+      const da = a.lesson ? a.lesson.date + (a.lesson.time || "") : "";
+      const db = b.lesson ? b.lesson.date + (b.lesson.time || "") : "";
+      return db.localeCompare(da);
+    });
+  }, [attendance, lessonById]);
+  const totalPaid = useMemo(() => payments.reduce((sum, p) => sum + (p.amount || 0), 0), [payments]);
+  const TABS = [{
+    key: "profile",
+    label: "Профіль"
+  }, showPhoto && {
+    key: "subscriptions",
+    label: "Абонементи"
+  }, {
+    key: "history",
+    label: "Історія занять"
+  }, {
+    key: "comments",
+    label: "Коментарі"
+  }, showPhoto && {
+    key: "payments",
+    label: "Платежі"
+  }].filter(Boolean);
   return ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
     className: "overlay",
     onClick: onClose
@@ -2012,26 +2238,7 @@ function StudentCardModal({
     }
   }, /*#__PURE__*/React.createElement("div", {
     className: "student-card-name"
-  }, student.name), (student.parent_last_name || student.parent_first_name) && /*#__PURE__*/React.createElement("div", {
-    className: "students-sub"
-  }, [student.parent_last_name, student.parent_first_name].filter(Boolean).join(" ")), student.phone && /*#__PURE__*/React.createElement("a", {
-    className: "tel-link",
-    href: "tel:" + student.phone.replace(/\s+/g, "")
-  }, /*#__PURE__*/React.createElement(Icon, {
-    name: "phone",
-    size: 11
-  }), " ", student.phone), student.birthday && /*#__PURE__*/React.createElement("div", {
-    className: "students-sub",
-    style: {
-      display: "flex",
-      alignItems: "center",
-      gap: 4,
-      marginTop: 3
-    }
-  }, /*#__PURE__*/React.createElement(Icon, {
-    name: "calendar",
-    size: 11
-  }), " День народження: ", formatDateDMY(student.birthday))), /*#__PURE__*/React.createElement("button", {
+  }, student.name)), /*#__PURE__*/React.createElement("button", {
     className: "studio-btn ghost",
     onClick: onEdit,
     title: "Редагувати"
@@ -2041,9 +2248,16 @@ function StudentCardModal({
   }))), loading ? /*#__PURE__*/React.createElement("div", {
     className: "loading-block"
   }, "Завантаження портфоліо…") : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "modal-tabs"
+  }, TABS.map(t => /*#__PURE__*/React.createElement("button", {
+    key: t.key,
+    type: "button",
+    className: "modal-tab" + (activeTab === t.key ? " active" : ""),
+    onClick: () => setActiveTab(t.key)
+  }, t.label))), activeTab === "profile" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     className: "stats-row",
     style: {
-      margin: "16px 0"
+      margin: "0 0 16px"
     }
   }, /*#__PURE__*/React.createElement(StatCard, {
     icon: "calendar",
@@ -2063,7 +2277,37 @@ function StudentCardModal({
     label: "відвідує вперше",
     color: lessons.length <= 1 ? "#8B5CF6" : "var(--ink-soft)",
     soft: lessons.length <= 1 ? "rgba(139,92,246,0.14)" : "var(--paper)"
-  })), courses.length > 0 && /*#__PURE__*/React.createElement("div", {
+  })), (student.parent_last_name || student.parent_first_name) && /*#__PURE__*/React.createElement("div", {
+    className: "field"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "field-label"
+  }, "Батьки"), /*#__PURE__*/React.createElement("div", {
+    className: "students-sub"
+  }, [student.parent_last_name, student.parent_first_name].filter(Boolean).join(" "))), student.phone && /*#__PURE__*/React.createElement("div", {
+    className: "field"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "field-label"
+  }, "Телефон (екстрений контакт)"), /*#__PURE__*/React.createElement("a", {
+    className: "tel-link",
+    href: "tel:" + student.phone.replace(/\s+/g, "")
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "phone",
+    size: 11
+  }), " ", student.phone)), student.birthday && /*#__PURE__*/React.createElement("div", {
+    className: "field"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "field-label"
+  }, "День народження"), /*#__PURE__*/React.createElement("div", {
+    className: "students-sub",
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 4
+    }
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "calendar",
+    size: 11
+  }), " ", formatDateDMY(student.birthday))), courses.length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "field"
   }, /*#__PURE__*/React.createElement("label", {
     className: "field-label"
@@ -2078,17 +2322,13 @@ function StudentCardModal({
       fontSize: 11.5,
       padding: "5px 11px"
     }
-  }, c)))), student.notes && /*#__PURE__*/React.createElement("div", {
-    className: "field"
-  }, /*#__PURE__*/React.createElement("label", {
-    className: "field-label"
-  }, "Нотатки"), /*#__PURE__*/React.createElement("div", {
-    className: "student-notes"
-  }, student.notes)), showPhoto && subscriptions.length > 0 && /*#__PURE__*/React.createElement("div", {
-    className: "field"
-  }, /*#__PURE__*/React.createElement("label", {
-    className: "field-label"
-  }, "Абонементи"), subscriptions.map(sub => /*#__PURE__*/React.createElement("div", {
+  }, c))))), activeTab === "subscriptions" && showPhoto && (subscriptions.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    className: "empty-state"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "empty-mascot"
+  }, "\u{1F4B3}"), /*#__PURE__*/React.createElement("div", {
+    className: "empty-state-title"
+  }, "Ще немає жодного абонемента")) : /*#__PURE__*/React.createElement(React.Fragment, null, subscriptions.map(sub => /*#__PURE__*/React.createElement("div", {
     key: sub.id,
     className: "portfolio-row",
     style: {
@@ -2121,13 +2361,7 @@ function StudentCardModal({
     onClick: () => toggleSubscriptionStatus(sub)
   }, sub.status === "cancelled" ? "Відновити" : "Скасувати"))), /*#__PURE__*/React.createElement("div", {
     className: "hint"
-  }, "Залишок можна виправити вручну, якщо сталася помилка.")), /*#__PURE__*/React.createElement("label", {
-    className: "field-label",
-    style: {
-      display: "block",
-      margin: "16px 0 8px"
-    }
-  }, "Відвідані та заплановані заняття"), sorted.length === 0 ? /*#__PURE__*/React.createElement("div", {
+  }, "Залишок можна виправити вручну, якщо сталася помилка."))), activeTab === "history" && (sorted.length === 0 ? /*#__PURE__*/React.createElement("div", {
     className: "empty-state"
   }, /*#__PURE__*/React.createElement("div", {
     className: "empty-mascot"
@@ -2178,7 +2412,9 @@ function StudentCardModal({
       }
     }, lesson.course), lesson.format && /*#__PURE__*/React.createElement("span", {
       className: "format-tag" + formatTagClass(lesson.format)
-    }, formatLabel(lesson.format)), isFirst && /*#__PURE__*/React.createElement("span", {
+    }, formatLabel(lesson.format)), lesson.room && /*#__PURE__*/React.createElement("span", {
+      className: "tag roster-count"
+    }, lesson.room), isFirst && /*#__PURE__*/React.createElement("span", {
       className: "trial-pill"
     }, "Перше заняття"))), printable && /*#__PURE__*/React.createElement("div", {
       style: {
@@ -2198,7 +2434,90 @@ function StudentCardModal({
       name: "printer",
       size: 11
     }), " ", w && w.printed ? "Надруковано" : "Не надруковано")));
-  }))), preview && /*#__PURE__*/React.createElement(PreviewModal, {
+  })), activeTab === "comments" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "comment-compose"
+  }, /*#__PURE__*/React.createElement("textarea", {
+    className: "bulk-textarea",
+    rows: 2,
+    placeholder: "Додати коментар про учня…",
+    value: commentDraft,
+    onChange: e => setCommentDraft(e.target.value)
+  }), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "studio-btn primary",
+    disabled: !commentDraft.trim() || savingComment,
+    onClick: addComment,
+    style: {
+      alignSelf: "flex-end"
+    }
+  }, "Додати")), comments.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    className: "empty-state"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "empty-mascot"
+  }, "\u{1F4AC}"), /*#__PURE__*/React.createElement("div", {
+    className: "empty-state-title"
+  }, "Ще немає коментарів")) : comments.map(c => /*#__PURE__*/React.createElement("div", {
+    key: c.id,
+    className: "comment-row"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "comment-row-head"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "comment-author"
+  }, profilesById[c.author_id] ? fullName(profilesById[c.author_id]) : "Невідомо"), /*#__PURE__*/React.createElement("span", {
+    className: "comment-date"
+  }, formatDateLong(c.created_at.slice(0, 10)))), /*#__PURE__*/React.createElement("div", {
+    className: "comment-body"
+  }, c.body)))), activeTab === "payments" && showPhoto && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "stats-row",
+    style: {
+      margin: "0 0 16px"
+    }
+  }, /*#__PURE__*/React.createElement(StatCard, {
+    icon: "money",
+    value: formatMoney(totalPaid),
+    label: "сплачено всього",
+    color: "var(--success-text)",
+    soft: "var(--success-soft)"
+  })), payments.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    className: "empty-state"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "empty-mascot"
+  }, "\u{1F4B0}"), /*#__PURE__*/React.createElement("div", {
+    className: "empty-state-title"
+  }, "Ще немає жодної оплати")) : payments.map(p => /*#__PURE__*/React.createElement("div", {
+    key: p.id,
+    className: "portfolio-row"
+  }, p.lesson && /*#__PURE__*/React.createElement("div", {
+    className: "datecard"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "datecard-top"
+  }, dateCardParts(p.lesson.date).month), /*#__PURE__*/React.createElement("div", {
+    className: "datecard-body"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "datecard-day"
+  }, dateCardParts(p.lesson.date).day), /*#__PURE__*/React.createElement("div", {
+    className: "datecard-weekday"
+  }, dateCardParts(p.lesson.date).weekday))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      minWidth: 0
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "lesson-theme",
+    style: {
+      fontSize: 14
+    }
+  }, p.lesson ? p.lesson.theme : "Заняття видалено"), /*#__PURE__*/React.createElement("div", {
+    className: "lesson-meta-row"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "tag roster-count"
+  }, (PAYMENT_METHODS.find(pm => pm.value === p.payment_method) || {}).label || p.payment_method), p.discount_percent > 0 && /*#__PURE__*/React.createElement("span", {
+    className: "tag roster-count"
+  }, "−", p.discount_percent, "%"))), /*#__PURE__*/React.createElement("span", {
+    className: "payment-amount"
+  }, p.discount_percent > 0 && p.lesson && p.lesson.price_amount != null && /*#__PURE__*/React.createElement("span", {
+    className: "discount-original-price"
+  }, formatMoney(p.lesson.price_amount)), formatMoney(p.amount))))))), preview && /*#__PURE__*/React.createElement(PreviewModal, {
     url: preview,
     onClose: () => setPreview(null)
   })), document.body);
@@ -2386,6 +2705,7 @@ function LessonModal({
   defaultOwnerId,
   lesson,
   presetDate,
+  presetTime,
   showPhoto,
   isAdmin,
   onClose,
@@ -2395,7 +2715,10 @@ function LessonModal({
   const [roster, setRoster] = useState(fixedStudents || []);
   const [loadingRoster, setLoadingRoster] = useState(!fixedStudents);
   const [date, setDate] = useState(lesson ? lesson.date : presetDate || todayStr());
-  const [time, setTime] = useState(lesson ? lesson.time || "" : "");
+  const [time, setTime] = useState(lesson ? lesson.time || "" : presetTime || "");
+  const [duration, setDuration] = useState(lesson ? lesson.duration_minutes || 60 : 60);
+  const [room, setRoom] = useState(lesson ? lesson.room || "" : "");
+  const [substituteOwnerId, setSubstituteOwnerId] = useState(lesson ? lesson.substitute_owner_id || "" : "");
   const [theme, setTheme] = useState(lesson ? lesson.theme : "");
   const [course, setCourse] = useState(lesson ? lesson.course || "" : "");
   const [format, setFormat] = useState(lesson ? lesson.format || "group" : "group");
@@ -2489,6 +2812,9 @@ function LessonModal({
       } = await sb.from("lessons").update({
         date,
         time: time || null,
+        duration_minutes: Number(duration) || 60,
+        room: room || null,
+        substitute_owner_id: substituteOwnerId || null,
         theme: theme.trim(),
         course,
         format,
@@ -2528,6 +2854,8 @@ function LessonModal({
             series_id: seriesId,
             date: addDays(date, i * 7),
             time: time || null,
+            duration_minutes: Number(duration) || 60,
+            room: room || null,
             theme: theme.trim(),
             course,
             format,
@@ -2556,6 +2884,8 @@ function LessonModal({
           series_id: seriesId,
           date: addDays(date, i * 7),
           time: time || null,
+          duration_minutes: Number(duration) || 60,
+          room: room || null,
           theme: theme.trim(),
           course,
           format,
@@ -2695,6 +3025,44 @@ function LessonModal({
     value: time,
     onChange: e => setTime(e.target.value)
   }))), /*#__PURE__*/React.createElement("div", {
+    className: "field-row"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "field"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "field-label"
+  }, "Тривалість, хв"), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    min: "5",
+    step: "5",
+    value: duration,
+    onChange: e => setDuration(e.target.value)
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "field"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "field-label"
+  }, "Кабінет"), /*#__PURE__*/React.createElement("select", {
+    value: room,
+    onChange: e => setRoom(e.target.value)
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "Без кабінету"), ROOM_OPTIONS.map(r => /*#__PURE__*/React.createElement("option", {
+    key: r,
+    value: r
+  }, r))))), teacherOptions && /*#__PURE__*/React.createElement("div", {
+    className: "field"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "field-label"
+  }, "Викладач на заміні"), /*#__PURE__*/React.createElement("select", {
+    value: substituteOwnerId,
+    onChange: e => setSubstituteOwnerId(e.target.value)
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "Немає"), teacherOptions.filter(t => t.active !== false && t.id !== ownerId).map(t => /*#__PURE__*/React.createElement("option", {
+    key: t.id,
+    value: t.id
+  }, fullName(t)))), /*#__PURE__*/React.createElement("div", {
+    className: "hint"
+  }, "Тимчасова заміна на це конкретне заняття — основний викладач (і його ЗП) не змінюється.")), /*#__PURE__*/React.createElement("div", {
     className: "field"
   }, /*#__PURE__*/React.createElement("label", {
     className: "field-label"
@@ -3074,11 +3442,13 @@ function LessonCardModal({
   attendance,
   subscriptions,
   rowOwnerProfile,
+  substituteProfile,
   isAdmin,
   canEdit,
   onClose,
   onEdit,
   onDelete,
+  onToggleCompleted,
   onViewStudent,
   attachPhoto,
   togglePrinted,
@@ -3087,6 +3457,7 @@ function LessonCardModal({
   unmarkAttendance,
   onPreview
 }) {
+  const [showContacts, setShowContacts] = useState(false);
   useEscapeClose(onClose);
   useLockBodyScroll();
   const printable = courseHasPrinting(lesson.course);
@@ -3098,6 +3469,7 @@ function LessonCardModal({
     const w = findWork(works, lesson.id, s.id);
     return w && w.printed;
   }).length;
+  const endTime = lesson.time ? minutesToTime(timeToMinutes(lesson.time) + (lesson.duration_minutes || 60)) : null;
   return ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
     className: "overlay",
     onClick: onClose
@@ -3125,6 +3497,16 @@ function LessonCardModal({
   }, /*#__PURE__*/React.createElement(Icon, {
     name: "trash",
     size: 16
+  })), present.length > 0 && /*#__PURE__*/React.createElement("button", {
+    className: "studio-btn ghost" + (showContacts ? " active" : ""),
+    onClick: () => setShowContacts(v => !v),
+    title: "Екстрені контакти",
+    style: {
+      color: "var(--alert-text)"
+    }
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "phone",
+    size: 16
   })), /*#__PURE__*/React.createElement("button", {
     className: "studio-btn ghost",
     onClick: onClose
@@ -3136,7 +3518,7 @@ function LessonCardModal({
     className: "lesson-time-block"
   }, /*#__PURE__*/React.createElement("div", {
     className: "lesson-time-num"
-  }, lesson.time)), /*#__PURE__*/React.createElement("div", {
+  }, lesson.time, endTime ? "–" + endTime : "")), /*#__PURE__*/React.createElement("div", {
     className: "lesson-title-block"
   }, lesson.course && /*#__PURE__*/React.createElement("div", {
     className: "lesson-course-line",
@@ -3160,14 +3542,51 @@ function LessonCardModal({
     size: 10
   }), " ", fullName(rowOwnerProfile)), lesson.format && /*#__PURE__*/React.createElement("span", {
     className: "tag format" + formatTagClass(lesson.format)
-  }, formatLabel(lesson.format)), printable && attendingStudents.length > 0 && /*#__PURE__*/React.createElement("span", {
+  }, formatLabel(lesson.format)), lesson.room && /*#__PURE__*/React.createElement("span", {
+    className: "tag roster-count"
+  }, lesson.room), substituteProfile && /*#__PURE__*/React.createElement("span", {
+    className: "tag format individual",
+    title: "Заміна основного викладача на це заняття"
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "repeat",
+    size: 10
+  }), " Заміна: ", fullName(substituteProfile)), printable && attendingStudents.length > 0 && /*#__PURE__*/React.createElement("span", {
     className: "tag progress"
   }, doneCount, "/", attendingStudents.length, " надруковано"), lesson.series_id && /*#__PURE__*/React.createElement("span", {
     className: "tag series"
   }, /*#__PURE__*/React.createElement(Icon, {
     name: "repeat",
     size: 11
-  }), " щотижня")), present.length === 0 ? /*#__PURE__*/React.createElement("div", {
+  }), " щотижня"), onToggleCompleted && /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "printed-pill" + (lesson.completed ? "" : " off"),
+    style: {
+      marginLeft: "auto"
+    },
+    onClick: onToggleCompleted
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "check",
+    size: 11
+  }), " ", lesson.completed ? "Завершено" : "Не завершено")), showContacts && /*#__PURE__*/React.createElement("div", {
+    className: "emergency-contacts"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "field-label"
+  }, "Екстрені контакти"), present.map(s => /*#__PURE__*/React.createElement("div", {
+    key: s.id,
+    className: "contact-row"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "contact-name"
+  }, s.name, /*#__PURE__*/React.createElement("span", {
+    className: "contact-parent"
+  }, [s.parent_last_name, s.parent_first_name].filter(Boolean).join(" ") || "Без батьків у картці")), s.phone ? /*#__PURE__*/React.createElement("a", {
+    className: "tel-link",
+    href: "tel:" + s.phone.replace(/\s+/g, "")
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "phone",
+    size: 11
+  }), " ", s.phone) : /*#__PURE__*/React.createElement("span", {
+    className: "students-sub"
+  }, "Немає телефону")))), present.length === 0 ? /*#__PURE__*/React.createElement("div", {
     className: "hint"
   }, "На цьому занятті ще немає учнів.") : /*#__PURE__*/React.createElement("div", {
     className: "roster",
@@ -3272,11 +3691,15 @@ function ScheduleTab({
   const [loading, setLoading] = useState(true);
   const [modalLesson, setModalLesson] = useState(undefined); // undefined = closed, null = new
   const [modalPresetDate, setModalPresetDate] = useState(null);
+  const [modalPresetTime, setModalPresetTime] = useState(null);
   const [preview, setPreview] = useState(null);
   const [viewingStudent, setViewingStudent] = useState(null);
   const [editingStudent, setEditingStudent] = useState(undefined); // undefined = closed
   const [viewingLesson, setViewingLesson] = useState(null);
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
+  const [filterTeacherIds, setFilterTeacherIds] = useState([]);
+  const [filterCourses, setFilterCourses] = useState([]);
+  const [filterRooms, setFilterRooms] = useState([]);
   const loadAttendance = useCallback(async () => {
     // Everyone needs to know who was actually marked "П" — printing is
     // gated on it — but only admin/superadmin also needs subscriptions
@@ -3303,11 +3726,15 @@ function ScheduleTab({
       setWorks(wr.data || []);
       setAllProfiles(pr.data || []);
     } else {
-      const [lr, wr] = await Promise.all([sb.from("lessons_safe").select("*").eq("owner_id", ownerId).order("date", {
+      // Also fetch the full staff list even outside aggregate mode — a
+      // teacher's own lessons can still carry a substitute_owner_id (someone
+      // covering their class), and that name needs resolving too.
+      const [lr, wr, pr] = await Promise.all([sb.from("lessons_safe").select("*").eq("owner_id", ownerId).order("date", {
         ascending: true
-      }), sb.from("works").select("*").eq("owner_id", ownerId)]);
+      }), sb.from("works").select("*").eq("owner_id", ownerId), sb.from("profiles").select("*")]);
       setLessons(lr.data || []);
       setWorks(wr.data || []);
+      setAllProfiles(pr.data || []);
     }
     await loadAttendance();
     setLoading(false);
@@ -3402,8 +3829,29 @@ function ScheduleTab({
     showToast("Заняття видалено");
     return true;
   }
-  function openNewLesson(presetDate) {
+  async function toggleCompleted(lesson) {
+    const next = !lesson.completed;
+    const {
+      error
+    } = await sb.from("lessons").update({
+      completed: next
+    }).eq("id", lesson.id);
+    if (error) {
+      showToast(error.message, "error");
+      return;
+    }
+    setLessons(ls => ls.map(l => l.id === lesson.id ? {
+      ...l,
+      completed: next
+    } : l));
+    setViewingLesson(v => v && v.id === lesson.id ? {
+      ...v,
+      completed: next
+    } : v);
+  }
+  function openNewLesson(presetDate, presetTime) {
     setModalPresetDate(presetDate || formatISODateLocal(weekStart));
+    setModalPresetTime(presetTime || null);
     setModalLesson(null);
   }
   if (loading) return /*#__PURE__*/React.createElement("div", {
@@ -3429,15 +3877,71 @@ function ScheduleTab({
       if (!w || !w.printed) pendingCount++;
     });
   });
+  const visibleLessons = lessons.filter(l => {
+    if (filterTeacherIds.length && !filterTeacherIds.includes(l.owner_id)) return false;
+    if (filterCourses.length && !filterCourses.includes(l.course)) return false;
+    if (filterRooms.length && !filterRooms.includes(l.room || "")) return false;
+    return true;
+  });
   const lessonsByDate = {};
-  lessons.forEach(l => {
+  visibleLessons.forEach(l => {
     (lessonsByDate[l.date] = lessonsByDate[l.date] || []).push(l);
   });
   Object.values(lessonsByDate).forEach(arr => arr.sort((a, b) => (a.time || "").localeCompare(b.time || "")));
   const weekDays = [];
   for (let i = 0; i < 7; i++) weekDays.push(addDaysDate(weekStart, i));
   const todayLocal = formatISODateLocal(new Date());
-  function renderLessonCard(lesson) {
+  const GRID_HOUR_PX = 56;
+  // The grid always spans at least the studio's normal working hours, but
+  // widens for an outlier lesson booked earlier/later than that so nothing
+  // this week ever falls outside (or gets clipped by) the visible grid.
+  let gridStartHour = 8,
+    gridEndHour = 20;
+  weekDays.forEach(d => {
+    (lessonsByDate[formatISODateLocal(d)] || []).forEach(l => {
+      const startMin = timeToMinutes(l.time);
+      if (startMin == null) return;
+      gridStartHour = Math.min(gridStartHour, Math.floor(startMin / 60));
+      gridEndHour = Math.max(gridEndHour, Math.ceil((startMin + (l.duration_minutes || 60)) / 60));
+    });
+  });
+  const gridHours = [];
+  for (let h = gridStartHour; h < gridEndHour; h++) gridHours.push(h);
+  // Packs one day's lessons into side-by-side lanes so two that overlap in
+  // time (e.g. different rooms at the same hour) render next to each other
+  // instead of stacking on top of one another.
+  function layoutDayLessons(dayLessons) {
+    const items = dayLessons.map(l => {
+      const startMin = timeToMinutes(l.time);
+      const start = startMin == null ? gridStartHour * 60 : startMin;
+      return {
+        lesson: l,
+        start,
+        end: start + (l.duration_minutes || 60)
+      };
+    }).sort((a, b) => a.start - b.start || a.end - b.end);
+    const laneEnds = [];
+    const placed = items.map(item => {
+      let lane = laneEnds.findIndex(end => end <= item.start);
+      if (lane === -1) {
+        lane = laneEnds.length;
+        laneEnds.push(item.end);
+      } else {
+        laneEnds[lane] = item.end;
+      }
+      return {
+        ...item,
+        lane
+      };
+    });
+    const laneCount = laneEnds.length || 1;
+    return placed.map(p => ({
+      ...p,
+      laneCount
+    }));
+  }
+  function renderGridBlock(item) {
+    const lesson = item.lesson;
     const present = (lesson.student_ids || []).map(id => studentById[id]).filter(Boolean);
     const printable = courseHasPrinting(lesson.course);
     // Printing only makes sense for students actually marked "П" — an
@@ -3453,79 +3957,43 @@ function ScheduleTab({
     }).length;
     const past = isPast(lesson.date);
     const rowOwnerProfile = aggregateAll ? profilesById[lesson.owner_id] : ownerProfile;
-    let accent = "var(--line-strong)";
-    if (printable && attendingStudents.length > 0) {
-      if (doneCount === attendingStudents.length) accent = "var(--success)";else if (past) accent = "var(--alert)";else accent = "var(--brand)";
-    } else if (!past) accent = "var(--brand)";
+    const top = (item.start - gridStartHour * 60) / 60 * GRID_HOUR_PX;
+    const height = Math.max((item.end - item.start) / 60 * GRID_HOUR_PX, 40);
+    const widthPct = 100 / item.laneCount;
     return /*#__PURE__*/React.createElement("div", {
       key: lesson.id,
-      className: "lesson-card clickable" + (past ? " past" : ""),
+      className: "grid-lesson" + (past ? " past" : "") + (lesson.completed ? " completed" : ""),
       style: {
-        "--lesson-accent": accent,
-        paddingBottom: 18
+        "--lesson-accent": (courseAccent(lesson.course) || {}).color || "var(--line-strong)",
+        top,
+        height,
+        left: `calc(${widthPct * item.lane}% + 2px)`,
+        width: `calc(${widthPct}% - 4px)`
       },
-      onClick: () => setViewingLesson(lesson),
-      title: "Відкрити картку заняття"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "lesson-card-head"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "lesson-head-left"
-    }, lesson.time && /*#__PURE__*/React.createElement("div", {
-      className: "lesson-time-block"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "lesson-time-num"
-    }, lesson.time)), /*#__PURE__*/React.createElement("div", {
-      className: "lesson-title-block"
-    }, lesson.course && /*#__PURE__*/React.createElement("div", {
-      className: "lesson-course-line",
+      onClick: e => {
+        e.stopPropagation();
+        setViewingLesson(lesson);
+      },
+      title: (lesson.course ? lesson.course + " — " : "") + lesson.theme
+    }, lesson.completed && /*#__PURE__*/React.createElement("div", {
+      className: "grid-lesson-done"
+    }, /*#__PURE__*/React.createElement(Icon, {
+      name: "check",
+      size: 10
+    })), /*#__PURE__*/React.createElement("div", {
+      className: "grid-lesson-time"
+    }, lesson.time), lesson.course && /*#__PURE__*/React.createElement("div", {
+      className: "grid-lesson-course",
       style: {
         color: courseAccent(lesson.course).color
       }
     }, lesson.course), /*#__PURE__*/React.createElement("div", {
-      className: "lesson-theme"
-    }, lesson.theme))), canEdit && /*#__PURE__*/React.createElement("div", {
-      className: "lesson-actions"
-    }, /*#__PURE__*/React.createElement("button", {
-      className: "studio-btn ghost",
-      onClick: e => {
-        e.stopPropagation();
-        setModalPresetDate(null);
-        setModalLesson(lesson);
-      }
-    }, /*#__PURE__*/React.createElement(Icon, {
-      name: "edit",
-      size: 16
-    })), /*#__PURE__*/React.createElement("button", {
-      className: "studio-btn ghost",
-      onClick: e => {
-        e.stopPropagation();
-        deleteLesson(lesson);
-      }
-    }, /*#__PURE__*/React.createElement(Icon, {
-      name: "trash",
-      size: 16
-    })))), /*#__PURE__*/React.createElement("div", {
-      className: "lesson-meta-row"
-    }, rowOwnerProfile && /*#__PURE__*/React.createElement("span", {
-      className: "tag teacher"
-    }, /*#__PURE__*/React.createElement(Icon, {
-      name: "user",
-      size: 10
-    }), " ", fullName(rowOwnerProfile)), lesson.format && /*#__PURE__*/React.createElement("span", {
-      className: "tag format" + formatTagClass(lesson.format)
-    }, formatLabel(lesson.format)), printable && attendingStudents.length > 0 && /*#__PURE__*/React.createElement("span", {
-      className: "tag progress"
-    }, doneCount, "/", attendingStudents.length, " надруковано"), lesson.series_id && /*#__PURE__*/React.createElement("span", {
-      className: "tag series"
-    }, /*#__PURE__*/React.createElement(Icon, {
-      name: "repeat",
-      size: 11
-    }), " щотижня"), present.length > 0 && /*#__PURE__*/React.createElement("span", {
-      className: "tag roster-count"
-    }, /*#__PURE__*/React.createElement(Icon, {
-      name: "users",
-      size: 10
-    }), " ", present.length)));
+      className: "grid-lesson-theme"
+    }, lesson.theme), aggregateAll && rowOwnerProfile && /*#__PURE__*/React.createElement("div", {
+      className: "grid-lesson-teacher"
+    }, fullName(rowOwnerProfile)), printable && attendingStudents.length > 0 && /*#__PURE__*/React.createElement("div", {
+      className: "grid-lesson-progress"
+    }, doneCount, "/", attendingStudents.length));
   }
   async function toggleTrial(lessonId, studentId, existingWork) {
     const nextTrial = !(existingWork && existingWork.trial);
@@ -3637,7 +4105,28 @@ function ScheduleTab({
       marginLeft: "auto"
     },
     onClick: () => setWeekStart(startOfWeek(new Date()))
-  }, "Цей тиждень")), sorted.length === 0 ? /*#__PURE__*/React.createElement("div", {
+  }, "Цей тиждень")), aggregateAll && /*#__PURE__*/React.createElement("div", {
+    className: "schedule-filters"
+  }, /*#__PURE__*/React.createElement(MultiSelectDropdown, {
+    label: "Викладач",
+    icon: "user",
+    options: allProfiles.filter(p => p.active !== false).map(p => ({
+      value: p.id,
+      label: fullName(p)
+    })),
+    selected: filterTeacherIds,
+    onChange: setFilterTeacherIds
+  }), /*#__PURE__*/React.createElement(MultiSelectDropdown, {
+    label: "Курс",
+    options: COURSE_OPTIONS,
+    selected: filterCourses,
+    onChange: setFilterCourses
+  }), /*#__PURE__*/React.createElement(MultiSelectDropdown, {
+    label: "Кабінет",
+    options: ROOM_OPTIONS,
+    selected: filterRooms,
+    onChange: setFilterRooms
+  })), sorted.length === 0 ? /*#__PURE__*/React.createElement("div", {
     className: "empty-state"
   }, /*#__PURE__*/React.createElement("div", {
     className: "empty-mascot"
@@ -3645,38 +4134,72 @@ function ScheduleTab({
     className: "empty-state-title"
   }, "Занять поки немає"), /*#__PURE__*/React.createElement("div", {
     className: "empty-state-sub"
-  }, canEdit ? "Додайте перше заняття кнопкою вище." : "Розклад формує адміністратор — тут з'являться заплановані заняття.")) : weekDays.map(d => {
+  }, canEdit ? "Додайте перше заняття кнопкою вище." : "Розклад формує адміністратор — тут з'являться заплановані заняття.")) : /*#__PURE__*/React.createElement("div", {
+    className: "week-grid-wrap"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "week-grid"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "week-grid-header"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "week-grid-axis-head"
+  }), weekDays.map(d => {
     const dateStr = formatISODateLocal(d);
-    const dayLessons = lessonsByDate[dateStr] || [];
     const isToday = dateStr === todayLocal;
     return /*#__PURE__*/React.createElement("div", {
       key: dateStr,
-      className: "day-section"
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "day-section-head" + (isToday ? " today" : "")
+      className: "week-grid-day-head" + (isToday ? " today" : "")
     }, /*#__PURE__*/React.createElement("span", {
-      className: "day-section-name"
-    }, WEEKDAY_FULL[d.getDay()]), /*#__PURE__*/React.createElement("span", {
-      className: "day-section-date"
-    }, d.getDate(), " ", MONTHS[d.getMonth()]), isToday && /*#__PURE__*/React.createElement("span", {
+      className: "week-grid-day-name"
+    }, WEEKDAYS_SHORT[d.getDay()]), /*#__PURE__*/React.createElement("span", {
+      className: "week-grid-day-date"
+    }, d.getDate(), " ", MONTHS[d.getMonth()].slice(0, 3)), isToday && /*#__PURE__*/React.createElement("span", {
       className: "today-badge"
     }, "Сьогодні"), canEdit && /*#__PURE__*/React.createElement("button", {
-      className: "studio-btn ghost day-section-add",
+      className: "studio-btn ghost week-grid-day-add",
       title: "Нове заняття на цей день",
       onClick: () => openNewLesson(dateStr)
     }, /*#__PURE__*/React.createElement(Icon, {
       name: "plus",
-      size: 14
-    }))), dayLessons.length === 0 ? /*#__PURE__*/React.createElement("div", {
-      className: "day-section-empty"
-    }, "Немає занять") : dayLessons.map(renderLessonCard));
-  }), modalLesson !== undefined && (aggregateAll ? /*#__PURE__*/React.createElement(LessonModal, {
+      size: 13
+    })));
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "week-grid-body"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "week-grid-axis"
+  }, gridHours.map(h => /*#__PURE__*/React.createElement("div", {
+    key: h,
+    className: "week-grid-hour-label",
+    style: {
+      height: GRID_HOUR_PX
+    }
+  }, String(h).padStart(2, "0") + ":00"))), weekDays.map(d => {
+    const dateStr = formatISODateLocal(d);
+    const dayLessons = lessonsByDate[dateStr] || [];
+    const laidOut = layoutDayLessons(dayLessons);
+    const isToday = dateStr === todayLocal;
+    return /*#__PURE__*/React.createElement("div", {
+      key: dateStr,
+      className: "week-grid-day-col" + (isToday ? " today" : ""),
+      style: {
+        height: gridHours.length * GRID_HOUR_PX
+      }
+    }, gridHours.map((h, i) => /*#__PURE__*/React.createElement("div", {
+      key: h,
+      className: "week-grid-cell" + (canEdit ? " clickable" : ""),
+      style: {
+        top: i * GRID_HOUR_PX,
+        height: GRID_HOUR_PX
+      },
+      onClick: canEdit ? () => openNewLesson(dateStr, String(h).padStart(2, "0") + ":00") : undefined
+    })), laidOut.map(renderGridBlock));
+  })))), modalLesson !== undefined && (aggregateAll ? /*#__PURE__*/React.createElement(LessonModal, {
     teacherOptions: allProfiles,
     defaultOwnerId: me.id,
     showPhoto: true,
     isAdmin: isAdmin,
     lesson: modalLesson,
     presetDate: modalLesson ? undefined : modalPresetDate,
+    presetTime: modalLesson ? undefined : modalPresetTime,
     onClose: () => setModalLesson(undefined),
     onSaved: () => {
       setModalLesson(undefined);
@@ -3690,6 +4213,7 @@ function ScheduleTab({
     students: students,
     lesson: modalLesson,
     presetDate: modalLesson ? undefined : modalPresetDate,
+    presetTime: modalLesson ? undefined : modalPresetTime,
     onClose: () => setModalLesson(undefined),
     onSaved: () => {
       setModalLesson(undefined);
@@ -3701,6 +4225,7 @@ function ScheduleTab({
   }), viewingStudent && /*#__PURE__*/React.createElement(StudentCardModal, {
     student: viewingStudent,
     showPhoto: isAdmin,
+    me: me,
     onClose: () => setViewingStudent(null),
     onEdit: () => {
       setEditingStudent(viewingStudent);
@@ -3723,6 +4248,7 @@ function ScheduleTab({
     attendance: attendance,
     subscriptions: subscriptions,
     rowOwnerProfile: aggregateAll ? profilesById[viewingLesson.owner_id] : ownerProfile,
+    substituteProfile: viewingLesson.substitute_owner_id ? profilesById[viewingLesson.substitute_owner_id] : null,
     isAdmin: isAdmin,
     canEdit: canEdit,
     onClose: () => setViewingLesson(null),
@@ -3735,6 +4261,7 @@ function ScheduleTab({
       const deleted = await deleteLesson(viewingLesson);
       if (deleted) setViewingLesson(null);
     },
+    onToggleCompleted: canEdit ? () => toggleCompleted(viewingLesson) : undefined,
     onViewStudent: s => setViewingStudent(s),
     attachPhoto: attachPhoto,
     togglePrinted: togglePrinted,
@@ -3753,6 +4280,7 @@ function StudentsTab({
   ownerId,
   showPhoto,
   students,
+  me,
   reload
 }) {
   const [modalStudent, setModalStudent] = useState(undefined);
@@ -3884,6 +4412,7 @@ function StudentsTab({
   }))))), viewingStudent && /*#__PURE__*/React.createElement(StudentCardModal, {
     student: viewingStudent,
     showPhoto: showPhoto,
+    me: me,
     onClose: () => setViewingStudent(null),
     onEdit: () => {
       setViewingStudent(null);
@@ -4182,6 +4711,7 @@ function WorkspaceBody({
     ownerId: ownerId,
     showPhoto: showChildPhoto,
     students: students,
+    me: me,
     reload: reloadStudents
   });
   if (tab === "queue") return /*#__PURE__*/React.createElement(QueueTab, {
@@ -5529,6 +6059,12 @@ function Shell({
   const [adminTeacher, setAdminTeacher] = useState(null);
   const [tab, setTab] = useState(() => cachedNav.tab || "schedule");
   const [profileModalTarget, setProfileModalTarget] = useState(null);
+  // A teacher who also holds admin/superadmin rights can temporarily shed
+  // them to see their own workspace exactly as a plain teacher would —
+  // their own lessons only, no prices, no schedule-editing controls.
+  // Only meaningful in section === "workspace"; harmless elsewhere.
+  const [peekAsTeacher, setPeekAsTeacher] = useState(false);
+  const effectiveIsAdmin = isAdmin && !peekAsTeacher;
   // adminTeacher (viewing a specific teacher's workspace as admin) isn't
   // restored — it'd need a fresh fetch of that teacher's profile — so a
   // reload while deep in someone's workspace just lands back on the
@@ -5638,7 +6174,15 @@ function Shell({
     className: "mode-btn-title"
   }, "Адміністрування"), /*#__PURE__*/React.createElement("div", {
     className: "mode-btn-sub"
-  }, isSuperAdmin ? "Викладачі, календар, тарифи, звіт" : "Викладачі, календар студії")))), section === "admin" && adminTeacher && /*#__PURE__*/React.createElement("div", {
+  }, isSuperAdmin ? "Викладачі, календар, тарифи, звіт" : "Викладачі, календар студії")))), section === "workspace" && isAdmin && /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "peek-toggle" + (peekAsTeacher ? " active" : ""),
+    onClick: () => setPeekAsTeacher(v => !v),
+    title: "Побачити свій розклад так, як його бачить звичайний викладач — без цін і прав редагування"
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: peekAsTeacher ? "user" : "shield",
+    size: 14
+  }), peekAsTeacher ? "Перегляд як викладач" : "Переглянути як викладач"), section === "admin" && adminTeacher && /*#__PURE__*/React.createElement("div", {
     className: "viewing-chip"
   }, /*#__PURE__*/React.createElement("div", {
     className: "avatar",
@@ -5773,15 +6317,15 @@ function Shell({
   }), section === "workspace" && /*#__PURE__*/React.createElement(WorkspaceBody, {
     ownerId: targetOwnerId,
     ownerProfile: targetOwnerProfile,
-    canEditSchedule: isAdmin,
-    showChildPhoto: isAdmin,
-    isAdmin: isAdmin,
+    canEditSchedule: effectiveIsAdmin,
+    showChildPhoto: effectiveIsAdmin,
+    isAdmin: effectiveIsAdmin,
     me: profile,
     tab: tab,
     students: students,
     loadingStudents: loadingStudents,
     reloadStudents: reloadStudents,
-    aggregateAll: isAdmin,
+    aggregateAll: effectiveIsAdmin,
     onNavigateTab: setTab
   }))), profileModalTarget && /*#__PURE__*/React.createElement(ProfileModal, {
     target: profileModalTarget,
