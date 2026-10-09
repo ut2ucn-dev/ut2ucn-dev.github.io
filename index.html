@@ -561,7 +561,10 @@
      (see layoutDayLessons in ScheduleTab), so two overlapping lessons (e.g.
      different rooms at the same hour) land in side-by-side lanes instead of
      stacking on top of each other. */
-  .week-grid-wrap{ overflow-x:auto; border:1px solid var(--line); border-radius:14px; background:var(--card); }
+  /* scroll-snap-type + scroll-padding (matching the sticky axis gutter's
+     width) so a horizontal swipe always settles on a fully-visible day
+     column, never a half-cut sliver at the edge. */
+  .week-grid-wrap{ overflow-x:auto; border:1px solid var(--line); border-radius:14px; background:var(--card); scroll-snap-type:x mandatory; scroll-padding-left:46px; }
   .week-grid{ display:flex; flex-direction:column; }
   .week-grid-header{ display:flex; border-bottom:2px solid var(--line); position:sticky; top:0; background:var(--card); z-index:3; }
   .week-grid-axis-head{ width:46px; flex-shrink:0; position:sticky; left:0; z-index:4; background:var(--card); }
@@ -584,7 +587,7 @@
     display:flex; justify-content:flex-end; padding:2px 7px 0 0; box-sizing:border-box;
     font-family:var(--font-mono); font-size:10px; color:var(--ink-soft);
   }
-  .week-grid-day-col{ position:relative; flex:1; min-width:108px; border-left:1px solid var(--line); }
+  .week-grid-day-col{ position:relative; flex:1; min-width:108px; border-left:1px solid var(--line); scroll-snap-align:start; }
   .week-grid-day-col.today{ background:var(--brand-soft); }
   .week-grid-cell{ position:absolute; left:0; right:0; border-top:1px solid var(--line); box-sizing:border-box; }
   .week-grid-cell.clickable{ cursor:pointer; }
