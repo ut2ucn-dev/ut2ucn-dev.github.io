@@ -912,6 +912,11 @@ function formatDateLong(d) {
   const dt = parseDate(d);
   return `${dt.getDate()} ${MONTHS[dt.getMonth()]} ${dt.getFullYear()} · ${WEEKDAYS[dt.getDay()]}`;
 }
+function lessonCardDateTitle(d) {
+  const dt = parseDate(d);
+  const weekday = WEEKDAYS[dt.getDay()];
+  return `${weekday.charAt(0).toUpperCase()}${weekday.slice(1)}, ${String(dt.getDate()).padStart(2, "0")}.${String(dt.getMonth() + 1).padStart(2, "0")}`;
+}
 function formatDateDMY(d) {
   if (!d) return "";
   const dt = parseDate(d);
@@ -3665,7 +3670,7 @@ function LessonCardModal({
     onClick: e => e.stopPropagation()
   }, /*#__PURE__*/React.createElement("div", {
     className: "modal-title"
-  }, "Картка заняття", /*#__PURE__*/React.createElement("div", {
+  }, lesson.date ? lessonCardDateTitle(lesson.date) : "Картка заняття", /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       gap: 6
