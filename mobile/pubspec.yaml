@@ -1,0 +1,53 @@
+name: stemik
+description: "Stemik — облік занять і моделей"
+publish_to: 'none'
+
+# The build number is overridden in CI (--build-number), see
+# .github/workflows/mobile.yml.
+version: 2.0.0+1000
+
+environment:
+  sdk: ^3.13.5
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  supabase_flutter: ^2.18.3
+  flutter_local_notifications: ^22.3.2
+  timezone: ^0.11.2
+  image_picker: ^1.2.4
+  connectivity_plus: ^7.3.2
+  path_provider: ^2.1.6
+  shared_preferences: ^2.5.6
+  intl: ^0.20.3
+  url_launcher: ^6.3.3
+  cached_network_image: ^4.0.5
+  package_info_plus: ^10.2.2
+  uuid: ^4.6.0
+  flutter_localizations:
+    sdk: flutter
+  http: ^1.6.0
+  cupertino_icons: ^2.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  fonts:
+    - family: Exo2
+      fonts:
+        - asset: assets/fonts/Exo2-400.ttf
+          weight: 400
+        - asset: assets/fonts/Exo2-500.ttf
+          weight: 500
+        - asset: assets/fonts/Exo2-600.ttf
+          weight: 600
+        - asset: assets/fonts/Exo2-700.ttf
+          weight: 700
+        - asset: assets/fonts/Exo2-800.ttf
+          weight: 800
