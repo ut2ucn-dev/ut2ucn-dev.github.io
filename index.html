@@ -415,6 +415,8 @@
   .field-label{ font-size:12.5px; font-weight:700; color:var(--ink-soft); margin-bottom:6px; display:block; }
   .field{ margin-bottom:14px; }
   .field-row{ display:flex; gap:10px; }
+  /* Modals render into <body>, outside .studio-app's box-sizing rule. */
+  .parent-modal *{ box-sizing:border-box; }
   .field-row .field{ flex:1; }
   .field input[type=text], .field input[type=date], .field input[type=time], .field input[type=number], .field input[type=password], .field input[type=email], .field input[type=tel], .field select{
     width:100%; border:1px solid var(--line-strong); border-radius:10px; padding:9px 10px; font-family:var(--font-body); font-size:13.5px; background:var(--paper); color:var(--ink);
@@ -1414,6 +1416,10 @@ function Icon({
         y1: "21",
         x2: "16.65",
         y2: "16.65"
+      }));
+    case "heart":
+      return /*#__PURE__*/React.createElement("svg", p, /*#__PURE__*/React.createElement("path", {
+        d: "M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z"
       }));
     default:
       return null;
@@ -2461,7 +2467,9 @@ function StudentCardModal({
   }, /*#__PURE__*/React.createElement(Icon, {
     name: "phone",
     size: 11
-  }), " ", student.phone)), student.birthday && /*#__PURE__*/React.createElement("div", {
+  }), " ", student.phone)), showPhoto && me && me.role === "superadmin" && /*#__PURE__*/React.createElement(StudentParentAccess, {
+    student: student
+  }), student.birthday && /*#__PURE__*/React.createElement("div", {
     className: "field"
   }, /*#__PURE__*/React.createElement("label", {
     className: "field-label"
@@ -5715,6 +5723,599 @@ function PasswordResultModal({
 }
 
 // ---------------------------------------------------------------
+// Superadmin: parents' portal accounts (sql/0018). An account is a phone
+// number + a generated password; the children it sees are linked here by
+// hand. Parents sign in at client/ (and in the app) — never here.
+// ---------------------------------------------------------------
+
+function parentPortalUrl() {
+  if (window.PARENT_PORTAL_URL) return window.PARENT_PORTAL_URL;
+  return window.location.origin + window.location.pathname.replace(/[^/]*$/, "") + "client/";
+}
+// Same normalization as parent_normalize_phone() in sql/0018.
+function formatParentPhone(phone) {
+  let d = String(phone || "").replace(/\D/g, "");
+  if (/^0\d{9}$/.test(d)) d = "38" + d;else if (/^\d{9}$/.test(d)) d = "380" + d;else if (/^80\d{9}$/.test(d)) d = "3" + d;
+  const m = d.match(/^380(\d{2})(\d{3})(\d{2})(\d{2})$/);
+  return m ? `+380 ${m[1]} ${m[2]} ${m[3]} ${m[4]}` : phone ? "+" + d : "";
+}
+async function parentRpc(name, params) {
+  const {
+    data,
+    error
+  } = await sb.rpc(name, params);
+  if (error) throw error;
+  return data;
+}
+function ParentPasswordModal({
+  result,
+  onClose
+}) {
+  const [copied, setCopied] = useState(null);
+  useEscapeClose(onClose);
+  useLockBodyScroll();
+  const message = `Кабінет батьків Stemik: ${parentPortalUrl()}\nЛогін: ${formatParentPhone(result.phone)}\nПароль: ${result.password}`;
+  async function copy(what, text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(what);
+      setTimeout(() => setCopied(null), 2000);
+    } catch (e) {
+      showToast("Не вдалося скопіювати — виділіть текст вручну", "error");
+    }
+  }
+  return ReactDOM.createPortal(React.createElement("div", {
+    className: "overlay",
+    onClick: onClose
+  }, React.createElement("div", {
+    className: "modal parent-modal",
+    onClick: e => e.stopPropagation()
+  }, React.createElement("div", {
+    className: "modal-title"
+  }, result.created ? "Кабінет батьків створено" : "Новий пароль батьків", React.createElement("button", {
+    className: "studio-btn ghost",
+    onClick: onClose
+  }, React.createElement(Icon, {
+    name: "x"
+  }))), React.createElement("p", {
+    style: {
+      fontSize: 13.5,
+      color: "var(--ink-soft)",
+      marginTop: 0
+    }
+  }, "Логін — номер ", React.createElement("strong", {
+    style: {
+      color: "var(--ink)"
+    }
+  }, formatParentPhone(result.phone)), result.created ? ". Старого пароля не було." : ". Старий пароль більше не діє, а всі входи на інших пристроях скинуто."), React.createElement("div", {
+    className: "field"
+  }, React.createElement("label", {
+    className: "field-label"
+  }, "Пароль"), React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 8
+    }
+  }, React.createElement("input", {
+    type: "text",
+    value: result.password,
+    readOnly: true,
+    onFocus: e => e.target.select(),
+    style: {
+      fontFamily: "var(--font-mono)",
+      fontWeight: 700,
+      letterSpacing: "0.08em"
+    }
+  }), React.createElement("button", {
+    type: "button",
+    className: "studio-btn",
+    style: {
+      flexShrink: 0
+    },
+    onClick: () => copy("password", result.password)
+  }, React.createElement(Icon, {
+    name: copied === "password" ? "check" : "copy",
+    size: 14
+  })))), React.createElement("div", {
+    className: "field"
+  }, React.createElement("label", {
+    className: "field-label"
+  }, "Повідомлення для батьків"), React.createElement("textarea", {
+    className: "bulk-textarea",
+    value: message,
+    readOnly: true,
+    rows: 3,
+    onFocus: e => e.target.select()
+  }), React.createElement("div", {
+    className: "hint"
+  }, "Пароль ніде не зберігається у відкритому вигляді — передайте його зараз (Viber, Telegram, SMS). Увійти можна на сайті або в застосунку Stemik → «Батьки».")), React.createElement("div", {
+    className: "modal-actions"
+  }, React.createElement("button", {
+    className: "studio-btn",
+    onClick: () => copy("message", message)
+  }, React.createElement(Icon, {
+    name: copied === "message" ? "check" : "copy",
+    size: 14
+  }), " Скопіювати повідомлення"), React.createElement("button", {
+    className: "studio-btn primary",
+    onClick: onClose
+  }, "Готово")))), document.body);
+}
+function ParentAccountModal({
+  account,
+  students,
+  linkedIds,
+  onClose,
+  onSaved
+}) {
+  const [phone, setPhone] = useState(account ? formatParentPhone(account.phone) : "");
+  const [name, setName] = useState(account ? account.name || "" : "");
+  const [selected, setSelected] = useState(() => new Set(linkedIds || []));
+  const [query, setQuery] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  useEscapeClose(onClose);
+  useLockBodyScroll();
+  const digits = phone.replace(/\D/g, "");
+  // Students whose card has this phone come first: the likely siblings.
+  const matches = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const tail = digits.slice(-9);
+    const list = students.filter(s => !q || [s.name, s.phone, s.parent_last_name, s.parent_first_name].filter(Boolean).join(" ").toLowerCase().includes(q));
+    const samePhone = s => tail.length === 9 && String(s.phone || "").replace(/\D/g, "").endsWith(tail);
+    return list.sort((a, b) => (selected.has(b.id) - selected.has(a.id)) || (samePhone(b) - samePhone(a)) || a.name.localeCompare(b.name)).slice(0, 40);
+  }, [students, query, digits, selected]);
+  function toggle(id) {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);else next.add(id);
+      return next;
+    });
+  }
+  async function save(e) {
+    e.preventDefault();
+    if (digits.length < 9) {
+      setError("Вкажіть номер телефону");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      if (!account) {
+        const res = await parentRpc("parent_create_account", {
+          p_phone: phone,
+          p_name: name,
+          p_student_ids: Array.from(selected)
+        });
+        onSaved({
+          ...res,
+          created: true
+        });
+        return;
+      }
+      const {
+        error: upErr
+      } = await sb.from("parent_accounts").update({
+        phone,
+        name
+      }).eq("id", account.id);
+      if (upErr) throw upErr;
+      const before = new Set(linkedIds);
+      const added = Array.from(selected).filter(id => !before.has(id));
+      const removed = Array.from(before).filter(id => !selected.has(id));
+      if (added.length) {
+        const {
+          error: e1
+        } = await sb.from("parent_students").insert(added.map(id => ({
+          parent_id: account.id,
+          student_id: id
+        })));
+        if (e1) throw e1;
+      }
+      if (removed.length) {
+        const {
+          error: e2
+        } = await sb.from("parent_students").delete().eq("parent_id", account.id).in("student_id", removed);
+        if (e2) throw e2;
+      }
+      onSaved(null);
+    } catch (err) {
+      setSaving(false);
+      const msg = err && err.message || "Сталася помилка";
+      setError(msg.includes("duplicate key") ? "Кабінет з таким номером уже існує" : msg);
+    }
+  }
+  return ReactDOM.createPortal(React.createElement("div", {
+    className: "overlay",
+    onClick: onClose
+  }, React.createElement("form", {
+    className: "modal parent-modal",
+    onClick: e => e.stopPropagation(),
+    onSubmit: save
+  }, React.createElement("div", {
+    className: "modal-title"
+  }, account ? "Кабінет батьків" : "Новий кабінет батьків", React.createElement("button", {
+    type: "button",
+    className: "studio-btn ghost",
+    onClick: onClose
+  }, React.createElement(Icon, {
+    name: "x"
+  }))), error && React.createElement("div", {
+    className: "login-error"
+  }, error), React.createElement("div", {
+    className: "field-row"
+  }, React.createElement("div", {
+    className: "field"
+  }, React.createElement("label", {
+    className: "field-label"
+  }, "Телефон (логін)"), React.createElement("input", {
+    type: "tel",
+    value: phone,
+    onChange: e => setPhone(e.target.value),
+    placeholder: "+380 67 123 45 67"
+  })), React.createElement("div", {
+    className: "field"
+  }, React.createElement("label", {
+    className: "field-label"
+  }, "Ім'я батьків"), React.createElement("input", {
+    type: "text",
+    value: name,
+    onChange: e => setName(e.target.value),
+    placeholder: "Коваль Ірина"
+  }))), React.createElement("div", {
+    className: "field"
+  }, React.createElement("div", {
+    className: "field-label-row"
+  }, React.createElement("label", {
+    className: "field-label"
+  }, "Діти в кабінеті"), React.createElement("span", {
+    className: "students-meta"
+  }, selected.size, " обрано")), React.createElement("div", {
+    className: "search-field",
+    style: {
+      marginBottom: 8
+    }
+  }, React.createElement(Icon, {
+    name: "search",
+    size: 14
+  }), React.createElement("input", {
+    type: "text",
+    placeholder: "Пошук учня…",
+    value: query,
+    onChange: e => setQuery(e.target.value)
+  })), React.createElement("div", {
+    className: "chip-wrap",
+    style: {
+      maxHeight: 190,
+      overflowY: "auto"
+    }
+  }, matches.map(s => React.createElement("span", {
+    key: s.id,
+    className: "chip" + (selected.has(s.id) ? " selected" : ""),
+    onClick: () => toggle(s.id),
+    title: s.phone || ""
+  }, React.createElement("span", {
+    className: "chip-avatar"
+  }, initialsFromName(s.name)), s.name))), React.createElement("div", {
+    className: "hint"
+  }, "Першими показано учнів з цим самим телефоном у картці. Батьки бачать лише позначених тут дітей.")), !account && React.createElement("div", {
+    className: "hint",
+    style: {
+      marginTop: -4
+    }
+  }, "Після створення з'явиться пароль — його треба одразу передати батькам."), React.createElement("div", {
+    className: "modal-actions"
+  }, React.createElement("button", {
+    type: "button",
+    className: "studio-btn",
+    onClick: onClose
+  }, "Скасувати"), React.createElement("button", {
+    type: "submit",
+    className: "studio-btn primary",
+    disabled: saving
+  }, saving ? "Збереження…" : account ? "Зберегти" : "Створити й отримати пароль")))), document.body);
+}
+function ParentAccountsTab({
+  students
+}) {
+  const [accounts, setAccounts] = useState([]);
+  const [links, setLinks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState("");
+  const [editing, setEditing] = useState(null); // account | "new" | null
+  const [result, setResult] = useState(null);
+  const [busyId, setBusyId] = useState(null);
+  const load = useCallback(async () => {
+    const [ar, lr] = await Promise.all([sb.from("parent_accounts").select("*").order("created_at", {
+      ascending: false
+    }), sb.from("parent_students").select("*")]);
+    if (ar.error) showToast(ar.error.message, "error");
+    setAccounts(ar.data || []);
+    setLinks(lr.data || []);
+    setLoading(false);
+  }, []);
+  useEffect(() => {
+    load();
+  }, [load]);
+  const studentById = useMemo(() => Object.fromEntries(students.map(s => [s.id, s])), [students]);
+  const linkedByParent = useMemo(() => {
+    const out = {};
+    links.forEach(l => {
+      (out[l.parent_id] = out[l.parent_id] || []).push(l.student_id);
+    });
+    return out;
+  }, [links]);
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return accounts;
+    const qDigits = q.replace(/\D/g, "");
+    return accounts.filter(a => {
+      const kids = (linkedByParent[a.id] || []).map(id => studentById[id] ? studentById[id].name : "").join(" ");
+      return (a.name || "").toLowerCase().includes(q) || kids.toLowerCase().includes(q) || qDigits.length >= 3 && a.phone.includes(qDigits);
+    });
+  }, [accounts, query, linkedByParent, studentById]);
+  async function resetPassword(a) {
+    const ok = await confirmDialog(`Згенерувати новий пароль для ${formatParentPhone(a.phone)}? Старий перестане працювати, а батьків буде розлогінено на всіх пристроях.`, {
+      title: "Новий пароль",
+      confirmLabel: "Згенерувати"
+    });
+    if (!ok) return;
+    setBusyId(a.id);
+    try {
+      setResult(await parentRpc("parent_reset_password", {
+        p_parent_id: a.id
+      }));
+      load();
+    } catch (err) {
+      showToast(err.message, "error");
+    }
+    setBusyId(null);
+  }
+  async function toggleActive(a) {
+    setBusyId(a.id);
+    const {
+      error
+    } = await sb.from("parent_accounts").update({
+      active: !a.active
+    }).eq("id", a.id);
+    setBusyId(null);
+    if (error) {
+      showToast(error.message, "error");
+      return;
+    }
+    showToast(a.active ? "Доступ вимкнено" : "Доступ увімкнено");
+    load();
+  }
+  async function remove(a) {
+    const ok = await confirmDialog(`Видалити кабінет ${formatParentPhone(a.phone)}? Батьки більше не зможуть увійти. Дані учнів не зміняться.`, {
+      title: "Видалити кабінет",
+      confirmLabel: "Видалити"
+    });
+    if (!ok) return;
+    const {
+      error
+    } = await sb.from("parent_accounts").delete().eq("id", a.id);
+    if (error) {
+      showToast(error.message, "error");
+      return;
+    }
+    load();
+  }
+  if (loading) return React.createElement("div", {
+    className: "loading-block"
+  }, "Завантаження кабінетів батьків…");
+  return React.createElement("div", {
+    className: "tab-fade"
+  }, React.createElement("div", {
+    className: "studio-page-head"
+  }, React.createElement("div", null, React.createElement("div", {
+    className: "studio-page-title"
+  }, "Кабінети батьків"), React.createElement("div", {
+    className: "students-sub"
+  }, "Вхід для батьків: ", React.createElement("a", {
+    href: parentPortalUrl(),
+    target: "_blank",
+    rel: "noopener"
+  }, parentPortalUrl()))), React.createElement("button", {
+    className: "studio-btn primary",
+    onClick: () => setEditing("new")
+  }, React.createElement(Icon, {
+    name: "plus",
+    size: 16
+  }), " Новий кабінет")), accounts.length > 0 && React.createElement("div", {
+    className: "search-field"
+  }, React.createElement(Icon, {
+    name: "search",
+    size: 14
+  }), React.createElement("input", {
+    type: "text",
+    placeholder: "Пошук за телефоном, батьками, дитиною…",
+    value: query,
+    onChange: e => setQuery(e.target.value)
+  }), query && React.createElement("button", {
+    className: "search-clear",
+    onClick: () => setQuery("")
+  }, React.createElement(Icon, {
+    name: "x",
+    size: 12
+  }))), accounts.length === 0 ? React.createElement("div", {
+    className: "empty-state"
+  }, React.createElement("div", {
+    className: "empty-mascot"
+  }, "👨‍👩‍👧"), React.createElement("div", {
+    className: "empty-state-title"
+  }, "Ще немає жодного кабінету"), React.createElement("div", {
+    className: "empty-state-sub"
+  }, "Створіть кабінет тут або натисніть «Згенерувати пароль» у картці учня.")) : React.createElement("div", {
+    className: "students-list"
+  }, filtered.map(a => {
+    const kids = (linkedByParent[a.id] || []).map(id => studentById[id]).filter(Boolean);
+    return React.createElement("div", {
+      key: a.id,
+      className: "students-row admin-row",
+      style: {
+        opacity: a.active ? 1 : 0.55
+      },
+      onClick: () => setEditing(a)
+    }, React.createElement("div", {
+      className: "avatar"
+    }, React.createElement(Icon, {
+      name: "heart",
+      size: 16
+    })), React.createElement("div", {
+      style: {
+        flex: 1,
+        minWidth: 0
+      }
+    }, React.createElement("div", {
+      className: "student-name",
+      style: {
+        display: "flex",
+        alignItems: "center",
+        gap: 7,
+        flexWrap: "wrap"
+      }
+    }, a.name || formatParentPhone(a.phone), !a.active && React.createElement("span", {
+      className: "role-badge inactive"
+    }, "Вимкнено")), React.createElement("div", {
+      className: "students-sub"
+    }, formatParentPhone(a.phone), " · ", kids.length ? kids.map(k => k.name).join(", ") : "діти не обрані")), React.createElement("div", {
+      className: "students-meta"
+    }, a.last_login_at ? "вхід " + formatDateDMY(a.last_login_at.slice(0, 10)) : a.password_set_at ? "ще не входили" : "без пароля"), React.createElement("button", {
+      className: "studio-btn ghost",
+      disabled: busyId === a.id,
+      onClick: e => {
+        e.stopPropagation();
+        resetPassword(a);
+      },
+      title: "Згенерувати новий пароль"
+    }, React.createElement(Icon, {
+      name: "key",
+      size: 14
+    })), React.createElement("button", {
+      className: "studio-btn ghost",
+      disabled: busyId === a.id,
+      onClick: e => {
+        e.stopPropagation();
+        toggleActive(a);
+      },
+      title: a.active ? "Вимкнути доступ" : "Увімкнути доступ"
+    }, React.createElement(Icon, {
+      name: a.active ? "shield" : "repeat",
+      size: 14
+    })), React.createElement("button", {
+      className: "studio-btn ghost",
+      onClick: e => {
+        e.stopPropagation();
+        remove(a);
+      },
+      title: "Видалити кабінет"
+    }, React.createElement(Icon, {
+      name: "trash",
+      size: 14
+    })));
+  })), editing && React.createElement(ParentAccountModal, {
+    account: editing === "new" ? null : editing,
+    students: students,
+    linkedIds: editing === "new" ? [] : linkedByParent[editing.id] || [],
+    onClose: () => setEditing(null),
+    onSaved: res => {
+      setEditing(null);
+      if (res) setResult(res);else showToast("Збережено");
+      load();
+    }
+  }), result && React.createElement(ParentPasswordModal, {
+    result: result,
+    onClose: () => setResult(null)
+  }));
+}
+
+// Student card, superadmin only: which parent accounts see this child,
+// and the "Згенерувати пароль" button (creates the account for the phone
+// in the card if there is none, see parent_password_for_student()).
+function StudentParentAccess({
+  student
+}) {
+  const [accounts, setAccounts] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState(null);
+  const load = useCallback(async () => {
+    const {
+      data
+    } = await sb.from("parent_students").select("parent_id, parent_accounts(*)").eq("student_id", student.id);
+    setAccounts((data || []).map(r => r.parent_accounts).filter(Boolean));
+  }, [student.id]);
+  useEffect(() => {
+    load();
+  }, [load]);
+  async function generate(account) {
+    const target = account ? formatParentPhone(account.phone) : formatParentPhone(student.phone);
+    const ok = await confirmDialog(account || accounts.length ? `Згенерувати новий пароль для ${target}? Старий перестане працювати.` : `Створити кабінет батьків для ${target} і згенерувати пароль?`, {
+      title: "Кабінет батьків",
+      confirmLabel: "Згенерувати"
+    });
+    if (!ok) return;
+    setBusy(true);
+    try {
+      setResult(account ? await parentRpc("parent_reset_password", {
+        p_parent_id: account.id
+      }) : await parentRpc("parent_password_for_student", {
+        p_student_id: student.id
+      }));
+      load();
+    } catch (err) {
+      showToast(err.message, "error");
+    }
+    setBusy(false);
+  }
+  if (accounts === null) return null;
+  const phoneDigits = String(student.phone || "").replace(/\D/g, "").slice(-9);
+  const hasOwnPhoneAccount = accounts.some(a => phoneDigits.length === 9 && a.phone.endsWith(phoneDigits));
+  return React.createElement("div", {
+    className: "field"
+  }, React.createElement("label", {
+    className: "field-label"
+  }, "Кабінет батьків"), accounts.map(a => React.createElement("div", {
+    key: a.id,
+    className: "students-sub",
+    style: {
+      display: "flex",
+      alignItems: "center",
+      gap: 8,
+      marginBottom: 6
+    }
+  }, React.createElement(Icon, {
+    name: "heart",
+    size: 12
+  }), React.createElement("span", {
+    style: {
+      flex: 1
+    }
+  }, formatParentPhone(a.phone), a.name ? " · " + a.name : "", !a.active ? " · вимкнено" : ""), React.createElement("button", {
+    type: "button",
+    className: "studio-btn",
+    disabled: busy,
+    onClick: () => generate(a)
+  }, React.createElement(Icon, {
+    name: "key",
+    size: 13
+  }), " Новий пароль"))), !hasOwnPhoneAccount && React.createElement("button", {
+    type: "button",
+    className: "studio-btn",
+    disabled: busy || phoneDigits.length < 9,
+    onClick: () => generate(null)
+  }, React.createElement(Icon, {
+    name: "key",
+    size: 13
+  }), " Згенерувати пароль", phoneDigits.length === 9 ? " для " + formatParentPhone(student.phone) : ""), !hasOwnPhoneAccount && React.createElement("div", {
+    className: "hint"
+  }, phoneDigits.length < 9 ? "Додайте в картку телефон батьків — він стане логіном." : "Логін — телефон з картки. Якщо кабінету ще немає, його буде створено; братів і сестер додайте в розділі «Батьки»."), result && React.createElement(ParentPasswordModal, {
+    result: result,
+    onClose: () => setResult(null)
+  }));
+}
+
+// ---------------------------------------------------------------
 // Admin: studio-wide calendar, one week at a time, sorted by weekday
 // ---------------------------------------------------------------
 
@@ -6582,11 +7183,11 @@ function Shell({
   const cachedNav = readCachedNav() || {};
   const [section, setSection] = useState(() => isAdmin && cachedNav.section === "admin" ? "admin" : "workspace"); // 'workspace' | 'admin'
   const [adminSection, setAdminSection] = useState(() => {
-    if (cachedNav.adminSection === "rates" || cachedNav.adminSection === "report") {
+    if (cachedNav.adminSection === "rates" || cachedNav.adminSection === "report" || cachedNav.adminSection === "parents") {
       return isSuperAdmin ? cachedNav.adminSection : "users";
     }
     return cachedNav.adminSection || "users";
-  }); // 'users' | 'calendar' | 'rates' | 'report' (only when no adminTeacher)
+  }); // 'users' | 'calendar' | 'rates' | 'report' | 'parents' (only when no adminTeacher)
   const [adminTeacher, setAdminTeacher] = useState(null);
   const [tab, setTab] = useState(() => cachedNav.tab || "schedule");
   const [profileModalTarget, setProfileModalTarget] = useState(null);
@@ -6705,7 +7306,7 @@ function Shell({
     className: "mode-btn-title"
   }, "Адміністрування"), /*#__PURE__*/React.createElement("div", {
     className: "mode-btn-sub"
-  }, isSuperAdmin ? "Викладачі, календар, тарифи, звіт" : "Викладачі, календар студії")))), section === "workspace" && isAdmin && /*#__PURE__*/React.createElement("button", {
+  }, isSuperAdmin ? "Викладачі, календар, тарифи, звіт, батьки" : "Викладачі, календар студії")))), section === "workspace" && isAdmin && /*#__PURE__*/React.createElement("button", {
     type: "button",
     className: "peek-toggle" + (peekAsTeacher ? " active" : ""),
     onClick: () => setPeekAsTeacher(v => !v),
@@ -6779,7 +7380,15 @@ function Shell({
   }, /*#__PURE__*/React.createElement(Icon, {
     name: "chart",
     size: 17
-  })), " Звіт")), (section === "workspace" || section === "admin" && adminTeacher) && /*#__PURE__*/React.createElement("div", {
+  })), " Звіт"), isSuperAdmin && /*#__PURE__*/React.createElement("button", {
+    className: "studio-nav-btn" + (adminSection === "parents" ? " active" : ""),
+    onClick: () => setAdminSection("parents")
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "nav-ic"
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "heart",
+    size: 17
+  })), " Батьки")), (section === "workspace" || section === "admin" && adminTeacher) && /*#__PURE__*/React.createElement("div", {
     className: "nav-group"
   }, /*#__PURE__*/React.createElement("button", {
     className: "studio-nav-btn" + (tab === "schedule" ? " active" : ""),
@@ -6833,7 +7442,9 @@ function Shell({
     isSuperAdmin: isSuperAdmin
   }), section === "admin" && !adminTeacher && adminSection === "calendar" && /*#__PURE__*/React.createElement(StudioCalendarTab, {
     onOpenTeacherWorkspace: selectTeacher
-  }), section === "admin" && !adminTeacher && adminSection === "rates" && /*#__PURE__*/React.createElement(RateCardsTab, null), section === "admin" && !adminTeacher && adminSection === "report" && /*#__PURE__*/React.createElement(ReportTab, null), section === "admin" && adminTeacher && /*#__PURE__*/React.createElement(WorkspaceBody, {
+  }), section === "admin" && !adminTeacher && adminSection === "rates" && /*#__PURE__*/React.createElement(RateCardsTab, null), section === "admin" && !adminTeacher && adminSection === "report" && /*#__PURE__*/React.createElement(ReportTab, null), section === "admin" && !adminTeacher && adminSection === "parents" && isSuperAdmin && /*#__PURE__*/React.createElement(ParentAccountsTab, {
+    students: students
+  }), section === "admin" && adminTeacher && /*#__PURE__*/React.createElement(WorkspaceBody, {
     ownerId: targetOwnerId,
     ownerProfile: targetOwnerProfile,
     canEditSchedule: true,

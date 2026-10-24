@@ -2,13 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../data/api.dart' show ServerRejected, StemikApi;
+import '../data/parent_portal.dart';
 import 'scope.dart';
 import 'theme.dart';
 import 'widgets.dart';
 
+/// Staff sign in with email (Supabase Auth); parents with phone + the
+/// password the superadmin generated (sql/0018), which opens the parents'
+/// portal instead of the CRM.
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key, required this.api});
+  const LoginScreen({super.key, required this.api, required this.parentApi});
   final StemikApi api;
+  final ParentApi parentApi;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -16,7 +21,9 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _email = TextEditingController();
+  final _phone = TextEditingController();
   final _password = TextEditingController();
+  bool _parent = false;
   bool _forgot = false;
   bool _busy = false;
   bool _showPassword = false;
@@ -26,10 +33,47 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_email.text.isEmpty) _email.text = SettingsScope.read(context).lastEmail ?? '';
+    final settings = SettingsScope.read(context);
+    if (_email.text.isEmpty) _email.text = settings.lastEmail ?? '';
+    if (_phone.text.isEmpty) _phone.text = settings.lastParentPhone ?? '';
+    _parent = settings.parentLoginMode;
+  }
+
+  void _setMode(bool parent) {
+    SettingsScope.read(context).parentLoginMode = parent;
+    setState(() {
+      _parent = parent;
+      _forgot = false;
+      _error = null;
+      _info = null;
+    });
+  }
+
+  Future<void> _submitParent() async {
+    final phone = _phone.text.trim();
+    setState(() => _error = null);
+    if (phone.replaceAll(RegExp(r'\D'), '').length < 9 || _password.text.trim().isEmpty) {
+      setState(() => _error = 'Введіть номер телефону і пароль');
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      final session = await widget.parentApi.login(phone, _password.text.trim());
+      if (!mounted) return;
+      final settings = SettingsScope.read(context);
+      settings.lastParentPhone = phone;
+      settings.setParentToken(session.token);
+    } on ParentLoginFailed catch (e) {
+      setState(() => _error = e.message);
+    } catch (_) {
+      setState(() => _error = "Немає з'єднання з інтернетом");
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   Future<void> _submit() async {
+    if (_parent) return _submitParent();
     final email = _email.text.trim();
     setState(() {
       _error = null;
@@ -85,21 +129,44 @@ class _LoginScreenState extends State<LoginScreen> {
                       textAlign: TextAlign.center,
                       style: TextStyle(color: c.inkSoft, fontWeight: FontWeight.w600),
                     ),
-                    const SizedBox(height: 28),
+                    const SizedBox(height: 24),
+                    SegmentedButton<bool>(
+                      segments: const [
+                        ButtonSegment(value: false, label: Text('Співробітник'), icon: Icon(Icons.badge_outlined)),
+                        ButtonSegment(value: true, label: Text('Батьки'), icon: Icon(Icons.family_restroom_rounded)),
+                      ],
+                      selected: {_parent},
+                      showSelectedIcon: false,
+                      onSelectionChanged: (v) => _setMode(v.first),
+                    ),
+                    const SizedBox(height: 18),
                     if (_error != null) _banner(_error!, c.danger, c.dangerSoft, Icons.error_outline_rounded),
                     if (_info != null)
                       _banner(_info!, c.successText, c.successSoft, Icons.check_circle_outline_rounded),
-                    TextField(
-                      controller: _email,
-                      keyboardType: TextInputType.emailAddress,
-                      autofillHints: const [AutofillHints.username, AutofillHints.email],
-                      textInputAction: _forgot ? TextInputAction.done : TextInputAction.next,
-                      decoration: const InputDecoration(
-                        labelText: 'Email',
-                        prefixIcon: Icon(Icons.alternate_email_rounded),
+                    if (_parent)
+                      TextField(
+                        controller: _phone,
+                        keyboardType: TextInputType.phone,
+                        autofillHints: const [AutofillHints.username, AutofillHints.telephoneNumber],
+                        textInputAction: TextInputAction.next,
+                        decoration: const InputDecoration(
+                          labelText: 'Номер телефону',
+                          hintText: '+380 67 123 45 67',
+                          prefixIcon: Icon(Icons.phone_iphone_rounded),
+                        ),
+                      )
+                    else
+                      TextField(
+                        controller: _email,
+                        keyboardType: TextInputType.emailAddress,
+                        autofillHints: const [AutofillHints.username, AutofillHints.email],
+                        textInputAction: _forgot ? TextInputAction.done : TextInputAction.next,
+                        decoration: const InputDecoration(
+                          labelText: 'Email',
+                          prefixIcon: Icon(Icons.alternate_email_rounded),
+                        ),
+                        onSubmitted: (_) => _forgot ? _submit() : null,
                       ),
-                      onSubmitted: (_) => _forgot ? _submit() : null,
-                    ),
                     if (!_forgot) ...[
                       const SizedBox(height: 12),
                       TextField(
@@ -130,17 +197,20 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     const SizedBox(height: 6),
-                    TextButton(
-                      onPressed: () => setState(() {
-                        _forgot = !_forgot;
-                        _error = null;
-                        _info = null;
-                      }),
-                      child: Text(_forgot ? '← Повернутися до входу' : 'Забули пароль?'),
-                    ),
+                    if (!_parent)
+                      TextButton(
+                        onPressed: () => setState(() {
+                          _forgot = !_forgot;
+                          _error = null;
+                          _info = null;
+                        }),
+                        child: Text(_forgot ? '← Повернутися до входу' : 'Забули пароль?'),
+                      ),
                     const SizedBox(height: 8),
                     Text(
-                      'Акаунт викладача створює адміністратор студії.',
+                      _parent
+                          ? 'Пароль видає адміністратор студії. Забули — напишіть нам, і ми згенеруємо новий.'
+                          : 'Акаунт викладача створює адміністратор студії.',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: c.inkSoft, fontSize: 13),
                     ),

@@ -5,18 +5,27 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 
 import '../data/api.dart';
 import '../data/models.dart';
+import '../data/parent_portal.dart';
 import '../data/store.dart';
 import '../services/reminders.dart';
 import '../services/settings.dart';
 import 'login_screen.dart';
+import 'parent/parent_home.dart';
 import 'scope.dart';
 import 'shell.dart';
 import 'theme.dart';
 import 'widgets.dart';
 
 class StemikApp extends StatelessWidget {
-  const StemikApp({super.key, required this.store, required this.settings, required this.reminders});
+  const StemikApp({
+    super.key,
+    required this.store,
+    required this.parentApi,
+    required this.settings,
+    required this.reminders,
+  });
   final AppStore store;
+  final ParentApi parentApi;
   final Settings settings;
   final Reminders reminders;
 
@@ -39,7 +48,7 @@ class StemikApp extends StatelessWidget {
               locale: const Locale('uk'),
               supportedLocales: const [Locale('uk')],
               localizationsDelegates: GlobalMaterialLocalizations.delegates,
-              home: AuthGate(api: store.api),
+              home: AuthGate(api: store.api, parentApi: parentApi),
             ),
           ),
         ),
@@ -53,9 +62,12 @@ enum _Gate { loading, signedOut, ready }
 /// Decides between the login screen and the app. Opens straight into the
 /// app from the cached profile when offline; confirms it with the server
 /// in the background (and signs out a deactivated account, as the web does).
+/// A parent's session token (sql/0018) takes over the whole app with the
+/// parents' portal; parents never have a Supabase Auth session.
 class AuthGate extends StatefulWidget {
-  const AuthGate({super.key, required this.api});
+  const AuthGate({super.key, required this.api, required this.parentApi});
   final StemikApi api;
+  final ParentApi parentApi;
 
   @override
   State<AuthGate> createState() => _AuthGateState();
@@ -132,11 +144,12 @@ class _AuthGateState extends State<AuthGate> {
 
   @override
   Widget build(BuildContext context) {
+    if (SettingsScope.of(context).parentToken != null) return ParentHome(api: widget.parentApi);
     switch (_gate) {
       case _Gate.loading:
         return const Scaffold(body: LoadingView());
       case _Gate.signedOut:
-        return LoginScreen(api: widget.api);
+        return LoginScreen(api: widget.api, parentApi: widget.parentApi);
       case _Gate.ready:
         return HomeShell(onSignOut: _signOut);
     }
