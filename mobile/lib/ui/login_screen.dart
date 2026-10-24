@@ -117,7 +117,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Center(child: StemikMark(size: 72)),
+                    const Center(child: WavingRobot(width: 150)),
                     const SizedBox(height: 16),
                     const Text(
                       'Stemik',

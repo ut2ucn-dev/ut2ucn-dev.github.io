@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Shown until Flutter draws its first frame. -->
+<!-- Shown until Flutter draws its first frame: the studio robot, in the
+     dark-theme artwork at night (drawable-night-nodpi). -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:drawable="@color/screen" />
     <item
-        android:width="160dp"
-        android:height="160dp"
+        android:width="150dp"
+        android:height="164dp"
         android:gravity="center"
-        android:drawable="@drawable/ic_launcher_mark" />
+        android:drawable="@drawable/launch_robot" />
 </layer-list>

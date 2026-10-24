@@ -29,6 +29,15 @@ void main() {
     // 3D-course models go to the printer.
     expect(marko.models.first.prints, isTrue);
     expect(marko.courses.map((c) => c.course), contains('Robo AI (Ukit 6-8)'));
+    expect(marko.level.number, 2);
+    expect(marko.level.name, 'Дослідник');
+    expect(marko.level.toNext, 4);
+    expect(marko.achievements.where((a) => a.unlocked).map((a) => a.title), [
+      'Перший старт',
+      'Перша модель',
+      'Друкар',
+      'Мультитул',
+    ]);
   });
 
   test('a lesson without attendance is upcoming from today on, unmarked before', () {
@@ -57,6 +66,8 @@ void main() {
         settings: settings,
         child: MaterialApp(
           theme: buildTheme(Brightness.light),
+          builder: (context, child) =>
+              MediaQuery(data: MediaQuery.of(context).copyWith(disableAnimations: true), child: child!),
           home: ParentHome(api: DemoParentApi()),
         ),
       ),
@@ -93,6 +104,8 @@ void main() {
         settings: settings,
         child: MaterialApp(
           theme: buildTheme(Brightness.light),
+          builder: (context, child) =>
+              MediaQuery(data: MediaQuery.of(context).copyWith(disableAnimations: true), child: child!),
           home: LoginScreen(api: DemoApi(), parentApi: DemoParentApi()),
         ),
       ),

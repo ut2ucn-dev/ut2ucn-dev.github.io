@@ -5,4 +5,5 @@
     <color name="brand">#5B4FE0</color>
     <color name="navy">#1C1642</color>
     <color name="screen">@color/paper</color>
+    <color name="icon_background">#FFFFFF</color>
 </resources>

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
@@ -7,50 +9,107 @@ import '../util/dates.dart';
 import 'scope.dart';
 import 'theme.dart';
 
-/// Stemik's isometric cube mark (StemikMark in index.html).
+/// The studio's robot logo (assets/brand), in the artwork for the current
+/// theme. [onDark] always uses the light-on-dark artwork.
 class StemikMark extends StatelessWidget {
-  const StemikMark({super.key, this.size = 40});
+  const StemikMark({super.key, this.size = 40, this.onDark = false});
   final double size;
+  final bool onDark;
 
   @override
-  Widget build(BuildContext context) => SizedBox.square(
-    dimension: size,
-    child: CustomPaint(painter: _MarkPainter(context.c.brand)),
-  );
+  Widget build(BuildContext context) {
+    final dark = onDark || Theme.of(context).brightness == Brightness.dark;
+    return Image.asset(
+      'assets/brand/robot-${dark ? 'dark' : 'light'}.png',
+      width: size,
+      filterQuality: FilterQuality.medium,
+      semanticLabel: 'Stemik',
+    );
+  }
 }
 
-class _MarkPainter extends CustomPainter {
-  _MarkPainter(this.brand);
-  final Color brand;
+/// The logo robot waving hello: body and arm are separate images and the
+/// arm swings from the shoulder, as on the web (`.waver` in client/).
+class WavingRobot extends StatefulWidget {
+  const WavingRobot({super.key, this.width = 150, this.onDark = false});
+  final double width;
+  final bool onDark;
 
   @override
-  void paint(Canvas canvas, Size size) {
-    final s = size.width / 48;
-    Offset p(double x, double y) => Offset(x * s, y * s);
-    final hex = Path()
-      ..moveTo(24 * s, 3 * s)
-      ..lineTo(43 * s, 13.5 * s)
-      ..lineTo(43 * s, 34.5 * s)
-      ..lineTo(24 * s, 45 * s)
-      ..lineTo(5 * s, 34.5 * s)
-      ..lineTo(5 * s, 13.5 * s)
-      ..close();
-    canvas.drawPath(
-      hex,
-      Paint()..shader = LinearGradient(colors: [brand, navy]).createShader(Rect.fromPoints(p(4, 4), p(44, 44))),
-    );
-    final line = Paint()
-      ..color = Colors.white.withValues(alpha: 0.32)
-      ..strokeWidth = 1.2 * s
-      ..style = PaintingStyle.stroke;
-    canvas.drawLine(p(24, 3), p(24, 45), line);
-    canvas.drawLine(p(24, 24), p(43, 13.5), line);
-    canvas.drawLine(p(24, 24), p(5, 13.5), line);
-    canvas.drawCircle(p(24, 24), 4 * s, Paint()..color = Colors.white);
+  State<WavingRobot> createState() => _WavingRobotState();
+}
+
+class _WavingRobotState extends State<WavingRobot> with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 3200));
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Stands still when the system asks for reduced motion.
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _c.stop();
+    } else if (!_c.isAnimating) {
+      _c.repeat();
+    }
+  }
+
+  // (time, degrees) — the same keyframes as @keyframes wave on the web.
+  static const _keys = [
+    (0.0, 0.0),
+    (0.08, -9.0),
+    (0.16, 8.0),
+    (0.24, -9.0),
+    (0.32, 7.0),
+    (0.40, -5.0),
+    (0.48, 2.0),
+    (0.58, 0.0),
+    (1.0, 0.0),
+  ];
+
+  static double _angle(double t) {
+    for (var i = 1; i < _keys.length; i++) {
+      final (t1, a1) = _keys[i];
+      if (t <= t1) {
+        final (t0, a0) = _keys[i - 1];
+        final f = Curves.easeInOut.transform((t - t0) / (t1 - t0));
+        return (a0 + (a1 - a0) * f) * math.pi / 180;
+      }
+    }
+    return 0;
   }
 
   @override
-  bool shouldRepaint(_MarkPainter old) => old.brand != brand;
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = widget.onDark || Theme.of(context).brightness == Brightness.dark ? 'dark' : 'light';
+    return Semantics(
+      label: 'Робот Stemik махає рукою',
+      child: SizedBox(
+        width: widget.width,
+        child: Stack(
+          children: [
+            Image.asset('assets/brand/wave-$t-base.png', width: widget.width, filterQuality: FilterQuality.medium),
+            Positioned.fill(
+              child: AnimatedBuilder(
+                animation: _c,
+                builder: (context, child) => Transform.rotate(
+                  angle: _angle(_c.value),
+                  alignment: const FractionalOffset(0.34, 0.75),
+                  child: child,
+                ),
+                child: Image.asset('assets/brand/wave-$t-hand.png', filterQuality: FilterQuality.medium),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class Avatar extends StatelessWidget {
