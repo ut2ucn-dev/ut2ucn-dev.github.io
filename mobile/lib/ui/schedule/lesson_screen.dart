@@ -302,7 +302,7 @@ class _RosterCard extends StatelessWidget {
                   ),
                 ],
               ),
-            ] else if (!admin && courseHasPrinting(lesson.course) && started && att == null) ...[
+            ] else if (!admin && ownsWorks && courseHasPrinting(lesson.course) && started && att == null) ...[
               const SizedBox(height: 8),
               Text(
                 'Фото й друк — після відмітки «П» адміністратором.',
