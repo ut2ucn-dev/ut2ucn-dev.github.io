@@ -6,6 +6,10 @@
 <title>Stemik · облік моделей</title>
 <link rel="icon" type="image/png" href="assets/brand/robot-light.png">
 <link rel="apple-touch-icon" href="assets/brand/robot-light.png">
+<link rel="preload" as="image" href="assets/brand/intro-base.png">
+<link rel="preload" as="image" href="assets/brand/intro-brain.png">
+<link rel="preload" as="image" href="assets/brand/wave-dark-hand.png">
+<link rel="preload" as="image" href="assets/brand/wordmark-dark.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Exo+2:ital,wght@0,400;0,500;0,600;0,700;0,800;1,500;1,600&display=swap" rel="stylesheet">
@@ -740,9 +744,106 @@
 
   @keyframes sheetUp{ from{ opacity:0.4; transform:translateY(24px); } to{ opacity:1; transform:translateY(0); } }
 
+  /* Launch intro — the same robot hello as the app (mobile/lib/ui/intro.dart)
+     and the parents' portal (client/index.html):
+     it hops, its visor swaps the brain for two eyes, one eye winks with a
+     sparkle, the arm waves, the brain returns and the portal fades in.
+     2.6 s in all; each keyframe percentage is that moment in ms / 2600. */
+  .intro{ position:fixed; inset:0; z-index:100; background:#05263F; display:flex; align-items:center; justify-content:center;
+    overflow:hidden; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  .intro-glow{ position:absolute; width:380px; height:380px; border-radius:50%; opacity:0;
+    background:radial-gradient(closest-side, rgba(43,92,134,.55), rgba(43,92,134,0)); }
+  .intro-robot{ position:relative; width:150px; aspect-ratio:420/455; }
+  .intro-robot > img{ position:absolute; inset:0; width:100%; height:100%; display:block; }
+  .intro-arm{ transform-origin:34% 75%; }
+  .intro-eye{ position:absolute; top:36%; width:5.2%; height:9.5%; border-radius:99px; background:#CFEAF6;
+    box-shadow:0 0 6px 1px rgba(92,167,201,.85); transform:translate(-50%, -50%); }
+  .intro-eye.l{ left:54.8%; }
+  .intro-eye.r{ left:75.8%; }
+  .intro-eyes{ position:absolute; inset:0; opacity:0; transform-origin:50% 36%; }
+  .intro-arc{ position:absolute; left:75.8%; top:36%; width:10%; transform:translate(-50%, -62%); opacity:0; overflow:visible;
+    filter:drop-shadow(0 0 3px rgba(92,167,201,.9)); }
+  .intro-spark{ position:absolute; left:88.8%; top:25.5%; width:14%; transform:translate(-50%, -50%) scale(0); }
+  .intro-word{ position:absolute; left:0; right:0; margin:0 auto; top:calc(50% + 81px + 26px); width:118px; opacity:0; }
+  @media (min-width:761px){
+    .intro-robot{ width:180px; }
+    .intro-word{ top:calc(50% + 98px + 30px); width:140px; }
+  }
+
+  .intro.play{ animation:introOut 2.6s linear both; }
+  .intro.play .intro-glow{ animation:introGlow 2.6s linear both; }
+  .intro.play .intro-robot{ animation:introHop 2.6s linear both; }
+  .intro.play .intro-brain{ animation:introBrain 2.6s linear both; }
+  .intro.play .intro-eyes{ animation:introEyes 2.6s linear both; }
+  .intro.play .intro-eye.r{ animation:introWink 2.6s linear both; }
+  .intro.play .intro-arc{ animation:introArc 2.6s linear both; }
+  .intro.play .intro-spark{ animation:introSpark 2.6s linear both; }
+  .intro.play .intro-arm{ animation:introWave 2.6s linear both; }
+  .intro.play .intro-word{ animation:introWord 2.6s linear both; }
+  .intro.skip{ animation:none; opacity:0; transition:opacity .3s ease; }
+
+  @keyframes introOut{ 0%,82.7%{ opacity:1; } 100%{ opacity:0; } }
+  @keyframes introGlow{ 0%,3.8%{ opacity:0; } 23%,100%{ opacity:1; } }
+  @keyframes introHop{
+    0%{ transform:scale(1); } 9.6%{ transform:scale(1.07); animation-timing-function:ease-out; } 19.2%,82.7%{ transform:scale(1); animation-timing-function:ease-in; }
+    100%{ transform:scale(1.14); } }
+  @keyframes introBrain{ 0%,13.5%{ opacity:1; } 21.9%,73.1%{ opacity:0; } 80%,100%{ opacity:1; } }
+  @keyframes introEyes{
+    0%,13.5%{ opacity:0; transform:scaleY(0); } 19%{ opacity:1; transform:scaleY(1.15); } 21.9%,73.1%{ opacity:1; transform:scaleY(1); }
+    80%,100%{ opacity:0; transform:scaleY(1); } }
+  @keyframes introWink{
+    0%,38.5%{ transform:translate(-50%, -50%) scaleY(1); animation-timing-function:ease-in; }
+    43.1%,48.5%{ transform:translate(-50%, -50%) scaleY(0); animation-timing-function:ease-out; }
+    53.1%,100%{ transform:translate(-50%, -50%) scaleY(1); } }
+  @keyframes introArc{ 0%,41.5%{ opacity:0; } 43.1%,48.5%{ opacity:1; } 50%,100%{ opacity:0; } }
+  @keyframes introSpark{
+    0%,40.8%{ transform:translate(-50%, -50%) scale(0) rotate(0deg); } 48.5%{ transform:translate(-50%, -50%) scale(1) rotate(45deg); }
+    56.2%,100%{ transform:translate(-50%, -50%) scale(0) rotate(90deg); } }
+  @keyframes introWave{
+    0%,15.4%{ transform:rotate(0deg); } 21.9%{ transform:rotate(-14deg); } 31.5%{ transform:rotate(12deg); } 41.2%{ transform:rotate(-14deg); }
+    50.9%{ transform:rotate(10deg); } 60.6%{ transform:rotate(-6deg); } 69.2%,100%{ transform:rotate(0deg); } }
+  @keyframes introWord{ 0%,9.6%{ opacity:0; transform:translateY(12px); } 25%,100%{ opacity:1; transform:none; } }
 </style>
 </head>
 <body>
+<div id="intro" class="intro" aria-hidden="true">
+  <div class="intro-glow"></div>
+  <div class="intro-robot">
+    <img src="assets/brand/intro-base.png" alt="">
+    <img class="intro-brain" src="assets/brand/intro-brain.png" alt="">
+    <img class="intro-arm" src="assets/brand/wave-dark-hand.png" alt="">
+    <div class="intro-eyes"><div class="intro-eye l"></div><div class="intro-eye r"></div></div>
+    <svg class="intro-arc" viewBox="-10 -10 20 12"><path d="M-8 1 Q0 -7 8 1" fill="none" stroke="#CFEAF6" stroke-width="4" stroke-linecap="round"/></svg>
+    <svg class="intro-spark" viewBox="-10 -10 20 20"><path d="M0-10Q0 0 10 0Q0 0 0 10Q0 0-10 0Q0 0 0-10Z" fill="#FFD36E"/></svg>
+  </div>
+  <img class="intro-word" src="assets/brand/wordmark-dark.png" alt="">
+</div>
+<script>
+// Launch intro: on every page load, never under "reduce motion" — and not
+// when the browser merely restores a tab it discarded to save memory (see
+// readCachedProfile below), which should stay invisible.
+// Plays once the artwork is in (or after 600 ms at the latest); a click
+// skips it. The portal loads underneath the whole time.
+(function(){
+  var el = document.getElementById("intro");
+  if ((window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) || document.wasDiscarded) {
+    el.parentNode.removeChild(el);
+    return;
+  }
+  var started = false;
+  function start(){ if (!started) { started = true; el.classList.add("play"); } }
+  function done(){ if (el.parentNode) el.parentNode.removeChild(el); }
+  var imgs = el.querySelectorAll("img"), left = imgs.length;
+  function loaded(){ if (--left === 0) start(); }
+  for (var i = 0; i < imgs.length; i++) {
+    if (imgs[i].complete) loaded();
+    else { imgs[i].addEventListener("load", loaded); imgs[i].addEventListener("error", loaded); }
+  }
+  setTimeout(start, 600);
+  el.addEventListener("animationend", function(e){ if (e.target === el) done(); });
+  el.addEventListener("click", function(){ el.classList.add("skip"); setTimeout(done, 320); });
+})();
+</script>
 <script>
 (function(){
   try {
