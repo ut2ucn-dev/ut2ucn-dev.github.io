@@ -1,0 +1,84 @@
+import 'dart:typed_data';
+
+typedef DbRow = Map<String, dynamic>;
+
+enum AuthEvent { signedIn, signedOut, passwordRecovery }
+
+/// Raised for a request the server answered and refused (validation, RLS,
+/// a raise in a database function). Anything else thrown by an [StemikApi]
+/// call is treated as "couldn't reach the server" and retried later.
+class ServerRejected implements Exception {
+  final String message;
+  ServerRejected(this.message);
+  @override
+  String toString() => message;
+}
+
+/// Everything the app asks of the backend. [SupabaseApi] is the real one;
+/// the demo build and the tests use an in-memory fake.
+abstract class StemikApi {
+  // --- auth ---------------------------------------------------------------
+  String? get currentUserId;
+  Stream<AuthEvent> get authEvents;
+  Future<void> signIn(String email, String password);
+  Future<void> sendPasswordReset(String email);
+  Future<void> updatePassword(String password);
+  Future<void> signOut();
+
+  // --- reads --------------------------------------------------------------
+  Future<DbRow?> fetchProfile(String id);
+  Future<List<DbRow>> fetchProfiles();
+  Future<List<DbRow>> fetchStudents();
+
+  /// All lessons when [ownerId] is null, otherwise that teacher's own plus
+  /// the ones they cover as a substitute.
+  Future<List<DbRow>> fetchLessons({String? ownerId});
+  Future<List<DbRow>> fetchWorks({String? ownerId});
+  Future<List<DbRow>> fetchAttendance({String? ownerId, List<String> lessonIds = const []});
+  Future<List<DbRow>> fetchSubscriptions({String? studentId});
+  Future<List<DbRow>> fetchRateCards();
+  Future<List<DbRow>> fetchComments(String studentId);
+  Future<List<DbRow>> fetchStudentLessons(String studentId);
+  Future<List<DbRow>> fetchStudentWorks(String studentId);
+  Future<List<DbRow>> fetchStudentAttendance(String studentId);
+  Future<String?> fetchCalcStartDate();
+  Future<DbRow?> fetchReportSummary(String from, String to);
+  Future<List<DbRow>> fetchReportView(String view, {String? from, String? to, required String orderBy});
+
+  // --- writes the outbox replays (must be safe to retry) -------------------
+  Future<void> markAttendance({
+    required String lessonId,
+    required String studentId,
+    required String status,
+    String? paymentMethod,
+    double discountPercent = 0,
+    String? purchaseDate,
+    String? purchaseMethod,
+  });
+  Future<void> unmarkAttendance(String lessonId, String studentId);
+  Future<void> setAttendancePrint(String lessonId, String studentId, bool enabled, double? price);
+
+  /// Updates the (lesson, student) works row, creating it if there is none.
+  Future<void> upsertWork(String lessonId, String studentId, String ownerId, DbRow patch);
+
+  /// Uploads a JPEG to a public bucket (overwriting) and returns its URL.
+  Future<String> uploadPhoto(String bucket, String path, Uint8List bytes);
+  Future<void> updateLesson(String id, DbRow patch);
+  Future<void> insertComment(DbRow row);
+
+  // --- online-only writes -------------------------------------------------
+  Future<void> insertLessons(List<DbRow> rows);
+  Future<void> deleteLesson(String id);
+  Future<void> deleteLessonSeries(String seriesId, String fromDate);
+  Future<void> reassignLessonOwner(String lessonId, String ownerId);
+  Future<DbRow> saveStudent(DbRow payload, {String? id});
+  Future<void> insertStudents(List<DbRow> rows);
+  Future<void> deleteStudent(String id);
+  Future<void> updateSubscription(String id, DbRow patch);
+  Future<void> updateProfile(String id, DbRow patch);
+  Future<void> upsertRateCards(List<DbRow> rows);
+  Future<void> setCalcStartDate(String? date);
+
+  /// Calls a Supabase Edge Function (create-teacher, reset-password).
+  Future<DbRow> callFunction(String name, DbRow body);
+}
