@@ -420,6 +420,12 @@
   /* Modals render into <body>, outside .studio-app's box-sizing rule. */
   .parent-modal *{ box-sizing:border-box; }
   .field-row .field{ flex:1; }
+  .print-formula{ border:1px solid var(--line); background:var(--paper); border-radius:12px; padding:12px 14px; margin-bottom:18px; font-family:var(--font-mono); font-size:12px; line-height:1.7; color:var(--ink); }
+  .print-time-row{ display:flex; align-items:center; gap:6px; }
+  .print-time-row input{ width:64px; min-width:0; }
+  .print-data-chip{ font-family:var(--font-mono); font-size:10.5px; font-weight:700; color:var(--ink-soft); background:var(--paper); border:1px solid var(--line); border-radius:20px; padding:3px 9px; cursor:pointer; display:inline-flex; align-items:center; gap:4px; }
+  .print-data-chip.missing{ color:var(--alert-text); background:var(--alert-soft); border-color:transparent; }
+  .print-data-chip:hover{ border-color:var(--line-strong); }
   .field input[type=text], .field input[type=date], .field input[type=time], .field input[type=number], .field input[type=password], .field input[type=email], .field input[type=tel], .field select{
     width:100%; border:1px solid var(--line-strong); border-radius:10px; padding:9px 10px; font-family:var(--font-body); font-size:13.5px; background:var(--paper); color:var(--ink);
     transition:border-color .15s ease, box-shadow .15s ease;
@@ -3383,6 +3389,206 @@ function PhotoSlot({
 function findWork(works, lessonId, studentId) {
   return works.find(w => w.lesson_id === lessonId && w.student_id === studentId) || null;
 }
+// What a teacher enters when a model is printed (sql/0019): weight, print
+// time, printer, filament. The cost itself is computed and frozen in the
+// database and only ever shown to admins.
+function formatPrintMinutes(minutes) {
+  const m = Math.round(Number(minutes) || 0);
+  return Math.floor(m / 60) + ":" + String(m % 60).padStart(2, "0");
+}
+function workPrintSummary(work) {
+  if (!work || work.weight_g == null && work.print_minutes == null) return null;
+  return [work.weight_g != null ? formatMoneyless(work.weight_g) + " г" : null, work.print_minutes != null ? formatPrintMinutes(work.print_minutes) + " год" : null].filter(Boolean).join(" · ");
+}
+function formatMoneyless(n) {
+  return (Math.round((Number(n) || 0) * 10) / 10).toLocaleString("uk-UA");
+}
+const LAST_PRINT_CHOICE_KEY = "stemik-last-print-choice";
+function readLastPrintChoice() {
+  try {
+    return JSON.parse(localStorage.getItem(LAST_PRINT_CHOICE_KEY)) || {};
+  } catch (e) {
+    return {};
+  }
+}
+function PrintDataModal({
+  work,
+  title,
+  mode,
+  onSave,
+  onSkip,
+  onCancel
+}) {
+  const last = readLastPrintChoice();
+  const initialMinutes = work && work.print_minutes != null ? Math.round(Number(work.print_minutes)) : null;
+  const [weight, setWeight] = useState(work && work.weight_g != null ? String(work.weight_g) : "");
+  const [hours, setHours] = useState(initialMinutes != null ? String(Math.floor(initialMinutes / 60)) : "");
+  const [mins, setMins] = useState(initialMinutes != null ? String(initialMinutes % 60) : "");
+  const [printerId, setPrinterId] = useState(work && work.printer_id || last.printer_id || "");
+  const [filamentId, setFilamentId] = useState(work && work.filament_id || last.filament_id || "");
+  const [printers, setPrinters] = useState([]);
+  const [filaments, setFilaments] = useState([]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  useLockBodyScroll();
+  useEffect(() => {
+    Promise.all([sb.from("printers_safe").select("id, name, active").order("name"), sb.from("filaments_safe").select("id, material, color, active").order("material")]).then(([pr, fr]) => {
+      const ps = (pr.data || []).filter(p => p.active || work && p.id === work.printer_id);
+      const fs = (fr.data || []).filter(f => f.active || work && f.id === work.filament_id);
+      setPrinters(ps);
+      setFilaments(fs);
+      // A remembered choice that's since been hidden falls back to "none".
+      setPrinterId(id => ps.some(p => p.id === id) ? id : ps.length === 1 ? ps[0].id : "");
+      setFilamentId(id => fs.some(f => f.id === id) ? id : fs.length === 1 ? fs[0].id : "");
+    });
+  }, []);
+  async function save(e) {
+    if (e) e.preventDefault();
+    const w = Number(weight);
+    const totalMinutes = (Number(hours) || 0) * 60 + (Number(mins) || 0);
+    if (!(w > 0)) return setError("Вкажіть вагу моделі в грамах");
+    if (!(totalMinutes > 0)) return setError("Вкажіть час друку");
+    setError("");
+    setSaving(true);
+    try {
+      localStorage.setItem(LAST_PRINT_CHOICE_KEY, JSON.stringify({
+        printer_id: printerId || null,
+        filament_id: filamentId || null
+      }));
+    } catch (err) {}
+    await onSave({
+      weight_g: w,
+      print_minutes: totalMinutes,
+      printer_id: printerId || null,
+      filament_id: filamentId || null
+    });
+    setSaving(false);
+  }
+  return ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
+    className: "overlay",
+    onClick: onCancel
+  }, /*#__PURE__*/React.createElement("form", {
+    className: "modal print-data-modal",
+    onClick: e => e.stopPropagation(),
+    onSubmit: save
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "modal-title"
+  }, mode === "edit" ? "Дані друку" : "Надруковано", /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "studio-btn ghost",
+    onClick: onCancel
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "x"
+  }))), title && /*#__PURE__*/React.createElement("div", {
+    className: "hint",
+    style: {
+      marginTop: -6,
+      marginBottom: 12
+    }
+  }, title), /*#__PURE__*/React.createElement("div", {
+    className: "field-row"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "field"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "field-label"
+  }, "Вага моделі, г"), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    min: "0",
+    step: "0.1",
+    inputMode: "decimal",
+    value: weight,
+    autoFocus: true,
+    placeholder: "42",
+    onChange: e => setWeight(e.target.value)
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "field"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "field-label"
+  }, "Час друку"), /*#__PURE__*/React.createElement("div", {
+    className: "print-time-row"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    min: "0",
+    step: "1",
+    inputMode: "numeric",
+    value: hours,
+    placeholder: "2",
+    onChange: e => setHours(e.target.value)
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "students-sub"
+  }, "год"), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    min: "0",
+    max: "59",
+    step: "1",
+    inputMode: "numeric",
+    value: mins,
+    placeholder: "15",
+    onChange: e => setMins(e.target.value)
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "students-sub"
+  }, "хв")))), /*#__PURE__*/React.createElement("div", {
+    className: "field"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "field-label"
+  }, "Принтер"), /*#__PURE__*/React.createElement("select", {
+    value: printerId,
+    onChange: e => setPrinterId(e.target.value)
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, printers.length ? "Оберіть принтер…" : "Принтери ще не додані"), printers.map(p => /*#__PURE__*/React.createElement("option", {
+    key: p.id,
+    value: p.id
+  }, p.name)))), /*#__PURE__*/React.createElement("div", {
+    className: "field"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "field-label"
+  }, "Пластик"), /*#__PURE__*/React.createElement("select", {
+    value: filamentId,
+    onChange: e => setFilamentId(e.target.value)
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, filaments.length ? "Оберіть пластик…" : "Пластик ще не доданий"), filaments.map(f => /*#__PURE__*/React.createElement("option", {
+    key: f.id,
+    value: f.id
+  }, filamentLabel(f))))), /*#__PURE__*/React.createElement("div", {
+    className: "hint",
+    style: {
+      marginBottom: 12
+    }
+  }, "Вагу й час видно у слайсері або на екрані принтера — для цієї моделі окремо."), error && /*#__PURE__*/React.createElement("div", {
+    className: "login-error",
+    style: {
+      marginBottom: 12
+    }
+  }, error), /*#__PURE__*/React.createElement("div", {
+    className: "modal-actions"
+  }, mode === "print" && /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "studio-btn ghost",
+    disabled: saving,
+    onClick: onSkip
+  }, "Пропустити"), /*#__PURE__*/React.createElement("button", {
+    type: "submit",
+    className: "studio-btn primary",
+    disabled: saving
+  }, saving ? "Збереження…" : "Готово")))), document.body);
+}
+function PrintDataChip({
+  work,
+  onClick
+}) {
+  const summary = workPrintSummary(work);
+  return /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "print-data-chip" + (summary ? "" : " missing"),
+    title: "Вага, час, принтер і пластик цієї моделі",
+    onClick: onClick
+  }, summary || "+ дані друку");
+}
+function filamentLabel(f) {
+  return [f.material, f.color].filter(Boolean).join(" · ");
+}
 function useWorkActions(ownerId, works, setWorks, me, lessonById) {
   function resolveOwner(lessonId) {
     if (ownerId) return ownerId;
@@ -3429,48 +3635,83 @@ function useWorkActions(ownerId, works, setWorks, me, lessonById) {
       } : w));
     }
   }, [ownerId, works, lessonById]);
-  const togglePrinted = useCallback(async (lessonId, studentId) => {
+  async function writeWork(lessonId, studentId, patch) {
     const existing = findWork(works, lessonId, studentId);
-    const owner = resolveOwner(lessonId);
-    const nextPrinted = !(existing && existing.printed);
-    const printedByName = nextPrinted ? fullName(me) : null;
-    const printedAt = nextPrinted ? new Date().toISOString() : null;
-    if (existing) {
-      const {
-        data,
-        error
-      } = await sb.from("works").update({
-        printed: nextPrinted,
-        printed_by_name: printedByName,
-        printed_at: printedAt
-      }).eq("id", existing.id).select().single();
-      if (error) {
-        showToast(error.message, "error");
-        return;
-      }
-      setWorks(ws => ws.map(w => w.id === existing.id ? data : w));
-    } else {
-      const {
-        data,
-        error
-      } = await sb.from("works").insert({
-        owner_id: owner,
-        lesson_id: lessonId,
-        student_id: studentId,
-        printed: nextPrinted,
-        printed_by_name: printedByName,
-        printed_at: printedAt
-      }).select().single();
-      if (error) {
-        showToast(error.message, "error");
-        return;
-      }
-      setWorks(ws => [...ws, data]);
+    const {
+      data,
+      error
+    } = existing ? await sb.from("works").update(patch).eq("id", existing.id).select().single() : await sb.from("works").insert({
+      owner_id: resolveOwner(lessonId),
+      lesson_id: lessonId,
+      student_id: studentId,
+      ...patch
+    }).select().single();
+    if (error) {
+      showToast(error.message, "error");
+      return false;
     }
+    setWorks(ws => existing ? ws.map(w => w.id === existing.id ? data : w) : [...ws, data]);
+    return true;
+  }
+  // Marking printed goes through PrintDataModal (weight, time, printer,
+  // filament); un-marking is immediate and keeps whatever was entered.
+  // Resolves to true once the work is actually marked printed.
+  const [printForm, setPrintForm] = useState(null);
+  const togglePrinted = useCallback((lessonId, studentId, title) => {
+    const existing = findWork(works, lessonId, studentId);
+    if (existing && existing.printed) {
+      return writeWork(lessonId, studentId, {
+        printed: false,
+        printed_by_name: null,
+        printed_at: null
+      }).then(() => false);
+    }
+    return new Promise(resolve => setPrintForm({
+      lessonId,
+      studentId,
+      title,
+      mode: "print",
+      resolve
+    }));
   }, [ownerId, works, me, lessonById]);
+  const editPrintData = useCallback((lessonId, studentId, title) => new Promise(resolve => setPrintForm({
+    lessonId,
+    studentId,
+    title,
+    mode: "edit",
+    resolve
+  })), []);
+  async function submitPrintForm(inputs) {
+    const form = printForm;
+    const patch = form.mode === "print" ? {
+      printed: true,
+      printed_by_name: fullName(me),
+      printed_at: new Date().toISOString(),
+      ...(inputs || {})
+    } : inputs;
+    const ok = await writeWork(form.lessonId, form.studentId, patch);
+    if (!ok) return;
+    setPrintForm(null);
+    form.resolve(form.mode === "print");
+  }
+  function cancelPrintForm() {
+    printForm.resolve(false);
+    setPrintForm(null);
+  }
+  const printFormElement = printForm ? /*#__PURE__*/React.createElement(PrintDataModal, {
+    key: printForm.lessonId + "_" + printForm.studentId,
+    work: findWork(works, printForm.lessonId, printForm.studentId),
+    title: printForm.title,
+    mode: printForm.mode,
+    onSave: submitPrintForm,
+    onSkip: () => submitPrintForm(null),
+    onCancel: cancelPrintForm
+  }) : null;
   return {
     attachPhoto,
-    togglePrinted
+    togglePrinted,
+    editPrintData,
+    printFormElement
   };
 }
 
@@ -3760,6 +4001,7 @@ function LessonCardModal({
   onViewStudent,
   attachPhoto,
   togglePrinted,
+  editPrintData,
   toggleTrial,
   markAttendance,
   unmarkAttendance,
@@ -3972,13 +4214,16 @@ function LessonCardModal({
       className: "printed-pill" + (printed ? "" : " off"),
       onClick: async () => {
         const willComplete = !printed && doneCount + 1 === attendingStudents.length;
-        await togglePrinted(lesson.id, s.id);
-        if (willComplete) showToast("🎉 Усі роботи цього заняття надруковано!");
+        const done = await togglePrinted(lesson.id, s.id, s.name + " · " + lesson.theme);
+        if (willComplete && done) showToast("🎉 Усі роботи цього заняття надруковано!");
       }
     }, /*#__PURE__*/React.createElement(Icon, {
       name: "printer",
       size: 11
-    }), " ", printed ? "Надруковано" : "Не надруковано"), canHandlePrint && printed && w.printed_by_name && /*#__PURE__*/React.createElement("span", {
+    }), " ", printed ? "Надруковано" : "Не надруковано"), canHandlePrint && printed && editPrintData && /*#__PURE__*/React.createElement(PrintDataChip, {
+      work: w,
+      onClick: () => editPrintData(lesson.id, s.id, s.name + " · " + lesson.theme)
+    }), canHandlePrint && printed && w.printed_by_name && /*#__PURE__*/React.createElement("span", {
       className: "printed-by"
     }, "Статус змінив: ", w.printed_by_name)), isAdmin && /*#__PURE__*/React.createElement(AttendanceControls, {
       lesson: lesson,
@@ -4133,17 +4378,12 @@ function ScheduleTab({
   // In aggregate mode, works/lessons can belong to any teacher, so
   // useWorkActions needs to write with each lesson's own owner_id rather
   // than a single fixed one — resolved per-call below via a wrapper.
-  const {
-    attachPhoto: attachPhotoFixed,
-    togglePrinted: togglePrintedFixed
-  } = useWorkActions(ownerId, works, setWorks, me);
+  const fixedWorkActions = useWorkActions(ownerId, works, setWorks, me);
   const lessonById = useMemo(() => Object.fromEntries(lessons.map(l => [l.id, l])), [lessons]);
-  const {
-    attachPhoto: attachPhotoAgg,
-    togglePrinted: togglePrintedAgg
-  } = useWorkActions(null, works, setWorks, me, lessonById);
-  const attachPhoto = aggregateAll ? attachPhotoAgg : attachPhotoFixed;
-  const togglePrinted = aggregateAll ? togglePrintedAgg : togglePrintedFixed;
+  const aggWorkActions = useWorkActions(null, works, setWorks, me, lessonById);
+  const workActions = aggregateAll ? aggWorkActions : fixedWorkActions;
+  const attachPhoto = workActions.attachPhoto;
+  const togglePrinted = workActions.togglePrinted;
 
   // `students` is always the studio's one shared roster (see Shell), so it
   // works the same whether or not this tab is in aggregate mode.
@@ -4660,11 +4900,12 @@ function ScheduleTab({
     onViewStudent: s => setViewingStudent(s),
     attachPhoto: attachPhoto,
     togglePrinted: togglePrinted,
+    editPrintData: workActions.editPrintData,
     toggleTrial: toggleTrial,
     markAttendance: markAttendance,
     unmarkAttendance: unmarkAttendance,
     onPreview: setPreview
-  }));
+  }), workActions.printFormElement);
 }
 
 // ---------------------------------------------------------------
@@ -4967,16 +5208,11 @@ function QueueTab({
     load();
   }, [load]);
   const lessonById = useMemo(() => Object.fromEntries(lessons.map(l => [l.id, l])), [lessons]);
-  const {
-    attachPhoto: attachPhotoFixed,
-    togglePrinted: togglePrintedFixed
-  } = useWorkActions(ownerId, works, setWorks, me);
-  const {
-    attachPhoto: attachPhotoAgg,
-    togglePrinted: togglePrintedAgg
-  } = useWorkActions(null, works, setWorks, me, lessonById);
-  const attachPhoto = aggregateAll ? attachPhotoAgg : attachPhotoFixed;
-  const togglePrinted = aggregateAll ? togglePrintedAgg : togglePrintedFixed;
+  const fixedWorkActions = useWorkActions(ownerId, works, setWorks, me);
+  const aggWorkActions = useWorkActions(null, works, setWorks, me, lessonById);
+  const workActions = aggregateAll ? aggWorkActions : fixedWorkActions;
+  const attachPhoto = workActions.attachPhoto;
+  const togglePrinted = workActions.togglePrinted;
   const profilesById = useMemo(() => Object.fromEntries(allProfiles.map(p => [p.id, p])), [allProfiles]);
   const studentById = useMemo(() => Object.fromEntries(students.map(s => [s.id, s])), [students]);
 
@@ -5077,17 +5313,20 @@ function QueueTab({
       size: 10
     }), " ", fullName(rowOwnerProfile)))), /*#__PURE__*/React.createElement("button", {
       className: "printed-pill" + (printed ? "" : " off"),
-      onClick: () => togglePrinted(lesson.id, student.id)
+      onClick: () => togglePrinted(lesson.id, student.id, student.name + " · " + lesson.theme)
     }, /*#__PURE__*/React.createElement(Icon, {
       name: "printer",
       size: 11
-    }), " ", printed ? "Надруковано" : "Не надруковано"), printed && work.printed_by_name && /*#__PURE__*/React.createElement("span", {
+    }), " ", printed ? "Надруковано" : "Не надруковано"), printed && /*#__PURE__*/React.createElement(PrintDataChip, {
+      work: work,
+      onClick: () => workActions.editPrintData(lesson.id, student.id, student.name + " · " + lesson.theme)
+    }), printed && work.printed_by_name && /*#__PURE__*/React.createElement("span", {
       className: "printed-by"
     }, "Статус змінив: ", work.printed_by_name));
   }), preview && /*#__PURE__*/React.createElement(PreviewModal, {
     url: preview,
     onClose: () => setPreview(null)
-  }));
+  }), workActions.printFormElement);
 }
 
 // ---------------------------------------------------------------
@@ -6859,6 +7098,443 @@ function ReportTab() {
 }
 
 // ---------------------------------------------------------------
+// Admin: cost of printed models (sql/0019) — analytics for a period and
+// the directories (printers, plastic, tariff, waste %) it's computed from.
+// ---------------------------------------------------------------
+
+function pluralUk(n, one, few, many) {
+  const m10 = n % 10,
+    m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return n + " " + one;
+  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return n + " " + few;
+  return n + " " + many;
+}
+function pluralModels(n) {
+  return pluralUk(n, "модель", "моделі", "моделей");
+}
+function PrintCostsTab() {
+  const [view, setView] = useState("stats"); // 'stats' | 'setup'
+  return /*#__PURE__*/React.createElement("div", {
+    className: "tab-fade"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "studio-page-head"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "studio-page-title"
+  }, "Собівартість друку"), /*#__PURE__*/React.createElement("div", {
+    className: "studio-segmented"
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: view === "stats" ? "active" : "",
+    onClick: () => setView("stats")
+  }, "Аналітика"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: view === "setup" ? "active" : "",
+    onClick: () => setView("setup")
+  }, "Принтери і пластик"))), view === "stats" ? /*#__PURE__*/React.createElement(PrintCostStats, null) : /*#__PURE__*/React.createElement(PrintCostSetup, null));
+}
+function PrintCostStats() {
+  const today = todayStr();
+  const [from, setFrom] = useState(() => today.slice(0, 8) + "01");
+  const [to, setTo] = useState(today);
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState("course");
+  const load = useCallback(async () => {
+    setLoading(true);
+    const {
+      data,
+      error
+    } = await sb.from("report_print_costs").select("*").gte("print_date", from).lte("print_date", to).order("print_date", {
+      ascending: false
+    });
+    if (error) showToast(error.message, "error");
+    setRows(data || []);
+    setLoading(false);
+  }, [from, to]);
+  useEffect(() => {
+    load();
+  }, [load]);
+  const costed = rows.filter(r => r.total_cost != null);
+  const missing = rows.filter(r => r.total_cost == null);
+  const sum = (list, field) => list.reduce((s, r) => s + (Number(r[field]) || 0), 0);
+  const total = sum(costed, "total_cost");
+  const avg = costed.length ? total / costed.length : 0;
+  function groupBy(keyFn) {
+    const map = new Map();
+    costed.forEach(r => {
+      const key = keyFn(r);
+      const g = map.get(key) || {
+        key,
+        count: 0,
+        total: 0
+      };
+      g.count++;
+      g.total += Number(r.total_cost) || 0;
+      map.set(key, g);
+    });
+    return [...map.values()].sort((a, b) => b.total - a.total);
+  }
+  function detailRow(key, primary, secondary, amount) {
+    return /*#__PURE__*/React.createElement("div", {
+      key: key,
+      className: "students-row"
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        flex: 1,
+        minWidth: 0
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "student-name"
+    }, primary), /*#__PURE__*/React.createElement("div", {
+      className: "students-sub"
+    }, secondary)), amount != null && /*#__PURE__*/React.createElement("div", {
+      className: "payroll-amount"
+    }, formatMoney(amount)));
+  }
+  function section(id, icon, title, subtitle, value, items, emptyText) {
+    const isOpen = expanded === id;
+    return /*#__PURE__*/React.createElement("div", {
+      key: id,
+      style: {
+        marginBottom: 14
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "students-row admin-row",
+      onClick: () => setExpanded(isOpen ? null : id)
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "stat-icon"
+    }, /*#__PURE__*/React.createElement(Icon, {
+      name: icon,
+      size: 17
+    })), /*#__PURE__*/React.createElement("div", {
+      style: {
+        flex: 1,
+        minWidth: 0
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "student-name"
+    }, title), /*#__PURE__*/React.createElement("div", {
+      className: "students-sub"
+    }, subtitle)), value != null && /*#__PURE__*/React.createElement("div", {
+      className: "payroll-amount"
+    }, value), /*#__PURE__*/React.createElement(Icon, {
+      name: "back",
+      size: 14,
+      style: {
+        transform: isOpen ? "rotate(-90deg)" : "rotate(180deg)",
+        flexShrink: 0
+      }
+    })), isOpen && /*#__PURE__*/React.createElement("div", {
+      className: "students-list",
+      style: {
+        marginTop: 8
+      }
+    }, items.length === 0 ? /*#__PURE__*/React.createElement("div", {
+      className: "students-sub",
+      style: {
+        padding: 14
+      }
+    }, emptyText) : items));
+  }
+  const groupRows = groups => groups.map(g => detailRow(g.key, g.key, pluralModels(g.count), g.total));
+  const byCourse = groupBy(r => r.course || "Без напрямку");
+  const byPrinter = groupBy(r => r.printer_name || "Принтер не вказано");
+  const byFilament = groupBy(r => r.filament_material ? filamentLabel({
+    material: r.filament_material,
+    color: r.filament_color
+  }) : "Пластик не вказано");
+  return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "payroll-range"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "field"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "field-label"
+  }, "Від"), /*#__PURE__*/React.createElement("input", {
+    type: "date",
+    value: from,
+    onChange: e => setFrom(e.target.value)
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "field"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "field-label"
+  }, "До"), /*#__PURE__*/React.createElement("input", {
+    type: "date",
+    value: to,
+    onChange: e => setTo(e.target.value)
+  }))), loading ? /*#__PURE__*/React.createElement("div", {
+    className: "loading-block"
+  }, "Завантаження…") : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "stats-row"
+  }, /*#__PURE__*/React.createElement(StatCard, {
+    icon: "money",
+    value: formatMoney(total),
+    label: "Витрачено за період",
+    color: "var(--brand-text)",
+    soft: "var(--brand-soft)"
+  }), /*#__PURE__*/React.createElement(StatCard, {
+    icon: "printer",
+    value: rows.length,
+    label: "Моделей надруковано",
+    color: "var(--success-text)",
+    soft: "var(--success-soft)"
+  }), /*#__PURE__*/React.createElement(StatCard, {
+    icon: "chart",
+    value: formatMoney(avg),
+    label: "Середня вартість моделі",
+    color: "#8B5CF6",
+    soft: "rgba(139,92,246,0.14)"
+  })), costed.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "hint",
+    style: {
+      marginBottom: 14
+    }
+  }, "З них: пластик ", formatMoney(sum(costed, "material_cost")), " · електроенергія ", formatMoney(sum(costed, "electricity_cost")), " · амортизація ", formatMoney(sum(costed, "depreciation_cost")), " · ", formatMoneyless(sum(costed, "weight_g")), " г пластику"), section("course", "chart", "За напрямком", pluralUk(byCourse.length, "напрямок", "напрямки", "напрямків"), formatMoney(total), groupRows(byCourse), "За цей період немає моделей з даними друку."), section("printer", "printer", "За принтером", pluralUk(byPrinter.length, "принтер", "принтери", "принтерів"), null, groupRows(byPrinter), "Немає даних."), section("filament", "wallet", "За пластиком", pluralUk(byFilament.length, "вид", "види", "видів"), null, groupRows(byFilament), "Немає даних."), section("models", "users", "Усі моделі", pluralModels(costed.length), null, costed.map(r => detailRow(r.work_id, r.student_name || "—", [formatDateLong(r.print_date), r.course, workPrintSummary(r), r.printer_name, r.filament_material && filamentLabel({
+    material: r.filament_material,
+    color: r.filament_color
+  })].filter(Boolean).join(" · "), r.total_cost)), "Немає даних."), section("missing", "x", "Без даних друку", missing.length ? `${pluralModels(missing.length)} — не вказано вагу й час` : "Усі моделі мають дані", null, missing.map(r => detailRow(r.work_id, r.student_name || "—", `${formatDateLong(r.print_date)} · ${r.course || ""} · ${r.theme || ""}`, null)), "Усі надруковані моделі за період мають дані.")));
+}
+function PrintCostSetup() {
+  const [printers, setPrinters] = useState([]);
+  const [filaments, setFilaments] = useState([]);
+  const [tariff, setTariff] = useState("");
+  const [waste, setWaste] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const load = useCallback(async () => {
+    setLoading(true);
+    const [pr, fr, sr] = await Promise.all([sb.from("printers").select("*").order("created_at"), sb.from("filaments").select("*").order("created_at"), sb.from("studio_settings").select("electricity_tariff, filament_waste_percent").single()]);
+    setPrinters(pr.data || []);
+    setFilaments(fr.data || []);
+    setTariff(sr.data ? String(sr.data.electricity_tariff) : "");
+    setWaste(sr.data ? String(sr.data.filament_waste_percent) : "");
+    setLoading(false);
+  }, []);
+  useEffect(() => {
+    load();
+  }, [load]);
+  function editRow(setList, index, field, value) {
+    setList(list => list.map((r, i) => i === index ? {
+      ...r,
+      [field]: value
+    } : r));
+  }
+  async function saveRows(table, list, clean) {
+    const existing = list.filter(r => r.id).map(r => ({
+      id: r.id,
+      ...clean(r)
+    }));
+    const added = list.filter(r => !r.id).map(clean);
+    if (existing.length) {
+      const {
+        error
+      } = await sb.from(table).upsert(existing);
+      if (error) throw error;
+    }
+    if (added.length) {
+      const {
+        error
+      } = await sb.from(table).insert(added);
+      if (error) throw error;
+    }
+  }
+  async function saveAll() {
+    if (printers.some(p => !String(p.name || "").trim())) return showToast("Вкажіть назву кожного принтера", "error");
+    if (filaments.some(f => !String(f.material || "").trim())) return showToast("Вкажіть тип кожного пластику", "error");
+    setSaving(true);
+    try {
+      await saveRows("printers", printers, p => ({
+        name: p.name.trim(),
+        power_watts: Math.max(0, Number(p.power_watts) || 0),
+        depreciation_per_hour: Math.max(0, Number(p.depreciation_per_hour) || 0),
+        active: p.active !== false
+      }));
+      await saveRows("filaments", filaments, f => ({
+        material: f.material.trim(),
+        color: String(f.color || "").trim() || null,
+        price_per_kg: Math.max(0, Number(f.price_per_kg) || 0),
+        active: f.active !== false
+      }));
+      const {
+        error
+      } = await sb.rpc("set_print_cost_settings", {
+        p_tariff: Math.max(0, Number(tariff) || 0),
+        p_waste_percent: Math.max(0, Math.min(100, Number(waste) || 0))
+      });
+      if (error) throw error;
+      showToast("Збережено. Нові ціни діятимуть для моделей, позначених надрукованими відтепер");
+      load();
+    } catch (err) {
+      showToast(err.message, "error");
+    }
+    setSaving(false);
+  }
+  if (loading) return /*#__PURE__*/React.createElement("div", {
+    className: "loading-block"
+  }, "Завантаження…");
+  const tariffNum = Number(tariff) || 0;
+  const numInput = (value, onChange, width, step) => /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    min: "0",
+    step: step || "any",
+    className: "rate-input",
+    style: {
+      width: width || 80
+    },
+    value: value == null ? "" : value,
+    onChange: e => onChange(e.target.value)
+  });
+  const textInput = (value, onChange, placeholder) => /*#__PURE__*/React.createElement("input", {
+    type: "text",
+    className: "rate-input",
+    style: {
+      width: "100%",
+      minWidth: 120,
+      textAlign: "left"
+    },
+    value: value || "",
+    placeholder: placeholder,
+    onChange: e => onChange(e.target.value)
+  });
+  const hideButton = (row, setList, index) => /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "studio-btn ghost",
+    style: {
+      padding: "5px 10px",
+      fontSize: 12
+    },
+    onClick: () => editRow(setList, index, "active", row.active === false)
+  }, row.active === false ? "Показати" : "Приховати");
+  return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "print-formula"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "field-label"
+  }, "Як рахується собівартість моделі"), /*#__PURE__*/React.createElement("div", null, "Пластик = вага × (1 + відходи %) × ціна за кг / 1000"), /*#__PURE__*/React.createElement("div", null, "Електроенергія = години друку × потужність (Вт) / 1000 × тариф"), /*#__PURE__*/React.createElement("div", null, "Амортизація = години друку × ₴ за годину принтера"), /*#__PURE__*/React.createElement("div", {
+    className: "hint",
+    style: {
+      marginTop: 6
+    }
+  }, "Вагу, час, принтер і пластик вказує викладач, коли позначає модель надрукованою. Сума фіксується в цей момент: зміна цін нижче не змінює вже порахованих моделей. Викладачі цін не бачать.")), /*#__PURE__*/React.createElement("div", {
+    className: "field-row",
+    style: {
+      maxWidth: 520,
+      marginBottom: 6
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "field"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "field-label"
+  }, "Тариф електроенергії, ₴ за кВт·год"), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    min: "0",
+    step: "any",
+    value: tariff,
+    onChange: e => setTariff(e.target.value)
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "field"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "field-label"
+  }, "Відходи пластику, %"), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    min: "0",
+    max: "100",
+    step: "any",
+    value: waste,
+    onChange: e => setWaste(e.target.value)
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "hint",
+    style: {
+      marginBottom: 18
+    }
+  }, "Відходи — продувка, башта очищення, підтримки, браковані спроби: додаються до ваги кожної моделі."), /*#__PURE__*/React.createElement("div", {
+    className: "studio-page-title",
+    style: {
+      fontSize: 16,
+      marginBottom: 10
+    }
+  }, "Принтери"), /*#__PURE__*/React.createElement("div", {
+    className: "rate-table-wrap"
+  }, /*#__PURE__*/React.createElement("table", {
+    className: "rate-table",
+    style: {
+      minWidth: 620
+    }
+  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null, "Назва"), /*#__PURE__*/React.createElement("th", null, "Потужність, Вт"), /*#__PURE__*/React.createElement("th", null, "Електрика, ₴/год"), /*#__PURE__*/React.createElement("th", null, "Амортизація, ₴/год"), /*#__PURE__*/React.createElement("th", null))), /*#__PURE__*/React.createElement("tbody", null, printers.length === 0 ? /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
+    colSpan: 5,
+    className: "students-sub"
+  }, "Ще немає жодного принтера.")) : printers.map((p, i) => /*#__PURE__*/React.createElement("tr", {
+    key: p.id || "new-" + i,
+    style: {
+      opacity: p.active === false ? 0.5 : 1
+    }
+  }, /*#__PURE__*/React.createElement("td", null, textInput(p.name, v => editRow(setPrinters, i, "name", v), "Bambu Lab P1S")), /*#__PURE__*/React.createElement("td", null, numInput(p.power_watts, v => editRow(setPrinters, i, "power_watts", v))), /*#__PURE__*/React.createElement("td", {
+    className: "students-sub"
+  }, formatMoney((Number(p.power_watts) || 0) / 1000 * tariffNum)), /*#__PURE__*/React.createElement("td", null, numInput(p.depreciation_per_hour, v => editRow(setPrinters, i, "depreciation_per_hour", v))), /*#__PURE__*/React.createElement("td", null, hideButton(p, setPrinters, i))))))), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "studio-btn ghost",
+    style: {
+      marginTop: 10,
+      marginBottom: 22
+    },
+    onClick: () => setPrinters(list => [...list, {
+      name: "",
+      power_watts: "",
+      depreciation_per_hour: "",
+      active: true
+    }])
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "plus",
+    size: 13
+  }), " Додати принтер"), /*#__PURE__*/React.createElement("div", {
+    className: "studio-page-title",
+    style: {
+      fontSize: 16,
+      marginBottom: 10
+    }
+  }, "Пластик"), /*#__PURE__*/React.createElement("div", {
+    className: "rate-table-wrap"
+  }, /*#__PURE__*/React.createElement("table", {
+    className: "rate-table",
+    style: {
+      minWidth: 520
+    }
+  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null, "Тип"), /*#__PURE__*/React.createElement("th", null, "Колір"), /*#__PURE__*/React.createElement("th", null, "₴ / кг"), /*#__PURE__*/React.createElement("th", null))), /*#__PURE__*/React.createElement("tbody", null, filaments.length === 0 ? /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
+    colSpan: 4,
+    className: "students-sub"
+  }, "Ще немає жодного пластику.")) : filaments.map((f, i) => /*#__PURE__*/React.createElement("tr", {
+    key: f.id || "new-" + i,
+    style: {
+      opacity: f.active === false ? 0.5 : 1
+    }
+  }, /*#__PURE__*/React.createElement("td", null, textInput(f.material, v => editRow(setFilaments, i, "material", v), "PLA Matte")), /*#__PURE__*/React.createElement("td", null, textInput(f.color, v => editRow(setFilaments, i, "color", v), "Чорний")), /*#__PURE__*/React.createElement("td", null, numInput(f.price_per_kg, v => editRow(setFilaments, i, "price_per_kg", v))), /*#__PURE__*/React.createElement("td", null, hideButton(f, setFilaments, i))))))), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "studio-btn ghost",
+    style: {
+      marginTop: 10,
+      marginBottom: 22
+    },
+    onClick: () => setFilaments(list => [...list, {
+      material: "",
+      color: "",
+      price_per_kg: "",
+      active: true
+    }])
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "plus",
+    size: 13
+  }), " Додати пластик"), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "studio-btn primary",
+    disabled: saving,
+    onClick: saveAll
+  }, saving ? "Збереження…" : "Зберегти")), /*#__PURE__*/React.createElement("div", {
+    className: "hint",
+    style: {
+      marginTop: 8
+    }
+  }, "Прихований принтер чи пластик зникає з вибору у викладачів, але лишається в історії вже надрукованих моделей."));
+}
+
+// ---------------------------------------------------------------
 // Payroll summary for a date range — a single teacher's own total, or
 // (for admin's own aggregate workspace) every teacher broken out, with a
 // grand total across the whole studio.
@@ -7089,7 +7765,7 @@ function Shell({
       return isSuperAdmin ? cachedNav.adminSection : "users";
     }
     return cachedNav.adminSection || "users";
-  }); // 'users' | 'calendar' | 'rates' | 'report' | 'parents' (only when no adminTeacher)
+  }); // 'users' | 'calendar' | 'print' | 'rates' | 'report' | 'parents' (only when no adminTeacher)
   const [adminTeacher, setAdminTeacher] = useState(null);
   const [tab, setTab] = useState(() => cachedNav.tab || "schedule");
   const [profileModalTarget, setProfileModalTarget] = useState(null);
@@ -7266,7 +7942,15 @@ function Shell({
   }, /*#__PURE__*/React.createElement(Icon, {
     name: "calendar",
     size: 17
-  })), " Календар"), isSuperAdmin && /*#__PURE__*/React.createElement("button", {
+  })), " Календар"), /*#__PURE__*/React.createElement("button", {
+    className: "studio-nav-btn" + (adminSection === "print" ? " active" : ""),
+    onClick: () => setAdminSection("print")
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "nav-ic"
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "printer",
+    size: 17
+  })), " Друк"), isSuperAdmin && /*#__PURE__*/React.createElement("button", {
     className: "studio-nav-btn" + (adminSection === "rates" ? " active" : ""),
     onClick: () => setAdminSection("rates")
   }, /*#__PURE__*/React.createElement("span", {
@@ -7344,7 +8028,7 @@ function Shell({
     isSuperAdmin: isSuperAdmin
   }), section === "admin" && !adminTeacher && adminSection === "calendar" && /*#__PURE__*/React.createElement(StudioCalendarTab, {
     onOpenTeacherWorkspace: selectTeacher
-  }), section === "admin" && !adminTeacher && adminSection === "rates" && /*#__PURE__*/React.createElement(RateCardsTab, null), section === "admin" && !adminTeacher && adminSection === "report" && /*#__PURE__*/React.createElement(ReportTab, null), section === "admin" && !adminTeacher && adminSection === "parents" && isSuperAdmin && /*#__PURE__*/React.createElement(ParentAccountsTab, {
+  }), section === "admin" && !adminTeacher && adminSection === "print" && /*#__PURE__*/React.createElement(PrintCostsTab, null), section === "admin" && !adminTeacher && adminSection === "rates" && /*#__PURE__*/React.createElement(RateCardsTab, null), section === "admin" && !adminTeacher && adminSection === "report" && /*#__PURE__*/React.createElement(ReportTab, null), section === "admin" && !adminTeacher && adminSection === "parents" && isSuperAdmin && /*#__PURE__*/React.createElement(ParentAccountsTab, {
     students: students
   }), section === "admin" && adminTeacher && /*#__PURE__*/React.createElement(WorkspaceBody, {
     ownerId: targetOwnerId,
