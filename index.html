@@ -415,6 +415,8 @@
   .field-label{ font-size:12.5px; font-weight:700; color:var(--ink-soft); margin-bottom:6px; display:block; }
   .field{ margin-bottom:14px; }
   .field-row{ display:flex; gap:10px; }
+  /* Modals render into <body>, outside .studio-app's box-sizing rule. */
+  .parent-modal *{ box-sizing:border-box; }
   .field-row .field{ flex:1; }
   .field input[type=text], .field input[type=date], .field input[type=time], .field input[type=number], .field input[type=password], .field input[type=email], .field input[type=tel], .field select{
     width:100%; border:1px solid var(--line-strong); border-radius:10px; padding:9px 10px; font-family:var(--font-body); font-size:13.5px; background:var(--paper); color:var(--ink);
@@ -5730,8 +5732,10 @@ function parentPortalUrl() {
   if (window.PARENT_PORTAL_URL) return window.PARENT_PORTAL_URL;
   return window.location.origin + window.location.pathname.replace(/[^/]*$/, "") + "client/";
 }
+// Same normalization as parent_normalize_phone() in sql/0018.
 function formatParentPhone(phone) {
-  const d = String(phone || "").replace(/\D/g, "");
+  let d = String(phone || "").replace(/\D/g, "");
+  if (/^0\d{9}$/.test(d)) d = "38" + d;else if (/^\d{9}$/.test(d)) d = "380" + d;else if (/^80\d{9}$/.test(d)) d = "3" + d;
   const m = d.match(/^380(\d{2})(\d{3})(\d{2})(\d{2})$/);
   return m ? `+380 ${m[1]} ${m[2]} ${m[3]} ${m[4]}` : phone ? "+" + d : "";
 }
@@ -5764,7 +5768,7 @@ function ParentPasswordModal({
     className: "overlay",
     onClick: onClose
   }, React.createElement("div", {
-    className: "modal",
+    className: "modal parent-modal",
     onClick: e => e.stopPropagation()
   }, React.createElement("div", {
     className: "modal-title"
@@ -5817,6 +5821,7 @@ function ParentPasswordModal({
   }, React.createElement("label", {
     className: "field-label"
   }, "Повідомлення для батьків"), React.createElement("textarea", {
+    className: "bulk-textarea",
     value: message,
     readOnly: true,
     rows: 3,
@@ -5924,7 +5929,7 @@ function ParentAccountModal({
     className: "overlay",
     onClick: onClose
   }, React.createElement("form", {
-    className: "modal",
+    className: "modal parent-modal",
     onClick: e => e.stopPropagation(),
     onSubmit: save
   }, React.createElement("div", {
