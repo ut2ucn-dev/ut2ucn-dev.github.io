@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Mirror --paper / --brand / --navy from index.html. -->
+    <!-- Mirror the paper, brand and navy CSS variables from index.html. -->
     <color name="paper">#F6F6FB</color>
     <color name="paper_dark">#0F0F16</color>
     <color name="ink">#171923</color>
