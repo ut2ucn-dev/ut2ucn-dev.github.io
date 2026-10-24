@@ -63,9 +63,10 @@ jobs:
           STEMIK_KEY_ALIAS: ${{ secrets.STEMIK_KEY_ALIAS }}
           STEMIK_KEY_PASSWORD: ${{ secrets.STEMIK_KEY_PASSWORD }}
         # Build numbers start at 1000 so this app installs over the first
-        # (WebView) APK, which used 1, 2, …
+        # (WebView) APK, which used 1, 2, … Only phone CPUs (ARM): x86_64 is
+        # for emulators and would add a third of the size.
         run: |
-          flutter build apk --release \
+          flutter build apk --release --target-platform android-arm,android-arm64 \
             --build-number=$((1000 + GITHUB_RUN_NUMBER)) \
             --build-name=2.0.$GITHUB_RUN_NUMBER
           mkdir -p ../dist
