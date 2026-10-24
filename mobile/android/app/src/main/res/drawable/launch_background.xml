@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Shown until Flutter draws its first frame: the studio robot, in the
-     dark-theme artwork at night (drawable-night-nodpi). -->
+<!-- Shown until Flutter draws its first frame: the robot on the logo navy,
+     at the size and place where the intro (lib/ui/intro.dart) picks it up. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@color/screen" />
+    <item android:drawable="@color/splash" />
     <item
         android:width="150dp"
-        android:height="164dp"
+        android:height="163dp"
         android:gravity="center"
         android:drawable="@drawable/launch_robot" />
 </layer-list>
