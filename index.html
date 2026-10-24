@@ -4,6 +4,8 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Stemik · облік моделей</title>
+<link rel="icon" type="image/png" href="assets/brand/robot-light.png">
+<link rel="apple-touch-icon" href="assets/brand/robot-light.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Exo+2:ital,wght@0,400;0,500;0,600;0,700;0,800;1,500;1,600&display=swap" rel="stylesheet">
@@ -647,7 +649,19 @@
     animation:modalIn .32s cubic-bezier(.22,.9,.36,1) both;
   }
   .login-card.shake{ animation:shake .42s ease; }
-  .login-mascot{ display:flex; justify-content:center; margin-bottom:8px; animation:floaty 3s ease-in-out infinite; filter:drop-shadow(0 6px 14px rgba(91,79,224,0.35)); }
+  .login-mascot{ display:flex; justify-content:center; margin-bottom:8px; animation:floaty 3s ease-in-out infinite; filter:drop-shadow(0 8px 14px rgba(5,38,63,0.18)); }
+  /* Brand logo: light/dark artwork, one shown per theme. */
+  .stemik-mark{ display:inline-flex; flex-shrink:0; }
+  .stemik-mark img, .waver img{ display:block; height:auto; }
+  .logo-d{ display:none !important; }
+  :root.theme-dark .logo-l{ display:none !important; }
+  :root.theme-dark .logo-d{ display:block !important; }
+  @keyframes wave{ 0%,58%,100%{ transform:rotate(0deg); } 8%{ transform:rotate(-9deg); } 16%{ transform:rotate(8deg); }
+    24%{ transform:rotate(-9deg); } 32%{ transform:rotate(7deg); } 40%{ transform:rotate(-5deg); } 48%{ transform:rotate(2deg); } }
+  .waver{ display:inline-block; }
+  .waver-variant{ position:relative; display:block; }
+  .waver-variant img{ width:100%; }
+  .waver-arm{ position:absolute; inset:0; transform-origin:34% 75%; animation:wave 3.2s ease-in-out infinite; }
   .login-title{ font-family:var(--font-display); font-size:24px; font-weight:700; color:var(--ink); }
   .login-sub{ font-family:var(--font-mono); font-size:10px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:0.05em; margin-top:4px; margin-bottom:18px; }
   .login-tabs{ display:flex; border:1.5px solid var(--line-strong); border-radius:13px; padding:3px; background:var(--paper); margin-bottom:18px; }
@@ -1440,167 +1454,55 @@ function ThemeToggle({
   }));
 }
 
-// Stemik's brand mark: an isometric "cube" — a nod to 3D modeling/printing,
-// the studio's core discipline — rendered as crisp inline SVG so it never
-// depends on an external image loading.
+// Stemik's brand mark: the studio's robot logo (assets/brand). Both theme
+// variants are in the page and CSS shows the one for the current theme, so
+// toggling the theme needs no re-render.
 function StemikMark({
   size,
   className
 }) {
-  size = size || 40;
-  return /*#__PURE__*/React.createElement("svg", {
-    width: size,
-    height: size,
-    viewBox: "0 0 48 48",
-    fill: "none",
-    className: className
-  }, /*#__PURE__*/React.createElement("defs", null, /*#__PURE__*/React.createElement("linearGradient", {
-    id: "stemikGrad",
-    x1: "4",
-    y1: "4",
-    x2: "44",
-    y2: "44",
-    gradientUnits: "userSpaceOnUse"
-  }, /*#__PURE__*/React.createElement("stop", {
-    offset: "0",
-    style: {
-      stopColor: "var(--brand)"
-    }
-  }), /*#__PURE__*/React.createElement("stop", {
-    offset: "1",
-    style: {
-      stopColor: "var(--navy)"
-    }
-  }))), /*#__PURE__*/React.createElement("path", {
-    d: "M24 3 L43 13.5 V34.5 L24 45 L5 34.5 V13.5 Z",
-    fill: "url(#stemikGrad)"
-  }), /*#__PURE__*/React.createElement("path", {
-    d: "M24 3 V24 M24 24 L43 13.5 M24 24 L5 13.5 M24 24 V45",
-    stroke: "rgba(255,255,255,0.32)",
-    strokeWidth: "1.2"
-  }), /*#__PURE__*/React.createElement("circle", {
-    cx: "24",
-    cy: "24",
-    r: "4",
-    fill: "#fff"
+  const style = {
+    width: size || 40
+  };
+  return /*#__PURE__*/React.createElement("span", {
+    className: "stemik-mark" + (className ? " " + className : "")
+  }, /*#__PURE__*/React.createElement("img", {
+    className: "logo-l",
+    src: "assets/brand/robot-light.png",
+    alt: "Stemik",
+    style: style
+  }), /*#__PURE__*/React.createElement("img", {
+    className: "logo-d",
+    src: "assets/brand/robot-dark.png",
+    alt: "Stemik",
+    style: style
   }));
 }
 
-// Friendly waving-robot mascot, used on the login/reset-password screens.
-// Same gradient + sizing API as StemikMark, simplified to a flat icon.
+// The logo robot waving hello, used on the login/reset-password screens.
+// Body and arm are separate images; the arm swings from the shoulder.
 function StemikRobotMark({
   size,
   className
 }) {
-  size = size || 40;
-  return /*#__PURE__*/React.createElement("svg", {
-    width: size,
-    height: size,
-    viewBox: "0 0 48 48",
-    fill: "none",
-    className: className
-  }, /*#__PURE__*/React.createElement("defs", null, /*#__PURE__*/React.createElement("linearGradient", {
-    id: "stemikRobotGrad",
-    x1: "6",
-    y1: "2",
-    x2: "42",
-    y2: "46",
-    gradientUnits: "userSpaceOnUse"
-  }, /*#__PURE__*/React.createElement("stop", {
-    offset: "0",
-    style: {
-      stopColor: "var(--brand)"
-    }
-  }), /*#__PURE__*/React.createElement("stop", {
-    offset: "1",
-    style: {
-      stopColor: "var(--navy)"
-    }
-  }))), /*#__PURE__*/React.createElement("rect", {
-    x: "32.5",
-    y: "28.5",
-    width: "7",
-    height: "12",
-    rx: "3.5",
-    fill: "url(#stemikRobotGrad)"
-  }), /*#__PURE__*/React.createElement("path", {
-    d: "M15 32 C 9.5 30, 7 25.5, 7.5 20",
-    stroke: "url(#stemikRobotGrad)",
-    strokeWidth: "5.2",
-    strokeLinecap: "round",
-    fill: "none"
-  }), /*#__PURE__*/React.createElement("circle", {
-    cx: "7.6",
-    cy: "18.3",
-    r: "4.1",
-    fill: "url(#stemikRobotGrad)"
-  }), /*#__PURE__*/React.createElement("line", {
-    x1: "18.5",
-    y1: "8.5",
-    x2: "16.3",
-    y2: "3",
-    stroke: "url(#stemikRobotGrad)",
-    strokeWidth: "1.8",
-    strokeLinecap: "round"
-  }), /*#__PURE__*/React.createElement("circle", {
-    cx: "15.8",
-    cy: "2.3",
-    r: "1.9",
-    fill: "url(#stemikRobotGrad)"
-  }), /*#__PURE__*/React.createElement("line", {
-    x1: "29.5",
-    y1: "8.5",
-    x2: "31.7",
-    y2: "3",
-    stroke: "url(#stemikRobotGrad)",
-    strokeWidth: "1.8",
-    strokeLinecap: "round"
-  }), /*#__PURE__*/React.createElement("circle", {
-    cx: "32.2",
-    cy: "2.3",
-    r: "1.9",
-    fill: "url(#stemikRobotGrad)"
-  }), /*#__PURE__*/React.createElement("rect", {
-    x: "12",
-    y: "26",
-    width: "24",
-    height: "18",
-    rx: "9",
-    fill: "url(#stemikRobotGrad)"
-  }), /*#__PURE__*/React.createElement("circle", {
-    cx: "24",
-    cy: "16",
-    r: "10.5",
-    fill: "url(#stemikRobotGrad)"
-  }), /*#__PURE__*/React.createElement("rect", {
-    x: "15.3",
-    y: "12",
-    width: "17.4",
-    height: "10.4",
-    rx: "5.2",
-    fill: "#fff",
-    fillOpacity: "0.96"
-  }), /*#__PURE__*/React.createElement("rect", {
-    x: "19.3",
-    y: "15.8",
-    width: "2.6",
-    height: "3.4",
-    rx: "1.3",
-    fill: "url(#stemikRobotGrad)"
-  }), /*#__PURE__*/React.createElement("rect", {
-    x: "26.1",
-    y: "15.8",
-    width: "2.6",
-    height: "3.4",
-    rx: "1.3",
-    fill: "url(#stemikRobotGrad)"
-  }), /*#__PURE__*/React.createElement("path", {
-    d: "M21 20.3 Q24 22.3 27 20.3",
-    stroke: "url(#stemikRobotGrad)",
-    strokeWidth: "1.3",
-    strokeLinecap: "round",
-    fill: "none"
+  const variant = t => /*#__PURE__*/React.createElement("span", {
+    className: "waver-variant logo-" + (t === "light" ? "l" : "d")
+  }, /*#__PURE__*/React.createElement("img", {
+    src: `assets/brand/wave-${t}-base.png`,
+    alt: ""
+  }), /*#__PURE__*/React.createElement("img", {
+    className: "waver-arm",
+    src: `assets/brand/wave-${t}-hand.png`,
+    alt: ""
   }));
+  return /*#__PURE__*/React.createElement("span", {
+    className: "waver" + (className ? " " + className : ""),
+    style: {
+      width: size || 120
+    },
+    role: "img",
+    "aria-label": "Робот Stemik махає рукою"
+  }, variant("light"), variant("dark"));
 }
 
 // Course names starting with these prefixes get a consistent accent color,
@@ -1809,7 +1711,7 @@ function LoginScreen({
   }, /*#__PURE__*/React.createElement("div", {
     className: "login-mascot"
   }, /*#__PURE__*/React.createElement(StemikRobotMark, {
-    size: 60
+    size: 132
   })), /*#__PURE__*/React.createElement("div", {
     className: "login-title"
   }, "Stemik"), /*#__PURE__*/React.createElement("div", {
@@ -1965,7 +1867,7 @@ function SetNewPasswordScreen({
   }, /*#__PURE__*/React.createElement("div", {
     className: "login-mascot"
   }, /*#__PURE__*/React.createElement(StemikRobotMark, {
-    size: 60
+    size: 132
   })), /*#__PURE__*/React.createElement("div", {
     className: "login-title"
   }, "Новий пароль"), /*#__PURE__*/React.createElement("div", {
@@ -7256,7 +7158,7 @@ function Shell({
       gap: 10
     }
   }, /*#__PURE__*/React.createElement(StemikMark, {
-    size: 32
+    size: 40
   }), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "studio-brand-title"
   }, "Stemik"), /*#__PURE__*/React.createElement("div", {
