@@ -208,10 +208,13 @@ class _RosterCard extends StatelessWidget {
     final work = data.work(lesson.id, student.id);
     final present = att?.isPresent ?? false;
     final printsHere = lessonPrintsFor(lesson, att);
-    final canHandlePrint = present && printsHere;
+    final admin = store.isAdmin;
+    // A teacher covering someone else's class can't change that teacher's
+    // works (same as the web, where covered lessons aren't shown at all).
+    final ownsWorks = admin || lesson.ownerId == store.me.id;
+    final canHandlePrint = present && printsHere && ownsWorks;
     final printed = work?.printed ?? false;
     final trialEligible = data.lessonsInCourse(student.id, lesson.course) <= 1;
-    final admin = store.isAdmin;
     final started = lesson.date.compareTo(todayStr()) <= 0;
 
     void openStudent() =>
@@ -247,7 +250,7 @@ class _RosterCard extends StatelessWidget {
                 if (trialEligible || (work?.trial ?? false))
                   _TrialPill(
                     on: work?.trial ?? false,
-                    onTap: () => store.setTrial(lesson, student, !(work?.trial ?? false)),
+                    onTap: ownsWorks ? () => store.setTrial(lesson, student, !(work?.trial ?? false)) : null,
                   ),
               ],
             ),
@@ -332,9 +335,9 @@ class _RosterCard extends StatelessWidget {
 }
 
 class _TrialPill extends StatelessWidget {
-  const _TrialPill({required this.on, required this.onTap});
+  const _TrialPill({required this.on, this.onTap});
   final bool on;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
