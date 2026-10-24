@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Stemik</string>
+    <string name="choose_photo">Оберіть фото</string>
+    <string name="offline_title">Немає з\'єднання</string>
+    <string name="offline_text">Перевірте інтернет і спробуйте ще раз.</string>
+    <string name="retry">Спробувати знову</string>
+    <string name="no_app">Немає застосунку, щоб відкрити це посилання</string>
+</resources>
