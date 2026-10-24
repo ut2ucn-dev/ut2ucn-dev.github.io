@@ -432,17 +432,15 @@
   <img class="intro-word" src="../assets/brand/wordmark-dark.png" alt="">
 </div>
 <script>
-// Launch intro: once per browser session, never under "reduce motion".
+// Launch intro: on every page load, never under "reduce motion".
 // Plays once the artwork is in (or after 600 ms at the latest); a click
 // skips it. The portal loads underneath the whole time.
 (function(){
   var el = document.getElementById("intro");
-  var show = !(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
-  try {
-    if (sessionStorage.getItem("stemik-intro-shown")) show = false;
-    sessionStorage.setItem("stemik-intro-shown", "1");
-  } catch (e) {}
-  if (!show) { el.parentNode.removeChild(el); return; }
+  if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    el.parentNode.removeChild(el);
+    return;
+  }
   var started = false;
   function start(){ if (!started) { started = true; el.classList.add("play"); } }
   function done(){ if (el.parentNode) el.parentNode.removeChild(el); }
