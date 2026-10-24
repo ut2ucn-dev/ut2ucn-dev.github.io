@@ -6,4 +6,6 @@
     <color name="navy">#1C1642</color>
     <color name="screen">@color/paper</color>
     <color name="icon_background">#FFFFFF</color>
+    <!-- Launch screen and the intro in lib/ui/intro.dart: the logo navy. -->
+    <color name="splash">#05263F</color>
 </resources>

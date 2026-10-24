@@ -9,6 +9,7 @@ import '../data/parent_portal.dart';
 import '../data/store.dart';
 import '../services/reminders.dart';
 import '../services/settings.dart';
+import 'intro.dart';
 import 'login_screen.dart';
 import 'parent/parent_home.dart';
 import 'scope.dart';
@@ -48,6 +49,8 @@ class StemikApp extends StatelessWidget {
               locale: const Locale('uk'),
               supportedLocales: const [Locale('uk')],
               localizationsDelegates: GlobalMaterialLocalizations.delegates,
+              // The robot's hello on launch, over the app as it loads.
+              builder: (context, child) => LaunchIntro(child: child!),
               home: AuthGate(api: store.api, parentApi: parentApi),
             ),
           ),
