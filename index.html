@@ -251,8 +251,7 @@
     border-radius:8px; padding:4px 9px;
   }
   .format-tag.individual, .tag.format.individual{ color:var(--alert-text); background:var(--alert-soft); }
-  .format-tag.online-print, .tag.format.online-print{ color:#8B5CF6; background:rgba(139,92,246,0.14); }
-  .format-tag.online-no-print, .tag.format.online-no-print{ color:var(--sand-text); background:var(--sand); }
+  .format-tag.online, .tag.format.online{ color:#8B5CF6; background:rgba(139,92,246,0.14); }
   .teacher-tag, .tag.teacher{
     display:inline-flex; align-items:center; gap:4px; font-family:var(--font-mono); font-weight:700; font-size:10px;
     color:var(--navy); background:var(--sand); border-radius:8px; padding:4px 9px 4px 7px;
@@ -343,6 +342,12 @@
   }
   .discount-input:focus{ outline:none; border-color:var(--brand); box-shadow:0 0 0 3px var(--brand-soft); }
   .discount-percent-sign{ font-family:var(--font-mono); font-size:12px; font-weight:700; color:var(--ink-soft); }
+  .sub-purchase{ display:flex; flex-direction:column; gap:8px; margin-top:4px; padding:11px 12px; border:1.5px dashed var(--brand); border-radius:12px; background:var(--brand-soft); }
+  .sub-edit-row{ display:flex; align-items:center; flex-wrap:wrap; gap:6px 8px; margin-top:7px; }
+  .sub-purchase-title{ font-family:var(--font-display); font-weight:700; font-size:13px; color:var(--brand-text); }
+  .print-option-row{ display:flex; align-items:center; flex-wrap:wrap; gap:8px 10px; margin:2px 0 8px; padding:9px 12px; border-radius:10px; background:var(--paper); }
+  .print-option{ display:inline-flex; align-items:center; gap:7px; font-weight:700; font-size:13px; cursor:pointer; }
+  .print-option input{ width:16px; height:16px; accent-color:var(--brand); }
   .chip{
     display:inline-flex; align-items:center; gap:5px; padding:5px 10px; border-radius:9px; border:1.5px solid var(--line-strong);
     background:var(--card); font-size:12.5px; font-weight:500; cursor:pointer; user-select:none; color:var(--ink-soft);
@@ -978,57 +983,58 @@ const FORMAT_OPTIONS = [{
   value: "individual",
   label: "Індив (очно)"
 }, {
-  value: "individual_online_print",
-  label: "Індив (online) +друк"
+  value: "individual_online",
+  label: "Індив (online)"
 }, {
-  value: "individual_online_no_print",
-  label: "Індив (online) -друк"
-}, {
-  value: "group_online_print",
-  label: "Група (online) +друк"
-}, {
-  value: "group_online_no_print",
-  label: "Група (online) -друк"
+  value: "group_online",
+  label: "Група (online)"
 }];
+function isOnlineFormat(format) {
+  return format === "individual_online" || format === "group_online";
+}
 function formatLabel(format) {
   const found = FORMAT_OPTIONS.find(f => f.value === format);
   return found ? found.label : "Група (очно)";
 }
+function lessonFormatLabel(lesson) {
+  return formatLabel(lesson.format) + (isOnlineFormat(lesson.format) && lesson.print_enabled ? " +друк" : "");
+}
 function formatTagClass(format) {
   if (format === "individual") return " individual";
-  if (format === "individual_online_print" || format === "group_online_print") return " online-print";
-  if (format === "individual_online_no_print" || format === "group_online_no_print") return " online-no-print";
+  if (isOnlineFormat(format)) return " online";
   return "";
 }
-const ROOM_OPTIONS = ["Клас AI", "Клас VR", "Комп'ютерний клас", "3D-майстерня"];
+// Must match the default in compute_lesson_amounts() (sql/0016).
+const DEFAULT_ONLINE_PRINT_PRICE = 100;
+function defaultPrintPrice(rateCard) {
+  return rateCard && rateCard.price_print_online != null ? Number(rateCard.price_print_online) : DEFAULT_ONLINE_PRINT_PRICE;
+}
+const ROOM_OPTIONS = ["Клас AI", "Клас VR", "Комп'ютерний клас", "Клас 3D"];
 // Which bucket of the studio's rate card a lesson's amounts fall into.
 // Only the plain in-person "group" format is further split by headcount —
 // every other format is its own fixed bucket regardless of attendance.
 function payrollBucket(format, studentCount) {
   if (format === "individual") return "individual";
-  if (format === "individual_online_print") return "individual_online_print";
-  if (format === "individual_online_no_print") return "individual_online_no_print";
-  if (format === "group_online_print") return "group_online_print";
-  if (format === "group_online_no_print") return "group_online_no_print";
+  if (format === "individual_online") return "individual_online";
+  if (format === "group_online") return "group_online";
   return studentCount <= 1 ? "group_1" : "group_2_6";
 }
-// The studio's 8 billable categories. Each has two rate_cards columns:
+// The studio's 6 billable categories. Each has two rate_cards columns:
 // zp_<key> (what the teacher is paid) and price_<key> (what the client is
 // charged) — see RATE_BUCKETS in RateCardsTab for the shared source of truth.
 const PAYROLL_BUCKET_LABELS = {
   group_1: "Група (1)",
   group_2_6: "Група (2-6)",
   individual: "Індив (очно)",
-  individual_online_print: "Індив (online) +друк",
-  individual_online_no_print: "Індив (online) -друк",
-  group_online_print: "Група (online) +друк",
-  group_online_no_print: "Група (online) -друк",
+  individual_online: "Індив (online)",
+  group_online: "Група (online)",
   extra_service: "Додаткова послуга"
 };
 // Computes both amounts for a lesson: zp = what the teacher earns, price =
 // what the client is charged. `zp` is shown to teachers and admins alike;
-// `price` must only ever reach admin/superadmin UI.
-function computeAmounts(rateCard, format, studentCount, extraService) {
+// `price` must only ever reach admin/superadmin UI. Printing on an online
+// lesson raises the price only, never the teacher's zp.
+function computeAmounts(rateCard, format, studentCount, extraService, printEnabled, printPrice) {
   if (!rateCard) return {
     zp: 0,
     price: 0
@@ -1038,9 +1044,10 @@ function computeAmounts(rateCard, format, studentCount, extraService) {
   const price = Number(rateCard["price_" + bucket]) || 0;
   const extraZp = extraService ? Number(rateCard.zp_extra_service) || 0 : 0;
   const extraPrice = extraService ? Number(rateCard.price_extra_service) || 0 : 0;
+  const printExtra = printEnabled && isOnlineFormat(format) ? printPrice != null ? Number(printPrice) : defaultPrintPrice(rateCard) : 0;
   return {
     zp: zp + extraZp,
-    price: price + extraPrice
+    price: price + extraPrice + printExtra
   };
 }
 function formatMoney(n) {
@@ -1615,6 +1622,10 @@ function courseAccent(course) {
 // lessons have nothing to photograph or send to the printer.
 function courseHasPrinting(course) {
   return !course || course.startsWith("3D");
+}
+// Online lessons have nothing to print unless the admin ticked "друк".
+function lessonHasPrinting(lesson) {
+  return courseHasPrinting(lesson.course) && (!isOnlineFormat(lesson.format) || !!lesson.print_enabled);
 }
 function StatCard({
   icon,
@@ -2301,6 +2312,19 @@ function StudentCardModal({
     }
     loadSubscriptions();
   }
+  // Purchase dates are stored as midnight UTC of the chosen day, the same
+  // way mark_attendance() stores them (sql/0016), so slice(0, 10) of
+  // purchased_at always gives back that day.
+  async function updateSubscriptionPurchase(sub, patch) {
+    const {
+      error
+    } = await sb.from("subscriptions").update(patch).eq("id", sub.id);
+    if (error) {
+      showToast(error.message, "error");
+      return;
+    }
+    loadSubscriptions();
+  }
   async function setSubscriptionRemaining(sub, value) {
     const n = Math.max(0, Math.min(sub.total_lessons, Number(value) || 0));
     const {
@@ -2485,7 +2509,38 @@ function StudentCardModal({
     className: "student-name"
   }, sub.course), /*#__PURE__*/React.createElement("div", {
     className: "students-sub"
-  }, sub.status === "cancelled" ? "Скасовано" : sub.status === "completed" ? "Використано повністю" : "Активний", " · придбано ", formatDateLong(sub.purchased_at.slice(0, 10)), sub.total_price > 0 && ` · ${formatMoney(sub.total_price)}`)), /*#__PURE__*/React.createElement("input", {
+  }, sub.status === "cancelled" ? "Скасовано" : sub.status === "completed" ? "Використано повністю" : "Активний", sub.total_price > 0 && ` · ${formatMoney(sub.total_price)}`, subscriptionPaymentLabel(sub.payment_method) && ` · ${subscriptionPaymentLabel(sub.payment_method)}`), /*#__PURE__*/React.createElement("div", {
+    className: "sub-edit-row"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "students-sub"
+  }, "Куплено"), /*#__PURE__*/React.createElement("input", {
+    type: "date",
+    className: "discount-input",
+    style: {
+      width: 140,
+      textAlign: "left"
+    },
+    value: sub.purchased_at.slice(0, 10),
+    onChange: e => {
+      if (e.target.value) updateSubscriptionPurchase(sub, {
+        purchased_at: e.target.value + "T00:00:00Z"
+      });
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "chip-wrap"
+  }, SUBSCRIPTION_PAYMENT_METHODS.map(pm => /*#__PURE__*/React.createElement("button", {
+    key: pm.value,
+    type: "button",
+    className: "chip payment-chip" + (sub.payment_method === pm.value ? " selected" : ""),
+    onClick: () => updateSubscriptionPurchase(sub, {
+      payment_method: sub.payment_method === pm.value ? null : pm.value
+    })
+  }, pm.label)), !sub.payment_method && /*#__PURE__*/React.createElement("span", {
+    className: "due-flag",
+    style: {
+      cursor: "default"
+    }
+  }, "Не вказано оплату")))), /*#__PURE__*/React.createElement("input", {
     type: "number",
     min: "0",
     max: sub.total_lessons,
@@ -2512,7 +2567,7 @@ function StudentCardModal({
   }, "Ще немає жодного заняття")) : sorted.map(lesson => {
     const teacher = profilesById[lesson.owner_id];
     const w = workByLesson[lesson.id];
-    const printable = courseHasPrinting(lesson.course);
+    const printable = lessonHasPrinting(lesson);
     const isFirst = firstLesson && lesson.id === firstLesson.id;
     return /*#__PURE__*/React.createElement("div", {
       key: lesson.id,
@@ -2554,7 +2609,7 @@ function StudentCardModal({
       }
     }, lesson.course), lesson.format && /*#__PURE__*/React.createElement("span", {
       className: "format-tag" + formatTagClass(lesson.format)
-    }, formatLabel(lesson.format)), lesson.room && /*#__PURE__*/React.createElement("span", {
+    }, lessonFormatLabel(lesson)), lesson.room && /*#__PURE__*/React.createElement("span", {
       className: "tag roster-count"
     }, lesson.room), isFirst && /*#__PURE__*/React.createElement("span", {
       className: "trial-pill"
@@ -3061,7 +3116,7 @@ function LessonModal({
     showToast(lesson ? "Заняття оновлено" : "Заняття додано");
     onSaved();
   }
-  const amounts = computeAmounts(rateCard, format, studentIds.length, extraService);
+  const amounts = computeAmounts(rateCard, format, studentIds.length, extraService, lesson && lesson.print_enabled, lesson ? lesson.print_price : null);
   return ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
     className: "overlay",
     onClick: onClose
@@ -3542,6 +3597,17 @@ const PAYMENT_METHODS = [{
   value: "certificate",
   label: "Сертифікат"
 }];
+const SUBSCRIPTION_PAYMENT_METHODS = [{
+  value: "card",
+  label: "Картка"
+}, {
+  value: "cash",
+  label: "Готівка"
+}];
+function subscriptionPaymentLabel(method) {
+  const found = SUBSCRIPTION_PAYMENT_METHODS.find(m => m.value === method);
+  return found ? found.label : null;
+}
 function AttendanceControls({
   lesson,
   student,
@@ -3554,6 +3620,34 @@ function AttendanceControls({
   const unpaid = status === "present" && !record.payment_method;
   const currentDiscount = record && record.discount_percent || 0;
   const [discountInput, setDiscountInput] = useState(currentDiscount ? String(currentDiscount) : "");
+  // Choosing "Абонемент" when the student has no active one starts a new
+  // purchase: ask when it was bought (default: this lesson's date) and how
+  // it was paid before recording anything.
+  const [buying, setBuying] = useState(false);
+  const [purchaseDate, setPurchaseDate] = useState(lesson.date);
+  const [purchaseMethod, setPurchaseMethod] = useState(null);
+  useEffect(() => {
+    setBuying(false);
+    setPurchaseDate(lesson.date);
+    setPurchaseMethod(null);
+  }, [lesson.id, student.id, status]);
+  function choosePayment(method) {
+    const startsNewSubscription = method === "subscription" && !subscription && record.payment_method !== "subscription";
+    if (startsNewSubscription) {
+      setBuying(true);
+      return;
+    }
+    setBuying(false);
+    onMark(lesson.id, student.id, "present", method, currentDiscount);
+  }
+  function confirmPurchase() {
+    if (!purchaseMethod || !purchaseDate) return;
+    setBuying(false);
+    onMark(lesson.id, student.id, "present", "subscription", currentDiscount, {
+      date: purchaseDate,
+      method: purchaseMethod
+    });
+  }
   useEffect(() => {
     setDiscountInput(currentDiscount ? String(currentDiscount) : "");
   }, [currentDiscount, record && record.payment_method, lesson.id, student.id]);
@@ -3588,15 +3682,58 @@ function AttendanceControls({
   }, PAYMENT_METHODS.map(pm => /*#__PURE__*/React.createElement("button", {
     key: pm.value,
     type: "button",
-    className: "chip payment-chip" + (record.payment_method === pm.value ? " selected" : ""),
-    onClick: () => onMark(lesson.id, student.id, "present", pm.value, currentDiscount)
+    className: "chip payment-chip" + (record.payment_method === pm.value || buying && pm.value === "subscription" ? " selected" : ""),
+    onClick: () => choosePayment(pm.value)
   }, pm.label, pm.value === "subscription" && subscription && /*#__PURE__*/React.createElement("span", {
     className: "sub-hint"
-  }, " ", subscription.remaining_lessons, "/", subscription.total_lessons)))), record.payment_method && /*#__PURE__*/React.createElement("span", {
+  }, " ", subscription.remaining_lessons, "/", subscription.total_lessons)))), record.payment_method && !buying && /*#__PURE__*/React.createElement("span", {
     className: "payment-amount"
   }, currentDiscount > 0 && lesson.price_amount != null && /*#__PURE__*/React.createElement("span", {
     className: "discount-original-price"
-  }, formatMoney(lesson.price_amount)), formatMoney(record.amount))), status === "present" && record.payment_method && /*#__PURE__*/React.createElement("div", {
+  }, formatMoney(lesson.price_amount)), formatMoney(record.amount))), status === "present" && buying && /*#__PURE__*/React.createElement("div", {
+    className: "sub-purchase"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "sub-purchase-title"
+  }, "Новий абонемент (4 заняття)"), /*#__PURE__*/React.createElement("div", {
+    className: "attend-line"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "attend-line-label"
+  }, "Куплено"), /*#__PURE__*/React.createElement("input", {
+    type: "date",
+    className: "discount-input",
+    style: {
+      width: 150,
+      textAlign: "left"
+    },
+    value: purchaseDate,
+    onChange: e => setPurchaseDate(e.target.value)
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "attend-line"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "attend-line-label"
+  }, "Оплата"), /*#__PURE__*/React.createElement("div", {
+    className: "chip-wrap"
+  }, SUBSCRIPTION_PAYMENT_METHODS.map(pm => /*#__PURE__*/React.createElement("button", {
+    key: pm.value,
+    type: "button",
+    className: "chip payment-chip" + (purchaseMethod === pm.value ? " selected" : ""),
+    onClick: () => setPurchaseMethod(pm.value)
+  }, pm.label)))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 8,
+      justifyContent: "flex-end"
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "studio-btn ghost",
+    onClick: () => setBuying(false)
+  }, "Скасувати"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "studio-btn primary",
+    disabled: !purchaseMethod || !purchaseDate,
+    onClick: confirmPurchase
+  }, "Оформити абонемент"))), status === "present" && record.payment_method && !buying && /*#__PURE__*/React.createElement("div", {
     className: "attend-line"
   }, /*#__PURE__*/React.createElement("span", {
     className: "attend-line-label"
@@ -3620,6 +3757,85 @@ function AttendanceControls({
   }, "%"))));
 }
 
+// "Друк" checkbox for an online lesson (admin only). Empty amount = the
+// course's print price from Тарифи (or 100 грн if that's empty too).
+function LessonPrintOption({
+  lesson,
+  onSetPrint
+}) {
+  const [defaultPrice, setDefaultPrice] = useState(DEFAULT_ONLINE_PRINT_PRICE);
+  const [priceInput, setPriceInput] = useState(lesson.print_price != null ? String(lesson.print_price) : "");
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    setPriceInput(lesson.print_price != null ? String(lesson.print_price) : "");
+  }, [lesson.id, lesson.print_price, lesson.print_enabled]);
+  useEffect(() => {
+    if (!lesson.course) return;
+    let cancelled = false;
+    sb.from("rate_cards_safe").select("price_print_online").eq("course", lesson.course).maybeSingle().then(({
+      data
+    }) => {
+      if (!cancelled) setDefaultPrice(defaultPrintPrice(data));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [lesson.course]);
+  async function apply(enabled, price) {
+    setBusy(true);
+    await onSetPrint(enabled, price);
+    setBusy(false);
+  }
+  function applyPrice() {
+    const trimmed = priceInput.trim();
+    const next = trimmed === "" ? null : Math.max(0, Number(trimmed) || 0);
+    if (next === (lesson.print_price != null ? Number(lesson.print_price) : null)) {
+      setPriceInput(next != null ? String(next) : "");
+      return;
+    }
+    apply(true, next);
+  }
+  return /*#__PURE__*/React.createElement("div", {
+    className: "print-option-row"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "print-option"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: !!lesson.print_enabled,
+    disabled: busy,
+    onChange: e => apply(e.target.checked, null)
+  }), /*#__PURE__*/React.createElement(Icon, {
+    name: "printer",
+    size: 13
+  }), "Друк"), lesson.print_enabled ? /*#__PURE__*/React.createElement("div", {
+    className: "discount-input-row"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "students-sub"
+  }, "+"), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    min: "0",
+    step: "1",
+    className: "discount-input",
+    style: {
+      width: 70
+    },
+    value: priceInput,
+    placeholder: String(defaultPrice),
+    disabled: busy,
+    onChange: e => setPriceInput(e.target.value),
+    onBlur: applyPrice,
+    onKeyDown: e => {
+      if (e.key === "Enter") e.target.blur();
+    }
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "discount-percent-sign"
+  }, "грн")) : /*#__PURE__*/React.createElement("span", {
+    className: "students-sub"
+  }, "Онлайн-заняття без друку"), lesson.print_enabled && /*#__PURE__*/React.createElement("span", {
+    className: "students-sub"
+  }, priceInput.trim() === "" ? `за тарифом курсу (${formatMoney(defaultPrice)})` : "своя сума для цього заняття", " · з абонементом не доплачується"));
+}
+
 // ---------------------------------------------------------------
 // Lesson card: full detail view for one lesson, opened by clicking its
 // (now collapsed) row in the schedule — roster, photo/print handling and
@@ -3641,6 +3857,7 @@ function LessonCardModal({
   onEdit,
   onDelete,
   onToggleCompleted,
+  onSetPrint,
   onViewStudent,
   attachPhoto,
   togglePrinted,
@@ -3652,7 +3869,7 @@ function LessonCardModal({
   const [showContacts, setShowContacts] = useState(false);
   useEscapeClose(onClose);
   useLockBodyScroll();
-  const printable = courseHasPrinting(lesson.course);
+  const printable = lessonHasPrinting(lesson);
   const attendingStudents = present.filter(s => {
     const att = findAttendance(attendance, lesson.id, s.id);
     return att && att.status === "present";
@@ -3734,7 +3951,7 @@ function LessonCardModal({
     size: 10
   }), " ", fullName(rowOwnerProfile)), lesson.format && /*#__PURE__*/React.createElement("span", {
     className: "tag format" + formatTagClass(lesson.format)
-  }, formatLabel(lesson.format)), lesson.room && /*#__PURE__*/React.createElement("span", {
+  }, lessonFormatLabel(lesson)), lesson.room && /*#__PURE__*/React.createElement("span", {
     className: "tag roster-count"
   }, lesson.room), substituteProfile && /*#__PURE__*/React.createElement("span", {
     className: "tag format individual",
@@ -3759,7 +3976,10 @@ function LessonCardModal({
   }, /*#__PURE__*/React.createElement(Icon, {
     name: "check",
     size: 11
-  }), " ", lesson.completed ? "Завершено" : "Не завершено")), showContacts && /*#__PURE__*/React.createElement("div", {
+  }), " ", lesson.completed ? "Завершено" : "Не завершено")), onSetPrint && isOnlineFormat(lesson.format) && /*#__PURE__*/React.createElement(LessonPrintOption, {
+    lesson: lesson,
+    onSetPrint: onSetPrint
+  }), showContacts && /*#__PURE__*/React.createElement("div", {
     className: "emergency-contacts"
   }, /*#__PURE__*/React.createElement("div", {
     className: "field-label"
@@ -3963,7 +4183,9 @@ function ScheduleTab({
   useEffect(() => {
     load();
   }, [load]);
-  async function markAttendance(lessonId, studentId, status, paymentMethod, discountPercent) {
+  // `purchase` ({date, method}) is only passed when this mark starts a new
+  // subscription; otherwise the database ignores both fields.
+  async function markAttendance(lessonId, studentId, status, paymentMethod, discountPercent, purchase) {
     const {
       error
     } = await sb.rpc("mark_attendance", {
@@ -3971,7 +4193,9 @@ function ScheduleTab({
       p_student_id: studentId,
       p_status: status,
       p_payment_method: paymentMethod,
-      p_discount_percent: discountPercent || 0
+      p_discount_percent: discountPercent || 0,
+      p_purchase_date: purchase ? purchase.date : null,
+      p_purchase_method: purchase ? purchase.method : null
     });
     if (error) {
       showToast(error.message, "error");
@@ -4070,6 +4294,29 @@ function ScheduleTab({
       completed: next
     } : v);
   }
+  // set_lesson_print() re-prices the lesson and any card/cash charges
+  // already recorded on it, so reload both the lesson row and attendance.
+  async function setLessonPrint(lesson, enabled, price) {
+    const {
+      error
+    } = await sb.rpc("set_lesson_print", {
+      p_lesson_id: lesson.id,
+      p_enabled: enabled,
+      p_price: price
+    });
+    if (error) {
+      showToast(error.message, "error");
+      return;
+    }
+    const {
+      data
+    } = await sb.from("lessons_safe").select("*").eq("id", lesson.id).single();
+    if (data) {
+      setLessons(ls => ls.map(l => l.id === data.id ? data : l));
+      setViewingLesson(v => v && v.id === data.id ? data : v);
+    }
+    await loadAttendance();
+  }
   function openNewLesson(presetDate, presetTime) {
     setModalPresetDate(presetDate || formatISODateLocal(weekStart));
     setModalPresetTime(presetTime || null);
@@ -4084,7 +4331,7 @@ function ScheduleTab({
   let pendingCount = 0;
   const pendingToday = todayStr();
   lessons.forEach(l => {
-    if (!courseHasPrinting(l.course)) return;
+    if (!lessonHasPrinting(l)) return;
     if (l.date > pendingToday) return;
     (l.student_ids || []).forEach(sid => {
       // Skip ids that no longer resolve to a student (e.g. the student was
@@ -4165,7 +4412,7 @@ function ScheduleTab({
   function renderGridBlock(item) {
     const lesson = item.lesson;
     const present = (lesson.student_ids || []).map(id => studentById[id]).filter(Boolean);
-    const printable = courseHasPrinting(lesson.course);
+    const printable = lessonHasPrinting(lesson);
     // Printing only makes sense for students actually marked "П" — an
     // absent/excused student never has a photo to print, so they shouldn't
     // count toward (or block) this lesson's print progress.
@@ -4503,6 +4750,7 @@ function ScheduleTab({
       if (deleted) setViewingLesson(null);
     },
     onToggleCompleted: canEdit ? () => toggleCompleted(viewingLesson) : undefined,
+    onSetPrint: canEdit && isAdmin ? (enabled, price) => setLessonPrint(viewingLesson, enabled, price) : undefined,
     onViewStudent: s => setViewingStudent(s),
     attachPhoto: attachPhoto,
     togglePrinted: togglePrinted,
@@ -4834,7 +5082,7 @@ function QueueTab({
   const today = todayStr();
   const rows = [];
   lessons.forEach(lesson => {
-    if (!courseHasPrinting(lesson.course)) return;
+    if (!lessonHasPrinting(lesson)) return;
     if (lesson.date > today) return;
     (lesson.student_ids || []).forEach(sid => {
       const student = studentById[sid];
@@ -4907,7 +5155,7 @@ function QueueTab({
       }
     }, lesson.course), lesson.format && /*#__PURE__*/React.createElement("span", {
       className: "tag format" + formatTagClass(lesson.format)
-    }, formatLabel(lesson.format))), /*#__PURE__*/React.createElement("div", {
+    }, lessonFormatLabel(lesson))), /*#__PURE__*/React.createElement("div", {
       className: "print-item-name"
     }, student.name), /*#__PURE__*/React.createElement("div", {
       className: "print-item-origin"
@@ -5608,7 +5856,7 @@ function StudioCalendarTab({
         }
       }, lesson.course), lesson.format && /*#__PURE__*/React.createElement("span", {
         className: "format-tag" + formatTagClass(lesson.format)
-      }, formatLabel(lesson.format)), lesson.time && /*#__PURE__*/React.createElement("span", {
+      }, lessonFormatLabel(lesson)), lesson.time && /*#__PURE__*/React.createElement("span", {
         className: "lesson-time"
       }, /*#__PURE__*/React.createElement(Icon, {
         name: "calendar",
@@ -5677,7 +5925,7 @@ function StudioCalendarTab({
 // Admin: pay rates per direction — one row per course, editable.
 // ---------------------------------------------------------------
 
-// The studio's 8 billable categories, shared with PAYROLL_BUCKET_LABELS —
+// The studio's 6 billable categories, shared with PAYROLL_BUCKET_LABELS —
 // each becomes two rate_cards columns, zp_<key> (teacher payout, visible to
 // teachers too) and price_<key> (client price, admin/superadmin only).
 const RATE_BUCKETS = [{
@@ -5690,29 +5938,41 @@ const RATE_BUCKETS = [{
   key: "individual",
   label: "Індив (очно)"
 }, {
-  key: "individual_online_print",
-  label: "Індив (online) +друк"
+  key: "individual_online",
+  label: "Індив (online)"
 }, {
-  key: "individual_online_no_print",
-  label: "Індив (online) -друк"
-}, {
-  key: "group_online_print",
-  label: "Група (online) +друк"
-}, {
-  key: "group_online_no_print",
-  label: "Група (online) -друк"
+  key: "group_online",
+  label: "Група (online)"
 }, {
   key: "extra_service",
   label: "Додаткова послуга"
 }];
+// One 4-lesson package price per lesson format: rate_cards.price_sub_<key>.
+// The format of the lesson a subscription is bought on picks the price.
+const SUBSCRIPTION_FORMATS = [{
+  key: "group",
+  label: "Група (очно)"
+}, {
+  key: "individual",
+  label: "Індив (очно)"
+}, {
+  key: "individual_online",
+  label: "Індив (online)"
+}, {
+  key: "group_online",
+  label: "Група (online)"
+}];
 function blankRateRow(course) {
   const row = {
     course,
-    price_subscription: 0
+    price_print_online: null
   };
   RATE_BUCKETS.forEach(b => {
     row["zp_" + b.key] = 0;
     row["price_" + b.key] = 0;
+  });
+  SUBSCRIPTION_FORMATS.forEach(f => {
+    row["price_sub_" + f.key] = 0;
   });
   return row;
 }
@@ -5720,7 +5980,7 @@ function RateCardsTab() {
   const [rates, setRates] = useState({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [column, setColumn] = useState("zp"); // 'zp' | 'price'
+  const [column, setColumn] = useState("zp"); // 'zp' | 'price' | 'sub'
   const [calcStartDate, setCalcStartDate] = useState("");
   const [calcStartInput, setCalcStartInput] = useState("");
   const [savingThreshold, setSavingThreshold] = useState(false);
@@ -5803,7 +6063,12 @@ function RateCardsTab() {
         clean["zp_" + b.key] = Number(r["zp_" + b.key]) || 0;
         clean["price_" + b.key] = Number(r["price_" + b.key]) || 0;
       });
-      clean.price_subscription = Number(r.price_subscription) || 0;
+      SUBSCRIPTION_FORMATS.forEach(f => {
+        clean["price_sub_" + f.key] = Number(r["price_sub_" + f.key]) || 0;
+      });
+      // Empty means "use the default" (100 грн), so keep it null, not 0.
+      const printRaw = r.price_print_online;
+      clean.price_print_online = printRaw === "" || printRaw == null ? null : Math.max(0, Number(printRaw) || 0);
       return clean;
     });
     const {
@@ -5885,7 +6150,7 @@ function RateCardsTab() {
     style: {
       marginBottom: 14
     }
-  }, "Суми — за одне заняття цього типу, у гривнях. «Додаткова послуга» додається зверху, якщо позначена на занятті. «Абонемент» — це ціна ВСІХ 4 занять пакету одразу (не за одне), і не має колонки ЗП: викладачу за кожне заняття все одно платиться за звичайною ставкою його формату. Всі колонки зберігаються разом — перемикач лише впливає на те, що зараз показано."), /*#__PURE__*/React.createElement("div", {
+  }, column === "sub" ? "Ціна ВСІХ 4 занять пакету одразу (не за одне), окремо для кожного формату. Яку з них взяти, визначає формат заняття, на якому купують абонемент. Колонки ЗП немає: викладачу за кожне заняття платиться звичайна ставка його формату. На онлайн-заняттях абонемент покриває і друк." : column === "price" ? "Суми — за одне заняття цього типу, у гривнях. «Додаткова послуга» додається зверху, якщо позначена на занятті. «Друк (online)» додається до онлайн-заняття, лише коли в його картці стоїть галочка «Друк»; порожнє поле = 100 грн. У ЗП викладача друк не входить." : "Суми — за одне заняття цього типу, у гривнях. «Додаткова послуга» додається зверху, якщо позначена на занятті. Друк на онлайн-занятті ЗП не змінює.", " Всі колонки зберігаються разом — перемикач лише впливає на те, що зараз показано."), /*#__PURE__*/React.createElement("div", {
     className: "studio-segmented",
     style: {
       marginBottom: 14
@@ -5898,36 +6163,54 @@ function RateCardsTab() {
     type: "button",
     className: column === "price" ? "active" : "",
     onClick: () => setColumn("price")
-  }, "ЦІНА (клієнту)")), /*#__PURE__*/React.createElement("div", {
+  }, "ЦІНА (клієнту)"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: column === "sub" ? "active" : "",
+    onClick: () => setColumn("sub")
+  }, "АБОНЕМЕНТ (4 заняття)")), /*#__PURE__*/React.createElement("div", {
     className: "rate-table-wrap"
   }, /*#__PURE__*/React.createElement("table", {
-    className: "rate-table"
-  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null, "Напрямок"), RATE_BUCKETS.map(b => /*#__PURE__*/React.createElement("th", {
-    key: b.key
-  }, b.label)), column === "price" && /*#__PURE__*/React.createElement("th", null, "Абонемент (4 заняття)"))), /*#__PURE__*/React.createElement("tbody", null, COURSE_OPTIONS.map(c => /*#__PURE__*/React.createElement("tr", {
+    className: "rate-table",
+    style: column === "sub" ? {
+      minWidth: 560
+    } : undefined
+  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null, "Напрямок"), rateTableColumns(column).map(col => /*#__PURE__*/React.createElement("th", {
+    key: col.field
+  }, col.label)))), /*#__PURE__*/React.createElement("tbody", null, COURSE_OPTIONS.map(c => /*#__PURE__*/React.createElement("tr", {
     key: c
   }, /*#__PURE__*/React.createElement("td", {
     className: "rate-course-name"
-  }, c), RATE_BUCKETS.map(b => {
-    const field = column + "_" + b.key;
+  }, c), rateTableColumns(column).map(col => {
+    const raw = rates[c] ? rates[c][col.field] : null;
     return /*#__PURE__*/React.createElement("td", {
-      key: b.key
+      key: col.field
     }, /*#__PURE__*/React.createElement("input", {
       type: "number",
       min: "0",
       step: "1",
       className: "rate-input",
-      value: rates[c] ? rates[c][field] : 0,
-      onChange: e => setField(c, field, e.target.value)
+      value: raw == null ? col.nullable ? "" : 0 : raw,
+      placeholder: col.placeholder,
+      onChange: e => setField(c, col.field, e.target.value)
     }));
-  }), column === "price" && /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("input", {
-    type: "number",
-    min: "0",
-    step: "1",
-    className: "rate-input",
-    value: rates[c] ? rates[c].price_subscription : 0,
-    onChange: e => setField(c, "price_subscription", e.target.value)
-  }))))))));
+  })))))));
+}
+function rateTableColumns(view) {
+  if (view === "sub") return SUBSCRIPTION_FORMATS.map(f => ({
+    field: "price_sub_" + f.key,
+    label: f.label
+  }));
+  const cols = RATE_BUCKETS.map(b => ({
+    field: view + "_" + b.key,
+    label: b.label
+  }));
+  if (view === "price") cols.push({
+    field: "price_print_online",
+    label: "Друк (online)",
+    nullable: true,
+    placeholder: String(DEFAULT_ONLINE_PRINT_PRICE)
+  });
+  return cols;
 }
 
 // ---------------------------------------------------------------
@@ -6164,8 +6447,10 @@ function PayrollTab({
     }, lesson.course), /*#__PURE__*/React.createElement("span", {
       className: "format-tag"
     }, PAYROLL_BUCKET_LABELS[bucket]), lesson.extra_service && /*#__PURE__*/React.createElement("span", {
-      className: "format-tag online-print"
-    }, "+ дод. послуга"))), /*#__PURE__*/React.createElement("div", {
+      className: "format-tag online"
+    }, "+ дод. послуга"), isOnlineFormat(lesson.format) && lesson.print_enabled && /*#__PURE__*/React.createElement("span", {
+      className: "format-tag online"
+    }, "+ друк"))), /*#__PURE__*/React.createElement("div", {
       style: {
         textAlign: "right"
       }
