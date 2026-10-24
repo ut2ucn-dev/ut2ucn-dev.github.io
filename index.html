@@ -345,7 +345,6 @@
   .sub-purchase{ display:flex; flex-direction:column; gap:8px; margin-top:4px; padding:11px 12px; border:1.5px dashed var(--brand); border-radius:12px; background:var(--brand-soft); }
   .sub-edit-row{ display:flex; align-items:center; flex-wrap:wrap; gap:6px 8px; margin-top:7px; }
   .sub-purchase-title{ font-family:var(--font-display); font-weight:700; font-size:13px; color:var(--brand-text); }
-  .print-option-row{ display:flex; align-items:center; flex-wrap:wrap; gap:8px 10px; margin:2px 0 8px; padding:9px 12px; border-radius:10px; background:var(--paper); }
   .print-option{ display:inline-flex; align-items:center; gap:7px; font-weight:700; font-size:13px; cursor:pointer; }
   .print-option input{ width:16px; height:16px; accent-color:var(--brand); }
   .chip{
@@ -996,15 +995,17 @@ function formatLabel(format) {
   const found = FORMAT_OPTIONS.find(f => f.value === format);
   return found ? found.label : "Група (очно)";
 }
-function lessonFormatLabel(lesson) {
-  return formatLabel(lesson.format) + (isOnlineFormat(lesson.format) && lesson.print_enabled ? " +друк" : "");
+// `att` (optional) is one child's attendance row: adds "+друк" when that
+// child's work on an online lesson is being printed.
+function lessonFormatLabel(lesson, att) {
+  return formatLabel(lesson.format) + (isOnlineFormat(lesson.format) && att && att.print_enabled ? " +друк" : "");
 }
 function formatTagClass(format) {
   if (format === "individual") return " individual";
   if (isOnlineFormat(format)) return " online";
   return "";
 }
-// Must match the default in compute_lesson_amounts() (sql/0016).
+// Must match the default in lesson_print_surcharge() (sql/0017).
 const DEFAULT_ONLINE_PRINT_PRICE = 100;
 function defaultPrintPrice(rateCard) {
   return rateCard && rateCard.price_print_online != null ? Number(rateCard.price_print_online) : DEFAULT_ONLINE_PRINT_PRICE;
@@ -1032,9 +1033,9 @@ const PAYROLL_BUCKET_LABELS = {
 };
 // Computes both amounts for a lesson: zp = what the teacher earns, price =
 // what the client is charged. `zp` is shown to teachers and admins alike;
-// `price` must only ever reach admin/superadmin UI. Printing on an online
-// lesson raises the price only, never the teacher's zp.
-function computeAmounts(rateCard, format, studentCount, extraService, printEnabled, printPrice) {
+// `price` must only ever reach admin/superadmin UI. Online printing is per
+// child (lesson_attendance), so it is never part of these lesson amounts.
+function computeAmounts(rateCard, format, studentCount, extraService) {
   if (!rateCard) return {
     zp: 0,
     price: 0
@@ -1044,10 +1045,9 @@ function computeAmounts(rateCard, format, studentCount, extraService, printEnabl
   const price = Number(rateCard["price_" + bucket]) || 0;
   const extraZp = extraService ? Number(rateCard.zp_extra_service) || 0 : 0;
   const extraPrice = extraService ? Number(rateCard.price_extra_service) || 0 : 0;
-  const printExtra = printEnabled && isOnlineFormat(format) ? printPrice != null ? Number(printPrice) : defaultPrintPrice(rateCard) : 0;
   return {
     zp: zp + extraZp,
-    price: price + extraPrice + printExtra
+    price: price + extraPrice
   };
 }
 function formatMoney(n) {
@@ -1623,9 +1623,11 @@ function courseAccent(course) {
 function courseHasPrinting(course) {
   return !course || course.startsWith("3D");
 }
-// Online lessons have nothing to print unless the admin ticked "друк".
-function lessonHasPrinting(lesson) {
-  return courseHasPrinting(lesson.course) && (!isOnlineFormat(lesson.format) || !!lesson.print_enabled);
+// Whether one child's work on this lesson goes to the printer: a 3D course,
+// and on an online lesson only if the admin ticked "Друк" for that child
+// (`att` is the child's attendance row, possibly null).
+function lessonPrintsFor(lesson, att) {
+  return courseHasPrinting(lesson.course) && (!isOnlineFormat(lesson.format) || !!(att && att.print_enabled));
 }
 function StatCard({
   icon,
@@ -2567,7 +2569,8 @@ function StudentCardModal({
   }, "Ще немає жодного заняття")) : sorted.map(lesson => {
     const teacher = profilesById[lesson.owner_id];
     const w = workByLesson[lesson.id];
-    const printable = lessonHasPrinting(lesson);
+    const att = attendance.find(a => a.lesson_id === lesson.id) || null;
+    const printable = lessonPrintsFor(lesson, att);
     const isFirst = firstLesson && lesson.id === firstLesson.id;
     return /*#__PURE__*/React.createElement("div", {
       key: lesson.id,
@@ -2609,7 +2612,7 @@ function StudentCardModal({
       }
     }, lesson.course), lesson.format && /*#__PURE__*/React.createElement("span", {
       className: "format-tag" + formatTagClass(lesson.format)
-    }, lessonFormatLabel(lesson)), lesson.room && /*#__PURE__*/React.createElement("span", {
+    }, lessonFormatLabel(lesson, att)), lesson.room && /*#__PURE__*/React.createElement("span", {
       className: "tag roster-count"
     }, lesson.room), isFirst && /*#__PURE__*/React.createElement("span", {
       className: "trial-pill"
@@ -3116,7 +3119,7 @@ function LessonModal({
     showToast(lesson ? "Заняття оновлено" : "Заняття додано");
     onSaved();
   }
-  const amounts = computeAmounts(rateCard, format, studentIds.length, extraService, lesson && lesson.print_enabled, lesson ? lesson.print_price : null);
+  const amounts = computeAmounts(rateCard, format, studentIds.length, extraService);
   return ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
     className: "overlay",
     onClick: onClose
@@ -3613,13 +3616,40 @@ function AttendanceControls({
   student,
   record,
   subscription,
+  printDefault,
   onMark,
-  onUnmark
+  onUnmark,
+  onSetPrint
 }) {
   const status = record ? record.status : null;
   const unpaid = status === "present" && !record.payment_method;
   const currentDiscount = record && record.discount_percent || 0;
   const [discountInput, setDiscountInput] = useState(currentDiscount ? String(currentDiscount) : "");
+  // This child's own "Друк" on an online lesson. Empty amount = the
+  // course's print price from Тарифи (printDefault, 100 грн if unset).
+  const printOn = !!(record && record.print_enabled);
+  const savedPrintPrice = record && record.print_price != null ? Number(record.print_price) : null;
+  const [printInput, setPrintInput] = useState(savedPrintPrice != null ? String(savedPrintPrice) : "");
+  const [printBusy, setPrintBusy] = useState(false);
+  useEffect(() => {
+    setPrintInput(savedPrintPrice != null ? String(savedPrintPrice) : "");
+  }, [savedPrintPrice, printOn, lesson.id, student.id]);
+  const showPrint = isOnlineFormat(lesson.format) && status === "present" && !!onSetPrint;
+  const printExtra = printOn ? savedPrintPrice != null ? savedPrintPrice : printDefault || DEFAULT_ONLINE_PRINT_PRICE : 0;
+  async function applyPrint(enabled, price) {
+    setPrintBusy(true);
+    await onSetPrint(lesson.id, student.id, enabled, price);
+    setPrintBusy(false);
+  }
+  function applyPrintPrice() {
+    const trimmed = printInput.trim();
+    const next = trimmed === "" ? null : Math.max(0, Number(trimmed) || 0);
+    if (next === savedPrintPrice) {
+      setPrintInput(next != null ? String(next) : "");
+      return;
+    }
+    applyPrint(true, next);
+  }
   // Choosing "Абонемент" when the student has no active one starts a new
   // purchase: ask when it was bought (default: this lesson's date) and how
   // it was paid before recording anything.
@@ -3673,7 +3703,45 @@ function AttendanceControls({
     className: "attend-btn" + (status === st.value ? " active " + st.value + (st.value === "present" && unpaid ? " unpaid" : "") : ""),
     title: status === st.value ? "Зняти позначку" : st.value === "present" ? "Присутній" : st.value === "absent" ? "Відсутній" : "Відсутній з поважної причини",
     onClick: () => status === st.value ? onUnmark(lesson.id, student.id) : onMark(lesson.id, student.id, st.value, st.value === "present" ? record && record.payment_method || null : null, st.value === "present" ? currentDiscount : 0)
-  }, st.label)))), status === "present" && /*#__PURE__*/React.createElement("div", {
+  }, st.label)))), showPrint && /*#__PURE__*/React.createElement("div", {
+    className: "attend-line"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "attend-line-label"
+  }, "Друк"), /*#__PURE__*/React.createElement("label", {
+    className: "print-option"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: printOn,
+    disabled: printBusy,
+    onChange: e => applyPrint(e.target.checked, null)
+  }), /*#__PURE__*/React.createElement(Icon, {
+    name: "printer",
+    size: 13
+  }), printOn ? "Друкуємо" : "Без друку"), printOn && /*#__PURE__*/React.createElement("div", {
+    className: "discount-input-row"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "discount-percent-sign"
+  }, "+"), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    min: "0",
+    step: "1",
+    className: "discount-input",
+    style: {
+      width: 64
+    },
+    value: printInput,
+    placeholder: String(printDefault || DEFAULT_ONLINE_PRINT_PRICE),
+    disabled: printBusy,
+    onChange: e => setPrintInput(e.target.value),
+    onBlur: applyPrintPrice,
+    onKeyDown: e => {
+      if (e.key === "Enter") e.target.blur();
+    }
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "discount-percent-sign"
+  }, "грн")), printOn && record.payment_method === "subscription" && /*#__PURE__*/React.createElement("span", {
+    className: "students-sub"
+  }, "входить в абонемент")), status === "present" && /*#__PURE__*/React.createElement("div", {
     className: "attend-line"
   }, /*#__PURE__*/React.createElement("span", {
     className: "attend-line-label"
@@ -3690,7 +3758,7 @@ function AttendanceControls({
     className: "payment-amount"
   }, currentDiscount > 0 && lesson.price_amount != null && /*#__PURE__*/React.createElement("span", {
     className: "discount-original-price"
-  }, formatMoney(lesson.price_amount)), formatMoney(record.amount))), status === "present" && buying && /*#__PURE__*/React.createElement("div", {
+  }, formatMoney(Number(lesson.price_amount) + (record.payment_method === "subscription" ? 0 : printExtra))), formatMoney(record.amount))), status === "present" && buying && /*#__PURE__*/React.createElement("div", {
     className: "sub-purchase"
   }, /*#__PURE__*/React.createElement("div", {
     className: "sub-purchase-title"
@@ -3757,85 +3825,6 @@ function AttendanceControls({
   }, "%"))));
 }
 
-// "Друк" checkbox for an online lesson (admin only). Empty amount = the
-// course's print price from Тарифи (or 100 грн if that's empty too).
-function LessonPrintOption({
-  lesson,
-  onSetPrint
-}) {
-  const [defaultPrice, setDefaultPrice] = useState(DEFAULT_ONLINE_PRINT_PRICE);
-  const [priceInput, setPriceInput] = useState(lesson.print_price != null ? String(lesson.print_price) : "");
-  const [busy, setBusy] = useState(false);
-  useEffect(() => {
-    setPriceInput(lesson.print_price != null ? String(lesson.print_price) : "");
-  }, [lesson.id, lesson.print_price, lesson.print_enabled]);
-  useEffect(() => {
-    if (!lesson.course) return;
-    let cancelled = false;
-    sb.from("rate_cards_safe").select("price_print_online").eq("course", lesson.course).maybeSingle().then(({
-      data
-    }) => {
-      if (!cancelled) setDefaultPrice(defaultPrintPrice(data));
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [lesson.course]);
-  async function apply(enabled, price) {
-    setBusy(true);
-    await onSetPrint(enabled, price);
-    setBusy(false);
-  }
-  function applyPrice() {
-    const trimmed = priceInput.trim();
-    const next = trimmed === "" ? null : Math.max(0, Number(trimmed) || 0);
-    if (next === (lesson.print_price != null ? Number(lesson.print_price) : null)) {
-      setPriceInput(next != null ? String(next) : "");
-      return;
-    }
-    apply(true, next);
-  }
-  return /*#__PURE__*/React.createElement("div", {
-    className: "print-option-row"
-  }, /*#__PURE__*/React.createElement("label", {
-    className: "print-option"
-  }, /*#__PURE__*/React.createElement("input", {
-    type: "checkbox",
-    checked: !!lesson.print_enabled,
-    disabled: busy,
-    onChange: e => apply(e.target.checked, null)
-  }), /*#__PURE__*/React.createElement(Icon, {
-    name: "printer",
-    size: 13
-  }), "Друк"), lesson.print_enabled ? /*#__PURE__*/React.createElement("div", {
-    className: "discount-input-row"
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "students-sub"
-  }, "+"), /*#__PURE__*/React.createElement("input", {
-    type: "number",
-    min: "0",
-    step: "1",
-    className: "discount-input",
-    style: {
-      width: 70
-    },
-    value: priceInput,
-    placeholder: String(defaultPrice),
-    disabled: busy,
-    onChange: e => setPriceInput(e.target.value),
-    onBlur: applyPrice,
-    onKeyDown: e => {
-      if (e.key === "Enter") e.target.blur();
-    }
-  }), /*#__PURE__*/React.createElement("span", {
-    className: "discount-percent-sign"
-  }, "грн")) : /*#__PURE__*/React.createElement("span", {
-    className: "students-sub"
-  }, "Онлайн-заняття без друку"), lesson.print_enabled && /*#__PURE__*/React.createElement("span", {
-    className: "students-sub"
-  }, priceInput.trim() === "" ? `за тарифом курсу (${formatMoney(defaultPrice)})` : "своя сума для цього заняття", " · з абонементом не доплачується"));
-}
-
 // ---------------------------------------------------------------
 // Lesson card: full detail view for one lesson, opened by clicking its
 // (now collapsed) row in the schedule — roster, photo/print handling and
@@ -3867,12 +3856,27 @@ function LessonCardModal({
   onPreview
 }) {
   const [showContacts, setShowContacts] = useState(false);
+  const [printDefault, setPrintDefault] = useState(DEFAULT_ONLINE_PRINT_PRICE);
   useEscapeClose(onClose);
   useLockBodyScroll();
-  const printable = lessonHasPrinting(lesson);
+  const online = isOnlineFormat(lesson.format);
+  useEffect(() => {
+    if (!isAdmin || !online || !lesson.course) return;
+    let cancelled = false;
+    sb.from("rate_cards_safe").select("price_print_online").eq("course", lesson.course).maybeSingle().then(({
+      data
+    }) => {
+      if (!cancelled) setPrintDefault(defaultPrintPrice(data));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isAdmin, online, lesson.course]);
+  // Children marked "П" whose work actually goes to the printer (on an
+  // online lesson, only those with "Друк" ticked).
   const attendingStudents = present.filter(s => {
     const att = findAttendance(attendance, lesson.id, s.id);
-    return att && att.status === "present";
+    return att && att.status === "present" && lessonPrintsFor(lesson, att);
   });
   const doneCount = attendingStudents.filter(s => {
     const w = findWork(works, lesson.id, s.id);
@@ -3959,7 +3963,7 @@ function LessonCardModal({
   }, /*#__PURE__*/React.createElement(Icon, {
     name: "repeat",
     size: 10
-  }), " Заміна: ", fullName(substituteProfile)), printable && attendingStudents.length > 0 && /*#__PURE__*/React.createElement("span", {
+  }), " Заміна: ", fullName(substituteProfile)), attendingStudents.length > 0 && /*#__PURE__*/React.createElement("span", {
     className: "tag progress"
   }, doneCount, "/", attendingStudents.length, " надруковано"), lesson.series_id && /*#__PURE__*/React.createElement("span", {
     className: "tag series"
@@ -3976,10 +3980,7 @@ function LessonCardModal({
   }, /*#__PURE__*/React.createElement(Icon, {
     name: "check",
     size: 11
-  }), " ", lesson.completed ? "Завершено" : "Не завершено")), onSetPrint && isOnlineFormat(lesson.format) && /*#__PURE__*/React.createElement(LessonPrintOption, {
-    lesson: lesson,
-    onSetPrint: onSetPrint
-  }), showContacts && /*#__PURE__*/React.createElement("div", {
+  }), " ", lesson.completed ? "Завершено" : "Не завершено")), showContacts && /*#__PURE__*/React.createElement("div", {
     className: "emergency-contacts"
   }, /*#__PURE__*/React.createElement("div", {
     className: "field-label"
@@ -4010,7 +4011,7 @@ function LessonCardModal({
     const printed = w && w.printed;
     const att = findAttendance(attendance, lesson.id, s.id);
     const wasPresent = att && att.status === "present";
-    const canHandlePrint = printable && wasPresent;
+    const canHandlePrint = wasPresent && lessonPrintsFor(lesson, att);
     const trialEligible = lessons.filter(l => l.course === lesson.course && (l.student_ids || []).includes(s.id)).length <= 1;
     return /*#__PURE__*/React.createElement("div", {
       key: s.id,
@@ -4074,8 +4075,10 @@ function LessonCardModal({
       student: s,
       record: att,
       subscription: findActiveSubscription(subscriptions, s.id, lesson.course),
+      printDefault: printDefault,
       onMark: markAttendance,
-      onUnmark: unmarkAttendance
+      onUnmark: unmarkAttendance,
+      onSetPrint: onSetPrint
     }));
   })))), document.body);
 }
@@ -4294,26 +4297,20 @@ function ScheduleTab({
       completed: next
     } : v);
   }
-  // set_lesson_print() re-prices the lesson and any card/cash charges
-  // already recorded on it, so reload both the lesson row and attendance.
-  async function setLessonPrint(lesson, enabled, price) {
+  // set_attendance_print() re-prices that one child's card/cash charge, so
+  // reload attendance to pick up both the flag and the new amount.
+  async function setAttendancePrint(lessonId, studentId, enabled, price) {
     const {
       error
-    } = await sb.rpc("set_lesson_print", {
-      p_lesson_id: lesson.id,
+    } = await sb.rpc("set_attendance_print", {
+      p_lesson_id: lessonId,
+      p_student_id: studentId,
       p_enabled: enabled,
       p_price: price
     });
     if (error) {
       showToast(error.message, "error");
       return;
-    }
-    const {
-      data
-    } = await sb.from("lessons_safe").select("*").eq("id", lesson.id).single();
-    if (data) {
-      setLessons(ls => ls.map(l => l.id === data.id ? data : l));
-      setViewingLesson(v => v && v.id === data.id ? data : v);
     }
     await loadAttendance();
   }
@@ -4331,7 +4328,7 @@ function ScheduleTab({
   let pendingCount = 0;
   const pendingToday = todayStr();
   lessons.forEach(l => {
-    if (!lessonHasPrinting(l)) return;
+    if (!courseHasPrinting(l.course)) return;
     if (l.date > pendingToday) return;
     (l.student_ids || []).forEach(sid => {
       // Skip ids that no longer resolve to a student (e.g. the student was
@@ -4340,7 +4337,7 @@ function ScheduleTab({
       // disagree with the tab it summarizes.
       if (!studentById[sid]) return;
       const att = findAttendance(attendance, l.id, sid);
-      if (!att || att.status !== "present") return;
+      if (!att || att.status !== "present" || !lessonPrintsFor(l, att)) return;
       const w = findWork(works, l.id, sid);
       if (!w || !w.printed) pendingCount++;
     });
@@ -4412,13 +4409,12 @@ function ScheduleTab({
   function renderGridBlock(item) {
     const lesson = item.lesson;
     const present = (lesson.student_ids || []).map(id => studentById[id]).filter(Boolean);
-    const printable = lessonHasPrinting(lesson);
-    // Printing only makes sense for students actually marked "П" — an
-    // absent/excused student never has a photo to print, so they shouldn't
-    // count toward (or block) this lesson's print progress.
+    // Printing only makes sense for students actually marked "П" (and on
+    // an online lesson, only those with "Друк" ticked) — nobody else has a
+    // model to print, so they don't count toward this lesson's progress.
     const attendingStudents = present.filter(s => {
       const att = findAttendance(attendance, lesson.id, s.id);
-      return att && att.status === "present";
+      return att && att.status === "present" && lessonPrintsFor(lesson, att);
     });
     const doneCount = attendingStudents.filter(s => {
       const w = findWork(works, lesson.id, s.id);
@@ -4460,7 +4456,7 @@ function ScheduleTab({
       className: "grid-lesson-theme"
     }, lesson.theme), aggregateAll && rowOwnerProfile && /*#__PURE__*/React.createElement("div", {
       className: "grid-lesson-teacher"
-    }, fullName(rowOwnerProfile)), printable && attendingStudents.length > 0 && /*#__PURE__*/React.createElement("div", {
+    }, fullName(rowOwnerProfile)), attendingStudents.length > 0 && /*#__PURE__*/React.createElement("div", {
       className: "grid-lesson-progress"
     }, doneCount, "/", attendingStudents.length));
   }
@@ -4750,7 +4746,7 @@ function ScheduleTab({
       if (deleted) setViewingLesson(null);
     },
     onToggleCompleted: canEdit ? () => toggleCompleted(viewingLesson) : undefined,
-    onSetPrint: canEdit && isAdmin ? (enabled, price) => setLessonPrint(viewingLesson, enabled, price) : undefined,
+    onSetPrint: canEdit && isAdmin ? setAttendancePrint : undefined,
     onViewStudent: s => setViewingStudent(s),
     attachPhoto: attachPhoto,
     togglePrinted: togglePrinted,
@@ -5082,18 +5078,19 @@ function QueueTab({
   const today = todayStr();
   const rows = [];
   lessons.forEach(lesson => {
-    if (!lessonHasPrinting(lesson)) return;
+    if (!courseHasPrinting(lesson.course)) return;
     if (lesson.date > today) return;
     (lesson.student_ids || []).forEach(sid => {
       const student = studentById[sid];
       if (!student) return;
       const att = findAttendance(attendance, lesson.id, sid);
-      if (!att || att.status !== "present") return;
+      if (!att || att.status !== "present" || !lessonPrintsFor(lesson, att)) return;
       const w = findWork(works, lesson.id, sid);
       rows.push({
         lesson,
         student,
-        work: w
+        work: w,
+        att
       });
     });
   });
@@ -5127,7 +5124,8 @@ function QueueTab({
   }, "Роботи з'являться тут після додавання фото на вкладці «Розклад».")) : filtered.map(({
     lesson,
     student,
-    work
+    work,
+    att
   }) => {
     const printed = work && work.printed;
     const rowOwnerProfile = aggregateAll ? profilesById[lesson.owner_id] : ownerProfile;
@@ -5155,7 +5153,7 @@ function QueueTab({
       }
     }, lesson.course), lesson.format && /*#__PURE__*/React.createElement("span", {
       className: "tag format" + formatTagClass(lesson.format)
-    }, lessonFormatLabel(lesson))), /*#__PURE__*/React.createElement("div", {
+    }, lessonFormatLabel(lesson, att))), /*#__PURE__*/React.createElement("div", {
       className: "print-item-name"
     }, student.name), /*#__PURE__*/React.createElement("div", {
       className: "print-item-origin"
@@ -6150,7 +6148,7 @@ function RateCardsTab() {
     style: {
       marginBottom: 14
     }
-  }, column === "sub" ? "Ціна ВСІХ 4 занять пакету одразу (не за одне), окремо для кожного формату. Яку з них взяти, визначає формат заняття, на якому купують абонемент. Колонки ЗП немає: викладачу за кожне заняття платиться звичайна ставка його формату. На онлайн-заняттях абонемент покриває і друк." : column === "price" ? "Суми — за одне заняття цього типу, у гривнях. «Додаткова послуга» додається зверху, якщо позначена на занятті. «Друк (online)» додається до онлайн-заняття, лише коли в його картці стоїть галочка «Друк»; порожнє поле = 100 грн. У ЗП викладача друк не входить." : "Суми — за одне заняття цього типу, у гривнях. «Додаткова послуга» додається зверху, якщо позначена на занятті. Друк на онлайн-занятті ЗП не змінює.", " Всі колонки зберігаються разом — перемикач лише впливає на те, що зараз показано."), /*#__PURE__*/React.createElement("div", {
+  }, column === "sub" ? "Ціна ВСІХ 4 занять пакету одразу (не за одне), окремо для кожного формату. Яку з них взяти, визначає формат заняття, на якому купують абонемент. Колонки ЗП немає: викладачу за кожне заняття платиться звичайна ставка його формату. На онлайн-заняттях абонемент покриває і друк." : column === "price" ? "Суми — за одне заняття цього типу, у гривнях. «Додаткова послуга» додається зверху, якщо позначена на занятті. «Друк (online)» додається до оплати окремого учня онлайн-заняття, лише коли в картці заняття біля нього стоїть галочка «Друк»; порожнє поле = 100 грн. У ЗП викладача друк не входить." : "Суми — за одне заняття цього типу, у гривнях. «Додаткова послуга» додається зверху, якщо позначена на занятті. Друк на онлайн-занятті ЗП не змінює.", " Всі колонки зберігаються разом — перемикач лише впливає на те, що зараз показано."), /*#__PURE__*/React.createElement("div", {
     className: "studio-segmented",
     style: {
       marginBottom: 14
@@ -6448,9 +6446,7 @@ function PayrollTab({
       className: "format-tag"
     }, PAYROLL_BUCKET_LABELS[bucket]), lesson.extra_service && /*#__PURE__*/React.createElement("span", {
       className: "format-tag online"
-    }, "+ дод. послуга"), isOnlineFormat(lesson.format) && lesson.print_enabled && /*#__PURE__*/React.createElement("span", {
-      className: "format-tag online"
-    }, "+ друк"))), /*#__PURE__*/React.createElement("div", {
+    }, "+ дод. послуга"))), /*#__PURE__*/React.createElement("div", {
       style: {
         textAlign: "right"
       }
