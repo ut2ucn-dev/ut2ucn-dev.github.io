@@ -72,6 +72,14 @@ jobs:
           mkdir -p ../dist
           cp build/app/outputs/flutter-apk/app-release.apk ../dist/stemik.apk
 
+      # Resources looked up only by name must survive resource shrinking,
+      # or the app fails at startup (see android/app/src/main/res/raw/keep.xml).
+      - name: Check APK resources
+        run: |
+          AAPT2=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)aapt2
+          "$AAPT2" dump resources build/app/outputs/flutter-apk/app-release.apk > resources.txt
+          grep -q 'drawable/ic_notification' resources.txt || { echo "ic_notification missing from the APK"; exit 1; }
+
       - uses: actions/upload-artifact@v5
         with:
           name: stemik-android

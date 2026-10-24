@@ -53,6 +53,8 @@ class Reminders {
     if (!supported) return;
     tzdata.initializeTimeZones();
     _kyiv = tz.getLocation(studioTimeZone);
+    store.addListener(_schedulePlan);
+    settings.addListener(_schedulePlan);
     await _plugin.initialize(
       settings: const InitializationSettings(
         android: AndroidInitializationSettings('ic_notification'),
@@ -71,8 +73,6 @@ class Reminders {
     final launch = await _plugin.getNotificationAppLaunchDetails();
     if (launch?.didNotificationLaunchApp ?? false) launchLessonId = launch?.notificationResponse?.payload;
     _ready = true;
-    store.addListener(_schedulePlan);
-    settings.addListener(_schedulePlan);
   }
 
   Future<bool> requestPermission() async {
