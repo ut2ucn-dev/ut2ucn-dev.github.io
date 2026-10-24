@@ -639,7 +639,7 @@ function Hero({ student, sum, parentName }) {
       stat("📚", sum.attended.length, plural(sum.attended.length, "заняття відвідано", "заняття відвідано", "занять відвідано")),
       stat("🧊", sum.models.length, plural(sum.models.length, "модель створено", "моделі створено", "моделей створено")),
       stat("🚀", sum.courses.length, plural(sum.courses.length, "напрям", "напрями", "напрямів")),
-      stat("🎟️", left, plural(left, "заняття в абонементах", "заняття в абонементах", "занять в абонементах"))),
+      stat("🎟️", left, "залишок занять в абонементах")),
     next && h("div", { className: "next" },
       h("div", { className: "ic", style: { background: look.bg } }, look.emoji),
       h("div", { style: { minWidth: 0 } },

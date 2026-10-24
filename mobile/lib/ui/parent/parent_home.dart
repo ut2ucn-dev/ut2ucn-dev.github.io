@@ -699,11 +699,7 @@ class _Hero extends StatelessWidget {
                       const SizedBox(width: 8),
                       stat('🧊', models, _plural(models, 'модель\nстворено', 'моделі\nстворено', 'моделей\nстворено')),
                       const SizedBox(width: 8),
-                      stat(
-                        '🎟️',
-                        left,
-                        _plural(left, 'заняття в\nабонементах', 'заняття в\nабонементах', 'занять в\nабонементах'),
-                      ),
+                      stat('🎟️', left, 'залишок занять\nв абонементах'),
                     ],
                   ),
                 ),
