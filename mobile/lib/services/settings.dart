@@ -66,4 +66,40 @@ class Settings extends ChangeNotifier {
 
   String? get lastEmail => _prefs.getString('lastEmail');
   set lastEmail(String? v) => v == null ? _prefs.remove('lastEmail') : _prefs.setString('lastEmail', v);
+
+  /// Which side of the login screen was used last: staff or parents.
+  bool get parentLoginMode => _prefs.getBool('parentLoginMode') ?? false;
+  set parentLoginMode(bool v) => _prefs.setBool('parentLoginMode', v);
+
+  String? get lastParentPhone => _prefs.getString('lastParentPhone');
+  set lastParentPhone(String? v) =>
+      v == null ? _prefs.remove('lastParentPhone') : _prefs.setString('lastParentPhone', v);
+
+  /// A signed-in parent's session token (sql/0018). Parents never have a
+  /// Supabase Auth session, so this alone says the app is in parent mode.
+  String? get parentToken => _prefs.getString('parentToken');
+
+  /// The last parent_portal() document, so the portal opens offline.
+  Map<String, dynamic>? get cachedParentPortal {
+    final raw = _prefs.getString('parentPortal');
+    return raw == null ? null : Map<String, dynamic>.from(jsonDecode(raw) as Map);
+  }
+
+  void saveParentPortal(Map<String, dynamic>? doc) =>
+      doc == null ? _prefs.remove('parentPortal') : _prefs.setString('parentPortal', jsonEncode(doc));
+
+  /// Child last looked at in the portal.
+  String? get parentChildId => _prefs.getString('parentChild');
+  set parentChildId(String? v) => v == null ? _prefs.remove('parentChild') : _prefs.setString('parentChild', v);
+
+  void setParentToken(String? token) {
+    if (token == null) {
+      _prefs.remove('parentToken');
+      _prefs.remove('parentPortal');
+      _prefs.remove('parentChild');
+    } else {
+      _prefs.setString('parentToken', token);
+    }
+    notifyListeners();
+  }
 }

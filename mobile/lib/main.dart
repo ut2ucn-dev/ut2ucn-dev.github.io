@@ -3,9 +3,12 @@ import 'package:intl/date_symbol_data_local.dart';
 
 import 'data/api.dart';
 import 'data/local_files.dart';
+import 'data/parent_portal.dart';
 import 'data/store.dart';
 import 'data/supabase_api.dart';
+import 'data/supabase_parent_api.dart';
 import 'demo/demo_api.dart';
+import 'demo/demo_parent_api.dart';
 import 'services/reminders.dart';
 import 'services/settings.dart';
 import 'ui/app.dart';
@@ -19,11 +22,14 @@ Future<void> main() async {
   await initializeDateFormatting('uk');
   final settings = await Settings.load();
   final StemikApi api;
+  final ParentApi parentApi;
   if (demoMode) {
     api = DemoApi();
+    parentApi = DemoParentApi();
   } else {
     await SupabaseApi.initialize();
     api = SupabaseApi();
+    parentApi = SupabaseParentApi();
   }
   final store = AppStore(api, LocalFiles.create());
   final reminders = Reminders(store, settings);
@@ -33,5 +39,5 @@ Future<void> main() async {
     // Reminders are a convenience; the app must still open without them.
     debugPrint('Reminders unavailable: $e\n$st');
   }
-  runApp(StemikApp(store: store, settings: settings, reminders: reminders));
+  runApp(StemikApp(store: store, parentApi: parentApi, settings: settings, reminders: reminders));
 }
