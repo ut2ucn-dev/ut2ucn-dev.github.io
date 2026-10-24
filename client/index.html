@@ -147,41 +147,17 @@
   .hero::before{ content:""; position:absolute; inset:0; pointer-events:none; opacity:.35;
     background-image:radial-gradient(circle, rgba(255,255,255,.35) 1px, transparent 1.2px); background-size:22px 22px;
     mask-image:linear-gradient(110deg, transparent 30%, black 100%); -webkit-mask-image:linear-gradient(110deg, transparent 30%, black 100%); }
-  .hero-grid{ position:relative; display:grid; grid-template-columns:1fr 210px; gap:18px; align-items:center; }
+  .hero-grid{ position:relative; display:grid; grid-template-columns:1fr 160px; gap:18px; align-items:center; }
   .hero-top{ position:relative; display:flex; align-items:center; gap:16px; }
   .hero-ph{ width:72px; height:72px; border-radius:22px; overflow:hidden; background:linear-gradient(135deg, #5CA7C9, #5B4FE0); display:flex; align-items:center; justify-content:center;
     font-size:30px; font-weight:800; flex-shrink:0; border:2px solid rgba(255,255,255,.3); box-shadow:0 8px 20px rgba(0,0,0,.25); }
   .hero-ph img{ width:100%; height:100%; object-fit:cover; }
-  .hero-hi{ display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:700; color:#BFE3F3; background:rgba(92,167,201,.18);
-    border:1px solid rgba(92,167,201,.35); border-radius:20px; padding:3px 10px; }
   .hero-name{ font-size:30px; font-weight:800; letter-spacing:-0.02em; line-height:1.12; margin-top:6px; }
-  .hero-courses{ display:flex; flex-wrap:wrap; gap:6px; margin-top:9px; }
-  .hero-tag{ background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.14); border-radius:20px; padding:4px 10px; font-size:11.5px; font-weight:700; }
-  .level{ margin-top:16px; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.12); border-radius:18px; padding:12px 14px; }
-  .level-row{ display:flex; align-items:center; gap:10px; }
-  .level-badge{ width:40px; height:40px; border-radius:13px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:17px; color:#05263F;
-    background:linear-gradient(135deg, #FFD36E, #F5A524); box-shadow:0 0 0 3px rgba(245,165,36,.25), 0 6px 14px rgba(245,165,36,.35); }
-  .level-name{ font-weight:800; font-size:15px; }
-  .level-sub{ font-size:11.5px; color:rgba(255,255,255,.7); font-weight:600; margin-top:1px; }
-  .level-xp{ margin-left:auto; font-size:12px; font-weight:800; color:#FFD36E; white-space:nowrap; }
   .xp{ height:9px; border-radius:9px; background:rgba(255,255,255,.12); overflow:hidden; margin-top:10px; }
   .xp > span{ display:block; height:100%; border-radius:9px; background:linear-gradient(90deg, #5CA7C9, #8B80FF, #FFD36E);
     box-shadow:0 0 12px rgba(139,128,255,.6); transition:width .8s cubic-bezier(.2,.8,.2,1); }
-  .hero-robot{ position:relative; padding-top:34px; }
+  .hero-robot{ position:relative; padding-top:30px; margin:-8px 0 -12px; }
   .hero-robot .bubble{ right:62%; top:0; white-space:nowrap; max-width:none; }
-  .hero-stats{ position:relative; display:grid; grid-template-columns:repeat(4, 1fr); gap:10px; margin-top:18px; }
-  .hero-stat{ background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.1); border-radius:18px; padding:12px 13px 11px; }
-  .hero-stat .ic{ font-size:16px; }
-  .hero-stat .v{ font-size:24px; font-weight:800; line-height:1; margin-top:6px; }
-  .hero-stat .l{ font-size:11.5px; color:rgba(255,255,255,.7); margin-top:4px; font-weight:600; }
-  .next{ position:relative; margin-top:14px; display:flex; align-items:center; gap:12px; background:#fff; color:#05263F;
-    border-radius:18px; padding:12px 14px; box-shadow:0 10px 24px rgba(0,0,0,.18); }
-  .next .ic{ width:42px; height:42px; border-radius:13px; display:flex; align-items:center; justify-content:center; font-size:22px; background:var(--brand-soft); flex-shrink:0; }
-  .next .t1{ font-size:11px; text-transform:uppercase; letter-spacing:.05em; font-weight:700; color:#6B7080; }
-  .next .t2{ font-size:15px; font-weight:800; }
-  .next .t3{ font-size:12.5px; color:#6B7080; margin-top:1px; }
-  .next .go-inline{ display:none; color:#5B4FE0; }
-  .next .go{ margin-left:auto; font-size:11px; font-weight:800; color:#5B4FE0; background:#EFEDFC; border-radius:20px; padding:4px 10px; white-space:nowrap; }
 
   /* achievements */
   .ach-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:10px; }
@@ -205,6 +181,46 @@
     display:flex; align-items:center; justify-content:center; gap:7px; transition:background .15s ease, color .15s ease; }
   .tab.active{ background:var(--brand); color:#fff; box-shadow:0 4px 12px rgba(91,79,224,.3); }
   .tab .cnt{ font-size:11px; background:var(--brand-soft); color:var(--brand-text); border-radius:20px; padding:1px 7px; }
+  .tab .tic{ display:none; }
+
+  /* compact hero additions */
+  .hero-greet{ font-size:12.5px; font-weight:700; color:#BFE3F3; }
+  .lvl-line{ display:flex; align-items:center; gap:8px; margin-top:8px; font-size:12.5px; font-weight:700; color:rgba(255,255,255,.85); }
+  .lvl-chip{ width:24px; height:24px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:12.5px; font-weight:800; color:#05263F;
+    background:linear-gradient(135deg, #FFD36E, #F5A524); box-shadow:0 0 0 2px rgba(245,165,36,.25); flex-shrink:0; }
+  .lvl-line .xpv{ color:#FFD36E; margin-left:auto; white-space:nowrap; }
+  .hero .xp{ margin-top:8px; height:7px; }
+  .hero-nums{ position:relative; display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin-top:16px; }
+  .hero-num{ background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.1); border-radius:14px; padding:10px 12px; }
+  .hero-num .v{ font-size:22px; font-weight:800; line-height:1; }
+  .hero-num .l{ font-size:11px; color:rgba(255,255,255,.7); margin-top:4px; font-weight:600; line-height:1.25; }
+
+  /* overview */
+  .next-card{ display:flex; align-items:center; gap:12px; }
+  .next-card .ic{ width:46px; height:46px; border-radius:15px; display:flex; align-items:center; justify-content:center; font-size:23px; flex-shrink:0; }
+  .next-card .t1{ font-size:11px; text-transform:uppercase; letter-spacing:.05em; font-weight:800; color:var(--ink-soft); }
+  .next-card .t1 b{ color:var(--brand-text); }
+  .next-card .t2{ font-size:16px; font-weight:800; margin-top:1px; }
+  .next-card .t3{ font-size:12.5px; color:var(--ink-soft); margin-top:1px; }
+  .link-btn{ border:none; background:none; color:var(--brand-text); font-weight:700; font-size:12.5px; cursor:pointer; padding:0; font-family:inherit; }
+  .ok-strip{ display:flex; align-items:center; gap:10px; border-radius:16px; padding:12px 14px; background:var(--success-soft); color:var(--success-text); font-weight:700; font-size:13.5px; animation:fadeInUp .3s ease both; }
+  .ok-strip .ico{ width:26px; height:26px; border-radius:50%; background:var(--success); color:#fff; display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; }
+  .sub-line{ display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--line); }
+  .sub-line:last-child{ border-bottom:none; padding-bottom:0; }
+  .sub-line .nm{ font-weight:700; font-size:13.5px; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .sub-line .left{ font-weight:800; font-size:13px; color:var(--brand-text); white-space:nowrap; }
+  .sub-line .mini{ width:56px; height:6px; border-radius:6px; background:var(--line); overflow:hidden; flex-shrink:0; }
+  .sub-line .mini > span{ display:block; height:100%; background:var(--brand); border-radius:6px; }
+  .stack > * + *{ margin-top:12px; }
+  .ach-strip{ display:flex; gap:10px; overflow-x:auto; scrollbar-width:none; padding:2px 2px 4px; margin:0 -2px; scroll-snap-type:x proximity; }
+  .ach-strip::-webkit-scrollbar{ display:none; }
+  .ach-strip .ach{ flex:0 0 112px; padding:12px 8px 10px; scroll-snap-align:start; }
+  .ach-strip .ach .medal{ width:44px; height:44px; font-size:21px; }
+  .ach-strip .ach .ds{ display:none; }
+  .ach-strip .ach .prog{ margin-top:6px; }
+  .lesson{ cursor:pointer; }
+  .lesson .more{ font-size:12px; color:var(--ink-soft); margin-top:6px; line-height:1.5; }
+  .lesson .meta-full{ display:inline; }
   .tab.active .cnt{ background:rgba(255,255,255,.22); color:#fff; }
 
   .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
@@ -303,15 +319,33 @@
     .grid2{ grid-template-columns:1fr; }
     .hero{ padding:20px 18px 18px; border-radius:26px; }
     .hero-grid{ grid-template-columns:1fr; }
-    .hero-robot{ position:absolute; right:-8px; top:-10px; width:104px; margin:0; padding:0; }
+    .hero-robot{ position:absolute; right:-6px; top:-6px; width:84px; margin:0; padding:0; }
     .hero-robot .bubble{ display:none; }
-    .hero-top, .hero-courses{ padding-right:92px; }
-    .next .go{ display:none; }
-    .next .go-inline{ display:inline; }
-    .hero-name{ font-size:24px; }
-    .hero-ph{ width:58px; height:58px; border-radius:18px; font-size:24px; }
-    .hero-stats{ grid-template-columns:repeat(2, 1fr); }
+    .hero-top, .lvl-line{ padding-right:74px; }
+    .hero .xp{ margin-right:74px; }
+    .hero-name{ font-size:21px; }
+    .hero-ph{ width:48px; height:48px; border-radius:15px; font-size:20px; }
+    .hero-nums{ margin-top:14px; }
+    .hero-num{ padding:9px 10px; }
+    .hero-num .v{ font-size:19px; }
+    .hero-num .l{ font-size:10.5px; }
     .ach-grid{ grid-template-columns:repeat(2, 1fr); }
+    /* bottom navigation, like the app */
+    .wrap{ padding-bottom:96px; }
+    .tabs{ position:fixed; left:0; right:0; bottom:0; z-index:30; margin:0; border-radius:20px 20px 0 0; border-width:1px 0 0;
+      padding:6px 8px calc(6px + env(safe-area-inset-bottom)); gap:2px; box-shadow:0 -8px 24px rgba(5,38,63,.08); overflow:visible; }
+    .tab{ flex-direction:column; gap:3px; padding:6px 4px; font-size:11px; min-width:0; position:relative; }
+    .tab .tic{ display:block; }
+    .tab.active{ background:var(--brand-soft); color:var(--brand-text); box-shadow:none; }
+    .tab .cnt{ position:absolute; top:2px; left:calc(50% + 6px); background:var(--danger); color:#fff; font-size:10px; padding:0 5px; }
+    .tab.active .cnt{ background:var(--danger); }
+    .kid{ padding:5px; border-radius:15px; }
+    .kid .ph{ width:34px; height:34px; border-radius:11px; font-size:14px; }
+    .kid .kn{ display:none; }
+    .kid.active{ padding-right:12px; }
+    .kid.active .kn{ display:block; font-size:13px; }
+    .topbar{ padding-bottom:12px; }
+    .lesson .meta-full{ display:none; }
     .login-robot{ width:150px !important; }
     .parent-chip .nm{ display:none; }
     .parent-chip{ padding:5px; }
@@ -436,7 +470,7 @@ function formatPhone(phone) {
 function lessonState(l, today) {
   if (!l.status) return l.date >= today ? { key: "upcoming", label: "Заплановано", tone: "brand" } : { key: "unmarked", label: "Очікує відмітки", tone: "grey" };
   if (l.status === "absent") return { key: "absent", label: "Пропуск", tone: "grey" };
-  if (l.status === "excused") return { key: "excused", label: "Пропуск (поважна причина)", tone: "grey" };
+  if (l.status === "excused") return { key: "excused", label: "Пропуск (поважна)", tone: "grey" };
   if (l.payment_method) return { key: "paid", label: PAYMENT_LABELS[l.payment_method] || "Оплачено", tone: l.payment_method === "certificate" ? "amber" : "green" };
   return { key: "unpaid", label: "Не сплачено", tone: "red" };
 }
@@ -454,6 +488,10 @@ function Icon({ name, size }) {
     case "refresh": return h("svg", p, h("path", { d: "M21 12a9 9 0 1 1-2.6-6.4M21 3v6h-6" }));
     case "heart": return h("svg", p, h("path", { d: "M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z" }));
     case "card": return h("svg", p, h("rect", { x: 2, y: 5, width: 20, height: 14, rx: 2 }), h("path", { d: "M2 10h20" }));
+    case "home": return h("svg", p, h("path", { d: "M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z" }));
+    case "cube": return h("svg", p, h("path", { d: "M12 2 21 7v10l-9 5-9-5V7z" }), h("path", { d: "M3 7l9 5 9-5M12 12v10" }));
+    case "wallet": return h("svg", p, h("rect", { x: 3, y: 6, width: 18, height: 14, rx: 2 }), h("path", { d: "M3 10h18M16 15h2M7 6V4h10v2" }));
+    case "calendar": return h("svg", p, h("rect", { x: 3, y: 5, width: 18, height: 16, rx: 2 }), h("path", { d: "M3 10h18M8 3v4M16 3v4" }));
     default: return null;
   }
 }
@@ -605,8 +643,6 @@ function levelOf(attended) {
 }
 
 function Hero({ student, sum, parentName }) {
-  const next = sum.upcoming[0];
-  const look = next ? courseLook(next.course) : null;
   const lvl = levelOf(sum.attended.length);
   const firstName = student.name.split(" ")[0];
   const greeting = parentName ? `Привіт, ${parentName.split(" ").slice(-1)[0]}!` : "Вітаємо!";
@@ -614,39 +650,26 @@ function Hero({ student, sum, parentName }) {
     ? `${firstName} вже ${/[ая]$/.test(firstName) ? "створила" : "створив"} ${sum.models.length} ${plural(sum.models.length, "модель", "моделі", "моделей")}!`
     : `${greeting} 👋`;
   const left = sum.activeSubs.reduce((s, x) => s + x.remaining_lessons, 0);
-  const stat = (ic, v, l) => h("div", { className: "hero-stat" }, h("div", { className: "ic" }, ic), h("div", { className: "v" }, v), h("div", { className: "l" }, l));
+  const num = (v, l) => h("div", { className: "hero-num" }, h("div", { className: "v" }, v), h("div", { className: "l" }, l));
   return h("div", { className: "hero" },
     h("div", { className: "hero-grid" },
       h("div", { style: { minWidth: 0, position: "relative" } },
         h("div", { className: "hero-top" },
           h("div", { className: "hero-ph" }, student.photo ? h("img", { src: student.photo, alt: "" }) : initial(student.name)),
           h("div", { style: { minWidth: 0 } },
-            h("div", { className: "hero-hi" }, "👋 ", greeting),
-            h("div", { className: "hero-name" }, student.name))),
-        h("div", { className: "hero-courses" }, sum.courses.slice(0, 4).map(c => h("span", { key: c.course, className: "hero-tag" }, courseLook(c.course).emoji + " " + c.course))),
-        h("div", { className: "level" },
-          h("div", { className: "level-row" },
-            h("div", { className: "level-badge" }, lvl.n),
-            h("div", { style: { minWidth: 0 } },
-              h("div", { className: "level-name" }, `Рівень ${lvl.n} · ${lvl.name}`),
-              h("div", { className: "level-sub" }, lvl.next
-                ? `Ще ${lvl.toNext} ${plural(lvl.toNext, "заняття", "заняття", "занять")} до рівня «${lvl.next.name}»`
-                : "Найвищий рівень студії!")),
-            h("div", { className: "level-xp" }, `${sum.attended.length * 10} XP`)),
-          h("div", { className: "xp" }, h("span", { style: { width: Math.max(4, Math.round(lvl.progress * 100)) + "%" } })))),
+            h("div", { className: "hero-greet" }, greeting),
+            h("div", { className: "hero-name", style: { marginTop: 0 } }, student.name))),
+        h("div", { className: "lvl-line" },
+          h("span", { className: "lvl-chip" }, lvl.n),
+          h("span", null, `Рівень ${lvl.n} · ${lvl.name}`),
+          h("span", { className: "xpv" }, `${sum.attended.length * 10} XP`)),
+        h("div", { className: "xp", title: lvl.next ? `Ще ${lvl.toNext} ${plural(lvl.toNext, "заняття", "заняття", "занять")} до рівня «${lvl.next.name}»` : "Найвищий рівень" },
+          h("span", { style: { width: Math.max(4, Math.round(lvl.progress * 100)) + "%" } }))),
       h(WavingRobot, { className: "hero-robot", onDark: true, bubble })),
-    h("div", { className: "hero-stats" },
-      stat("📚", sum.attended.length, plural(sum.attended.length, "заняття відвідано", "заняття відвідано", "занять відвідано")),
-      stat("🧊", sum.models.length, plural(sum.models.length, "модель створено", "моделі створено", "моделей створено")),
-      stat("🚀", sum.courses.length, plural(sum.courses.length, "напрям", "напрями", "напрямів")),
-      stat("🎟️", left, "залишок занять в абонементах")),
-    next && h("div", { className: "next" },
-      h("div", { className: "ic", style: { background: look.bg } }, look.emoji),
-      h("div", { style: { minWidth: 0 } },
-        h("div", { className: "t1" }, "Наступне заняття", h("span", { className: "go-inline" }, " · " + daysUntil(next.date, sum.today))),
-        h("div", { className: "t2" }, `${WEEKDAYS[parseDate(next.date).getDay()]}, ${fmtDate(next.date)}${next.time ? " о " + fmtTime(next.time) : ""}`),
-        h("div", { className: "t3" }, [next.course, next.theme, next.room].filter(Boolean).join(" · "))),
-      h("span", { className: "go" }, daysUntil(next.date, sum.today))));
+    h("div", { className: "hero-nums" },
+      num(sum.attended.length, plural(sum.attended.length, "заняття відвідано", "заняття відвідано", "занять відвідано")),
+      num(sum.models.length, plural(sum.models.length, "модель створено", "моделі створено", "моделей створено")),
+      num(left, "залишок занять в абонементах")));
 }
 
 function daysUntil(date, today) {
@@ -673,20 +696,21 @@ function achievementsOf(sum) {
 }
 
 function AchievementsCard({ sum }) {
-  const list = achievementsOf(sum);
-  const got = list.filter(a => a.have >= a.need).length;
+  const [all, setAll] = useState(false);
+  const list = achievementsOf(sum).map(a => ({ ...a, done: a.have >= a.need }));
+  const got = list.filter(a => a.done).length;
+  const ordered = all ? list : [...list.filter(a => a.done), ...list.filter(a => !a.done)];
   return h("div", { className: "card" },
-    h("div", { className: "card-title" }, h("span", { className: "em" }, "🏆"), "Досягнення", h("span", { className: "aside" }, `${got} з ${list.length}`)),
-    h("div", { className: "ach-grid" }, list.map(a => {
-      const done = a.have >= a.need;
-      return h("div", { key: a.nm, className: "ach" + (done ? "" : " locked") },
-        done && h("div", { className: "tick" }, "✓"),
+    h("div", { className: "card-title" }, h("span", { className: "em" }, "🏆"), "Досягнення",
+      h("span", { className: "aside" }, `${got} з ${list.length} · `, h("button", { className: "link-btn", onClick: () => setAll(v => !v) }, all ? "Згорнути" : "Усі"))),
+    h("div", { className: all ? "ach-grid" : "ach-strip" }, ordered.map(a =>
+      h("div", { key: a.nm, className: "ach" + (a.done ? "" : " locked"), title: a.ds },
+        a.done && h("div", { className: "tick" }, "✓"),
         h("div", { className: "medal" }, a.em),
         h("div", { className: "nm" }, a.nm),
         h("div", { className: "ds" }, a.ds),
-        !done && a.need > 1 && h("div", { className: "prog" }, h("span", { style: { width: Math.round(a.have / a.need * 100) + "%" } })),
-        !done && a.need > 1 && h("div", { className: "ds" }, `${a.have} / ${a.need}`));
-    })));
+        !a.done && a.need > 1 && h("div", { className: "prog" }, h("span", { style: { width: Math.round(a.have / a.need * 100) + "%" } })),
+        !a.done && a.need > 1 && h("div", { className: "ds", style: { display: "block" } }, `${a.have} / ${a.need}`)))));
 }
 
 function PayButton({ student, sum }) {
@@ -761,22 +785,52 @@ function CoursesCard({ sum }) {
       }));
 }
 
-function UpcomingCard({ sum }) {
-  const list = sum.upcoming.slice(0, 5);
+function NextLessonCard({ sum, onAll }) {
+  const next = sum.upcoming[0];
+  if (!next) return h("div", { className: "card" }, h("div", { className: "muted" }, "📅 Нових занять поки не заплановано"));
+  const look = courseLook(next.course);
+  const more = sum.upcoming.length - 1;
   return h("div", { className: "card" },
-    h("div", { className: "card-title" }, h("span", { className: "em" }, "📅"), "Найближчі заняття"),
-    list.length === 0 ? h("div", { className: "empty" }, "Нових занять поки не заплановано")
-      : list.map(l => h(LessonRow, { key: l.id, l, today: "" })));
+    h("div", { className: "next-card" },
+      h("div", { className: "ic", style: { background: look.bg } }, look.emoji),
+      h("div", { style: { minWidth: 0, flex: 1 } },
+        h("div", { className: "t1" }, "Наступне заняття · ", h("b", null, daysUntil(next.date, sum.today))),
+        h("div", { className: "t2" }, `${WEEKDAYS[parseDate(next.date).getDay()]}, ${fmtDate(next.date)}${next.time ? " о " + fmtTime(next.time) : ""}`),
+        h("div", { className: "t3" }, [next.course, next.theme].filter(Boolean).join(" · ")))),
+    more > 0 && h("div", { style: { marginTop: 10 } },
+      h("button", { className: "link-btn", onClick: onAll }, `Ще ${more} ${plural(more, "заплановане", "заплановані", "запланованих")} →`)));
 }
 
+function MoneyBlock({ student, sum }) {
+  if (sum.due > 0) return h(BalanceCard, { student, sum });
+  return h("div", { className: "ok-strip" }, h("span", { className: "ico" }, "✓"), "Усе сплачено — дякуємо!");
+}
+
+function SubscriptionLines({ sum, onAll }) {
+  if (!sum.activeSubs.length) return null;
+  return h("div", { className: "card" },
+    h("div", { className: "card-title", style: { marginBottom: 4 } }, h("span", { className: "em" }, "🎟️"), "Абонементи",
+      h("span", { className: "aside" }, h("button", { className: "link-btn", onClick: onAll }, "Деталі"))),
+    sum.activeSubs.map(s => h("div", { key: s.id, className: "sub-line" },
+      h("div", { className: "nm" }, s.course || "Абонемент"),
+      h("div", { className: "mini" }, h("span", { style: { width: Math.round(s.remaining_lessons / s.total_lessons * 100) + "%" } })),
+      h("div", { className: "left" }, `${s.remaining_lessons} з ${s.total_lessons}`))));
+}
+
+// Course, theme, date and state; format, room and teacher show on tap on
+// phones (and inline on wide screens).
 function LessonRow({ l, today }) {
+  const [open, setOpen] = useState(false);
   const d = parseDate(l.date);
   const st = lessonState(l, today || l.date);
-  return h("div", { className: "lesson" },
+  const details = [FORMAT_LABELS[l.format], l.room, l.teacher && "викладач " + l.teacher].filter(Boolean).join(" · ");
+  return h("div", { className: "lesson", onClick: () => setOpen(o => !o) },
     h("div", { className: "date-box" }, h("div", { className: "d" }, d.getDate()), h("div", { className: "m" }, MONTHS_SHORT[d.getMonth()])),
     h("div", { style: { minWidth: 0, flex: 1 } },
       h("div", { className: "nm" }, [l.course, l.theme].filter(Boolean).join(" · ") || "Заняття"),
-      h("div", { className: "meta" }, [WEEKDAYS[d.getDay()], fmtTime(l.time), FORMAT_LABELS[l.format], l.room, l.teacher && "викладач " + l.teacher].filter(Boolean).join(" · "))),
+      h("div", { className: "meta" }, [WEEKDAYS[d.getDay()], fmtTime(l.time)].filter(Boolean).join(" · "),
+        details && h("span", { className: "meta-full" }, " · " + details)),
+      open && details && h("div", { className: "more" }, details)),
     h("div", { className: "right" },
       h("span", { className: "pill " + st.tone }, st.label),
       l.trial && h("span", { className: "pill violet" }, "Пробне"),
@@ -795,10 +849,10 @@ function LessonsTab({ sum, today }) {
     if (filter === "absent") return k === "absent" || k === "excused";
     return k === filter;
   });
-  return h("div", { className: "card" },
+  return h("div", { className: "stack" }, h(CoursesCard, { sum }), h("div", { className: "card" },
     h("div", { className: "filters" }, FILTERS.map(([k, label]) => h("button", { key: k, className: "filter" + (filter === k ? " active" : ""), onClick: () => setFilter(k) }, label))),
     list.length === 0 ? h("div", { className: "empty" }, h("div", { className: "big" }, "🗓️"), "Тут поки порожньо")
-      : list.map(l => h(LessonRow, { key: l.id, l, today })));
+      : list.map(l => h(LessonRow, { key: l.id, l, today }))));
 }
 
 // A work photo that fails to load (deleted, offline) falls back to the
@@ -830,16 +884,8 @@ function ModelsTab({ sum, onOpen }) {
 }
 
 function PaymentsTab({ student, sum }) {
-  return h(React.Fragment, null,
-    h("div", { className: "grid2" },
-      h(BalanceCard, { student, sum }),
-      h("div", { className: "card", style: { margin: 0 } },
-        h("div", { className: "card-title" }, h("span", { className: "em" }, "💳"), "Підсумок"),
-        h("div", { className: "lesson" }, h("div", { className: "nm", style: { flex: 1 } }, "Сплачено занять"), h("span", { className: "pill green" }, sum.attended.length - sum.unpaid.length)),
-        h("div", { className: "lesson" }, h("div", { className: "nm", style: { flex: 1 } }, "Не сплачено"), h("span", { className: "pill " + (sum.unpaid.length ? "red" : "grey") }, sum.unpaid.length)),
-        h("div", { className: "lesson" }, h("div", { className: "nm", style: { flex: 1 } }, "Залишок в абонементах"), h("span", { className: "pill brand" }, sum.activeSubs.reduce((s, x) => s + x.remaining_lessons, 0))),
-        h("div", { className: "lesson" }, h("div", { className: "nm", style: { flex: 1 } }, "Сертифікатом"), h("span", { className: "pill amber" }, sum.certificates.length)))),
-    h("div", { style: { height: 14 } }),
+  return h("div", { className: "stack" },
+    h(BalanceCard, { student, sum }),
     h(SubscriptionsCard, { subs: student.subscriptions || [] }),
     h(SpecialCard, { sum }),
     sum.unpaid.length > 0 && h("div", { className: "card" },
@@ -847,16 +893,13 @@ function PaymentsTab({ student, sum }) {
       sum.unpaid.map(l => h(LessonRow, { key: l.id, l, today: "" }))));
 }
 
-function OverviewTab({ student, sum }) {
-  return h(React.Fragment, null,
+function OverviewTab({ student, sum, goTo }) {
+  return h("div", { className: "stack" },
     h("div", { className: "grid2" },
-      h(BalanceCard, { student, sum }),
-      h(UpcomingCard, { sum })),
-    h("div", { style: { height: 14 } }),
-    h(AchievementsCard, { sum }),
-    h("div", { style: { height: 14 } }),
-    h(CoursesCard, { sum }),
-    h(SpecialCard, { sum }));
+      h(NextLessonCard, { sum, onAll: () => goTo("lessons") }),
+      h(MoneyBlock, { student, sum })),
+    h(SubscriptionLines, { sum, onAll: () => goTo("payments") }),
+    h(AchievementsCard, { sum }));
 }
 
 function Portal({ data, offline, onRefresh, onLogout, theme, onToggleTheme }) {
@@ -897,9 +940,10 @@ function Portal({ data, offline, onRefresh, onLogout, theme, onToggleTheme }) {
         : h(React.Fragment, null,
           h(Hero, { student, sum, parentName: data.parent && data.parent.name }),
           h("div", { className: "tabs" },
-            [["overview", "Огляд", null], ["models", "Моделі", sum.models.length], ["payments", "Оплати", sum.unpaid.length || null], ["lessons", "Заняття", sum.lessons.length]]
-              .map(([k, label, cnt]) => h("button", { key: k, className: "tab" + (tab === k ? " active" : ""), onClick: () => setTab(k) }, label, cnt ? h("span", { className: "cnt" }, cnt) : null))),
-          tab === "overview" && h(OverviewTab, { student, sum }),
+            [["overview", "Огляд", "home", null], ["models", "Моделі", "cube", null], ["payments", "Оплати", "wallet", sum.unpaid.length || null], ["lessons", "Заняття", "calendar", null]]
+              .map(([k, label, icon, cnt]) => h("button", { key: k, className: "tab" + (tab === k ? " active" : ""), onClick: () => { setTab(k); window.scrollTo({ top: 0, behavior: "smooth" }); } },
+                h("span", { className: "tic" }, h(Icon, { name: icon, size: 21 })), label, cnt ? h("span", { className: "cnt" }, cnt) : null))),
+          tab === "overview" && h(OverviewTab, { student, sum, goTo: setTab }),
           tab === "models" && h(ModelsTab, { sum, onOpen: setLightbox }),
           tab === "payments" && h(PaymentsTab, { student, sum }),
           tab === "lessons" && h(LessonsTab, { sum, today })),

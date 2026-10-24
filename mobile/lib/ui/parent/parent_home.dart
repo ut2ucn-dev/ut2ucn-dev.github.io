@@ -113,7 +113,7 @@ class _ParentHomeState extends State<ParentHome> {
     final pages = summary == null
         ? null
         : [
-            _OverviewPage(summary: summary, portal: portal),
+            _OverviewPage(summary: summary, portal: portal, onGo: (i) => setState(() => _tab = i)),
             _ModelsPage(summary: summary),
             _PaymentsPage(summary: summary, portal: portal),
             _LessonsPage(summary: summary, today: portal.today),
@@ -348,10 +348,11 @@ class _Pill extends StatelessWidget {
 }
 
 class _SectionCard extends StatelessWidget {
-  const _SectionCard({required this.emoji, required this.title, required this.children});
+  const _SectionCard({required this.emoji, required this.title, required this.children, this.trailing});
   final String emoji;
   final String title;
   final List<Widget> children;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) => Card(
@@ -367,6 +368,7 @@ class _SectionCard extends StatelessWidget {
               Expanded(
                 child: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
               ),
+              ?trailing,
             ],
           ),
           const SizedBox(height: 10),
@@ -400,7 +402,7 @@ class _KidSwitcher extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.c;
     return SizedBox(
-      height: 62,
+      height: 58,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 2),
@@ -409,26 +411,32 @@ class _KidSwitcher extends StatelessWidget {
         itemBuilder: (context, i) {
           final s = students[i];
           final active = s.id == selectedId;
-          return Material(
-            color: active ? c.brand : c.card,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(color: active ? c.brand : c.line, width: 1.5),
-            ),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(16),
-              onTap: () => onSelect(s.id),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(6, 6, 14, 6),
-                child: Row(
-                  children: [
-                    _KidPhoto(student: s, size: 34, onBrand: active),
-                    const SizedBox(width: 9),
-                    Text(
-                      s.name.split(' ').first,
-                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: active ? Colors.white : c.ink),
-                    ),
-                  ],
+          return Tooltip(
+            message: s.name,
+            child: Material(
+              color: active ? c.brand : c.card,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(color: active ? c.brand : c.line, width: 1.5),
+              ),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: () => onSelect(s.id),
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(5, 5, active ? 12 : 5, 5),
+                  child: Row(
+                    children: [
+                      _KidPhoto(student: s, size: 34, onBrand: active),
+                      // Only the selected child is named, to keep the row short.
+                      if (active) ...[
+                        const SizedBox(width: 8),
+                        Text(
+                          s.name.split(' ').first,
+                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: Colors.white),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -475,102 +483,93 @@ class _Hero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = summary.student;
-    final next = summary.upcoming.firstOrNull;
     final level = summary.level;
     final greeting = parentName == null ? 'Вітаємо!' : 'Привіт, ${parentName!.split(' ').last}!';
-    final glass = BoxDecoration(
-      color: Colors.white.withValues(alpha: 0.07),
-      borderRadius: BorderRadius.circular(16),
-      border: Border.all(color: Colors.white.withValues(alpha: 0.11)),
-    );
-    final soft = Colors.white.withValues(alpha: 0.7);
-    Widget stat(String emoji, int v, String label) => Expanded(
+    final attended = summary.attended.length;
+    final models = summary.models.length;
+    final left = summary.lessonsLeftInSubscriptions;
+    Widget num(int v, String label) => Expanded(
       child: Container(
-        padding: const EdgeInsets.fromLTRB(11, 10, 8, 10),
-        decoration: glass,
+        padding: const EdgeInsets.fromLTRB(10, 9, 6, 9),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.07),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(emoji, style: const TextStyle(fontSize: 15)),
-            const SizedBox(height: 4),
             Text(
               '$v',
-              style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800, height: 1),
+              style: const TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w800, height: 1),
             ),
             const SizedBox(height: 4),
             Text(
               label,
-              maxLines: 2,
-              style: TextStyle(color: soft, fontSize: 11, fontWeight: FontWeight.w600, height: 1.15),
+              maxLines: 3,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.7),
+                fontSize: 10.5,
+                fontWeight: FontWeight.w600,
+                height: 1.2,
+              ),
             ),
           ],
         ),
       ),
     );
-    final attended = summary.attended.length;
-    final models = summary.models.length;
-    final left = summary.lessonsLeftInSubscriptions;
     return Container(
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(26),
+        borderRadius: BorderRadius.circular(24),
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [Color(0xFF05263F), Color(0xFF0B3558)],
         ),
         boxShadow: [
-          BoxShadow(color: const Color(0xFF05263F).withValues(alpha: 0.3), blurRadius: 26, offset: const Offset(0, 12)),
+          BoxShadow(
+            color: const Color(0xFF05263F).withValues(alpha: 0.28),
+            blurRadius: 22,
+            offset: const Offset(0, 10),
+          ),
         ],
       ),
       child: Stack(
         children: [
-          Positioned(right: -80, top: -90, child: _glow(const Color(0xFF2B5C86), 260)),
-          Positioned(left: -90, bottom: -110, child: _glow(const Color(0xFF5B4FE0), 260)),
-          const Positioned(right: 2, top: 4, child: WavingRobot(width: 104, onDark: true)),
+          Positioned(right: -80, top: -90, child: _glow(const Color(0xFF2B5C86), 240)),
+          Positioned(left: -90, bottom: -110, child: _glow(const Color(0xFF5B4FE0), 240)),
+          const Positioned(right: 4, top: 4, child: WavingRobot(width: 84, onDark: true)),
           Padding(
-            padding: const EdgeInsets.all(18),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Padding(
-                  padding: const EdgeInsets.only(right: 96),
+                  padding: const EdgeInsets.only(right: 80),
                   child: Row(
                     children: [
-                      Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(19),
-                          border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 2),
-                        ),
-                        child: _KidPhoto(student: s, size: 56),
-                      ),
-                      const SizedBox(width: 12),
+                      _KidPhoto(student: s, size: 46),
+                      const SizedBox(width: 11),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF5CA7C9).withValues(alpha: 0.18),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(color: const Color(0xFF5CA7C9).withValues(alpha: 0.35)),
-                              ),
-                              child: Text(
-                                '👋 $greeting',
-                                style: const TextStyle(
-                                  color: Color(0xFFBFE3F3),
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.w700,
-                                ),
+                            Text(
+                              greeting,
+                              style: const TextStyle(
+                                color: Color(0xFFBFE3F3),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
                               ),
                             ),
-                            const SizedBox(height: 4),
                             Text(
                               s.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
                                 color: Colors.white,
-                                fontSize: 23,
+                                fontSize: 21,
                                 fontWeight: FontWeight.w800,
                                 height: 1.15,
                               ),
@@ -581,80 +580,41 @@ class _Hero extends StatelessWidget {
                     ],
                   ),
                 ),
-                if (summary.courses.isNotEmpty) ...[
-                  const SizedBox(height: 10),
-                  Padding(
-                    padding: const EdgeInsets.only(right: 90),
-                    child: Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: [
-                        for (final c in summary.courses.take(4))
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
-                            ),
-                            child: Text(
-                              '${_courseEmoji(c.course)} ${c.course}',
-                              style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w700),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 14),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: glass,
+                const SizedBox(height: 10),
+                Padding(
+                  padding: const EdgeInsets.only(right: 80),
                   child: Column(
                     children: [
                       Row(
                         children: [
                           Container(
-                            width: 38,
-                            height: 38,
+                            width: 22,
+                            height: 22,
                             alignment: Alignment.center,
                             decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(7),
                               gradient: const LinearGradient(colors: [_gold, Color(0xFFF5A524)]),
-                              boxShadow: [
-                                BoxShadow(color: const Color(0xFFF5A524).withValues(alpha: 0.4), blurRadius: 12),
-                              ],
                             ),
                             child: Text(
                               '${level.number}',
                               style: const TextStyle(
                                 color: Color(0xFF05263F),
-                                fontSize: 17,
+                                fontSize: 12,
                                 fontWeight: FontWeight.w800,
                               ),
                             ),
                           ),
-                          const SizedBox(width: 10),
+                          const SizedBox(width: 8),
                           Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Рівень ${level.number} · ${level.name}',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 14.5,
-                                  ),
-                                ),
-                                Text(
-                                  level.nextName == null
-                                      ? 'Найвищий рівень студії!'
-                                      : 'Ще ${level.toNext} ${_plural(level.toNext, 'заняття', 'заняття', 'занять')} '
-                                            'до «${level.nextName}»',
-                                  style: TextStyle(color: soft, fontSize: 11.5, fontWeight: FontWeight.w600),
-                                ),
-                              ],
+                            child: Text(
+                              'Рівень ${level.number} · ${level.name}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.88),
+                                fontWeight: FontWeight.w700,
+                                fontSize: 12.5,
+                              ),
                             ),
                           ),
                           Text(
@@ -663,11 +623,11 @@ class _Hero extends StatelessWidget {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 7),
                       ClipRRect(
-                        borderRadius: BorderRadius.circular(9),
+                        borderRadius: BorderRadius.circular(7),
                         child: SizedBox(
-                          height: 9,
+                          height: 7,
                           child: Stack(
                             children: [
                               Container(color: Colors.white.withValues(alpha: 0.12)),
@@ -686,94 +646,19 @@ class _Hero extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 14),
                 IntrinsicHeight(
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      stat(
-                        '📚',
-                        attended,
-                        _plural(attended, 'заняття\nвідвідано', 'заняття\nвідвідано', 'занять\nвідвідано'),
-                      ),
+                      num(attended, _plural(attended, 'заняття відвідано', 'заняття відвідано', 'занять відвідано')),
                       const SizedBox(width: 8),
-                      stat('🧊', models, _plural(models, 'модель\nстворено', 'моделі\nстворено', 'моделей\nстворено')),
+                      num(models, _plural(models, 'модель створено', 'моделі створено', 'моделей створено')),
                       const SizedBox(width: 8),
-                      stat('🎟️', left, 'залишок занять\nв абонементах'),
+                      num(left, 'залишок занять в абонементах'),
                     ],
                   ),
                 ),
-                if (next != null) ...[
-                  const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.18),
-                          blurRadius: 18,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 40,
-                          height: 40,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEFEDFC),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(_courseEmoji(next.course), style: const TextStyle(fontSize: 21)),
-                        ),
-                        const SizedBox(width: 11),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text.rich(
-                                TextSpan(
-                                  text: 'НАСТУПНЕ ЗАНЯТТЯ',
-                                  children: [
-                                    TextSpan(
-                                      text: ' · ${_daysUntil(next.date, summary.today).toUpperCase()}',
-                                      style: const TextStyle(color: Color(0xFF5B4FE0)),
-                                    ),
-                                  ],
-                                ),
-                                style: const TextStyle(
-                                  fontSize: 10.5,
-                                  letterSpacing: 0.5,
-                                  fontWeight: FontWeight.w700,
-                                  color: Color(0xFF6B7080),
-                                ),
-                              ),
-                              Text(
-                                '${weekdayName(parseDate(next.date))}, ${_shortDate(next.date)}'
-                                '${next.time != null ? ' о ${next.time}' : ''}',
-                                style: const TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w800,
-                                  color: Color(0xFF05263F),
-                                ),
-                              ),
-                              Text(
-                                [next.course, next.theme].whereType<String>().join(' · '),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontSize: 12.5, color: Color(0xFF6B7080)),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
               ],
             ),
           ),
@@ -799,108 +684,135 @@ String _daysUntil(String date, String today) {
   return 'через $n ${_plural(n, 'день', 'дні', 'днів')}';
 }
 
-class _AchievementsCard extends StatelessWidget {
+class _AchievementsCard extends StatefulWidget {
   const _AchievementsCard({required this.summary});
   final PortalSummary summary;
 
   @override
-  Widget build(BuildContext context) {
+  State<_AchievementsCard> createState() => _AchievementsCardState();
+}
+
+class _AchievementsCardState extends State<_AchievementsCard> {
+  bool _all = false;
+
+  Widget _medal(BuildContext context, Achievement a, {required bool wide}) {
     final c = context.c;
-    final list = summary.achievements;
+    return Container(
+      width: wide ? null : 108,
+      padding: const EdgeInsets.fromLTRB(8, 12, 8, 10),
+      decoration: BoxDecoration(
+        color: c.paper,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: c.line),
+      ),
+      child: Stack(
+        children: [
+          if (a.unlocked)
+            Positioned(right: 0, top: 0, child: Icon(Icons.check_circle_rounded, size: 17, color: c.success)),
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Opacity(
+                  opacity: a.unlocked ? 1 : 0.45,
+                  child: Container(
+                    width: 42,
+                    height: 42,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: a.unlocked ? null : c.line,
+                      gradient: a.unlocked
+                          ? const RadialGradient(
+                              center: Alignment(-0.4, -0.4),
+                              colors: [Colors.white, Color(0xFFFFE7A8), Color(0xFFF5A524)],
+                            )
+                          : null,
+                      boxShadow: a.unlocked
+                          ? [BoxShadow(color: const Color(0xFFF5A524).withValues(alpha: 0.35), blurRadius: 10)]
+                          : null,
+                    ),
+                    child: Text(a.emoji, style: const TextStyle(fontSize: 20)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                a.title,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12.5, color: a.unlocked ? c.ink : c.inkSoft),
+              ),
+              if (wide)
+                Text(
+                  a.description,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: c.inkSoft, fontSize: 11, height: 1.25),
+                ),
+              if (!a.unlocked && a.need > 1) ...[
+                const SizedBox(height: 5),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: a.have / a.need,
+                    minHeight: 4,
+                    backgroundColor: c.line,
+                    color: c.brand,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${a.have} / ${a.need}',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: c.inkSoft, fontSize: 10.5),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final list = widget.summary.achievements;
     final got = list.where((a) => a.unlocked).length;
+    // Unlocked first in the strip, so the row opens on what the child has.
+    final strip = [...list.where((a) => a.unlocked), ...list.where((a) => !a.unlocked)];
     return _SectionCard(
       emoji: '🏆',
       title: 'Досягнення · $got з ${list.length}',
+      trailing: TextButton(
+        onPressed: () => setState(() => _all = !_all),
+        style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+        child: Text(_all ? 'Згорнути' : 'Усі'),
+      ),
       children: [
-        GridView.count(
-          crossAxisCount: 2,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: 10,
-          crossAxisSpacing: 10,
-          childAspectRatio: 1.05,
-          children: [
-            for (final a in list)
-              Container(
-                padding: const EdgeInsets.fromLTRB(10, 12, 10, 10),
-                decoration: BoxDecoration(
-                  color: c.paper,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: c.line),
-                ),
-                child: Stack(
-                  children: [
-                    if (a.unlocked)
-                      Positioned(right: 0, top: 0, child: Icon(Icons.check_circle_rounded, size: 18, color: c.success)),
-                    Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Center(
-                          child: Opacity(
-                            opacity: a.unlocked ? 1 : 0.45,
-                            child: Container(
-                              width: 46,
-                              height: 46,
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: a.unlocked ? null : c.line,
-                                gradient: a.unlocked
-                                    ? const RadialGradient(
-                                        center: Alignment(-0.4, -0.4),
-                                        colors: [Colors.white, Color(0xFFFFE7A8), Color(0xFFF5A524)],
-                                      )
-                                    : null,
-                                boxShadow: a.unlocked
-                                    ? [
-                                        BoxShadow(
-                                          color: const Color(0xFFF5A524).withValues(alpha: 0.35),
-                                          blurRadius: 12,
-                                        ),
-                                      ]
-                                    : null,
-                              ),
-                              child: Text(a.emoji, style: const TextStyle(fontSize: 22)),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 7),
-                        Text(
-                          a.title,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 13,
-                            color: a.unlocked ? c.ink : c.inkSoft,
-                          ),
-                        ),
-                        Text(
-                          a.unlocked || a.need == 1 ? a.description : '${a.have} / ${a.need}',
-                          textAlign: TextAlign.center,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(color: c.inkSoft, fontSize: 11, height: 1.25),
-                        ),
-                        if (!a.unlocked && a.need > 1) ...[
-                          const SizedBox(height: 5),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(4),
-                            child: LinearProgressIndicator(
-                              value: a.have / a.need,
-                              minHeight: 4,
-                              backgroundColor: c.line,
-                              color: c.brand,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-          ],
-        ),
+        if (_all)
+          GridView.count(
+            crossAxisCount: 2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+            childAspectRatio: 1.1,
+            children: [for (final a in list) _medal(context, a, wide: true)],
+          )
+        else
+          SizedBox(
+            height: 128,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: strip.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 8),
+              itemBuilder: (context, i) => _medal(context, strip[i], wide: false),
+            ),
+          ),
       ],
     );
   }
@@ -911,24 +823,170 @@ class _AchievementsCard extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _OverviewPage extends StatelessWidget {
-  const _OverviewPage({required this.summary, required this.portal});
+  const _OverviewPage({required this.summary, required this.portal, required this.onGo});
   final PortalSummary summary;
   final ParentPortal portal;
 
+  /// Switches the bottom-bar tab (2 = payments, 3 = lessons).
+  final ValueChanged<int> onGo;
+
   @override
-  Widget build(BuildContext context) => _list([
-    _BalanceCard(summary: summary, portal: portal),
-    _SectionCard(
-      emoji: '📅',
-      title: 'Найближчі заняття',
-      children: summary.upcoming.isEmpty
-          ? [_muted(context, 'Нових занять поки не заплановано')]
-          : [for (final l in summary.upcoming.take(4)) _LessonRow(lesson: l, today: portal.today)],
-    ),
-    _AchievementsCard(summary: summary),
-    _CoursesCard(summary: summary),
-    ?_specialsCard(context, summary),
-  ]);
+  Widget build(BuildContext context) {
+    final c = context.c;
+    final next = summary.upcoming.firstOrNull;
+    final more = summary.upcoming.length - 1;
+    final subs = summary.activeSubscriptions;
+    return _list([
+      Card(
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: next == null
+              ? Text('📅 Нових занять поки не заплановано', style: TextStyle(color: c.inkSoft))
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 44,
+                          height: 44,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: c.course(next.course).soft,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Text(_courseEmoji(next.course), style: const TextStyle(fontSize: 22)),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text.rich(
+                                TextSpan(
+                                  text: 'НАСТУПНЕ ЗАНЯТТЯ · ',
+                                  children: [
+                                    TextSpan(
+                                      text: _daysUntil(next.date, summary.today).toUpperCase(),
+                                      style: TextStyle(color: c.brandText),
+                                    ),
+                                  ],
+                                ),
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  letterSpacing: 0.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: c.inkSoft,
+                                ),
+                              ),
+                              Text(
+                                '${weekdayName(parseDate(next.date))}, ${_shortDate(next.date)}'
+                                '${next.time != null ? ' о ${next.time}' : ''}',
+                                style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w800),
+                              ),
+                              Text(
+                                [next.course, next.theme].whereType<String>().join(' · '),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(fontSize: 12.5, color: c.inkSoft),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (more > 0)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: TextButton(
+                          onPressed: () => onGo(3),
+                          style: TextButton.styleFrom(
+                            padding: EdgeInsets.zero,
+                            visualDensity: VisualDensity.compact,
+                            minimumSize: Size.zero,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text('Ще $more ${_plural(more, 'заплановане', 'заплановані', 'запланованих')}'),
+                              const Icon(Icons.chevron_right_rounded, size: 18),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+        ),
+      ),
+      if (summary.due > 0)
+        _BalanceCard(summary: summary, portal: portal)
+      else
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(color: c.successSoft, borderRadius: BorderRadius.circular(16)),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 13,
+                backgroundColor: c.success,
+                child: const Icon(Icons.check_rounded, size: 16, color: Colors.white),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                'Усе сплачено — дякуємо!',
+                style: TextStyle(color: c.successText, fontWeight: FontWeight.w700),
+              ),
+            ],
+          ),
+        ),
+      if (subs.isNotEmpty)
+        _SectionCard(
+          emoji: '🎟️',
+          title: 'Абонементи',
+          trailing: TextButton(
+            onPressed: () => onGo(2),
+            style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+            child: const Text('Деталі'),
+          ),
+          children: [
+            for (final sub in subs)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 5),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        sub.course.ifEmpty('Абонемент'),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
+                      ),
+                    ),
+                    SizedBox(
+                      width: 56,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: LinearProgressIndicator(
+                          value: sub.totalLessons == 0 ? 0 : sub.remainingLessons / sub.totalLessons,
+                          minHeight: 6,
+                          backgroundColor: c.line,
+                          color: c.brand,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      '${sub.remainingLessons} з ${sub.totalLessons}',
+                      style: TextStyle(color: c.brandText, fontWeight: FontWeight.w800, fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      _AchievementsCard(summary: summary),
+    ]);
+  }
 }
 
 Widget _muted(BuildContext context, String text) => Padding(
@@ -1124,65 +1182,77 @@ Widget? _specialsCard(BuildContext context, PortalSummary summary) {
   );
 }
 
-class _LessonRow extends StatelessWidget {
+/// Course, theme, date and state; format, room and teacher show on tap.
+class _LessonRow extends StatefulWidget {
   const _LessonRow({required this.lesson, required this.today});
   final PortalLesson lesson;
   final String today;
 
   @override
+  State<_LessonRow> createState() => _LessonRowState();
+}
+
+class _LessonRowState extends State<_LessonRow> {
+  bool _open = false;
+
+  @override
   Widget build(BuildContext context) {
     final c = context.c;
-    final l = lesson;
-    final look = _stateLook(context, l, today);
-    final st = l.state(today);
+    final l = widget.lesson;
+    final look = _stateLook(context, l, widget.today);
+    final st = l.state(widget.today);
     final money = st == LessonState.unpaid
         ? l.due
         : st == LessonState.paid && l.paymentMethod != 'subscription'
         ? l.amount
         : null;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 7),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          DateBadge(l.date, time: l.time),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  [l.course, l.theme].whereType<String>().join(' · ').ifEmpty('Заняття'),
-                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  [
-                    formatLabel(l.format),
-                    l.room,
-                    if (l.teacher != null) 'викладач ${l.teacher}',
-                  ].whereType<String>().join(' · '),
-                  style: TextStyle(color: c.inkSoft, fontSize: 12),
-                ),
-                const SizedBox(height: 6),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 4,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    _Pill(look.label, fg: look.fg, bg: look.bg),
-                    if (l.trial) _Pill('Пробне', fg: _violet, bg: _violet.withValues(alpha: 0.13)),
-                    if (money != null && money > 0)
-                      Text(
-                        formatMoney(money),
-                        style: TextStyle(color: c.inkSoft, fontWeight: FontWeight.w700, fontSize: 12.5),
-                      ),
+    final details = [
+      formatLabel(l.format),
+      l.room,
+      if (l.teacher != null) 'викладач ${l.teacher}',
+    ].whereType<String>().join(' · ');
+    return InkWell(
+      onTap: () => setState(() => _open = !_open),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 7),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            DateBadge(l.date, time: l.time),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    [l.course, l.theme].whereType<String>().join(' · ').ifEmpty('Заняття'),
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                  ),
+                  if (_open) ...[
+                    const SizedBox(height: 2),
+                    Text(details, style: TextStyle(color: c.inkSoft, fontSize: 12)),
                   ],
-                ),
-              ],
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      _Pill(look.label, fg: look.fg, bg: look.bg),
+                      if (l.trial) _Pill('Пробне', fg: _violet, bg: _violet.withValues(alpha: 0.13)),
+                      if (money != null && money > 0)
+                        Text(
+                          formatMoney(money),
+                          style: TextStyle(color: c.inkSoft, fontWeight: FontWeight.w700, fontSize: 12.5),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+            Icon(_open ? Icons.expand_less_rounded : Icons.expand_more_rounded, size: 18, color: c.inkSoft),
+          ],
+        ),
       ),
     );
   }
@@ -1309,36 +1379,9 @@ class _PaymentsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.c;
-    Widget row(String label, int value, Color fg, Color bg) => Padding(
-      padding: const EdgeInsets.symmetric(vertical: 7),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
-          ),
-          _Pill('$value', fg: fg, bg: bg),
-        ],
-      ),
-    );
     final subs = summary.student.subscriptions;
     return _list([
       _BalanceCard(summary: summary, portal: portal),
-      _SectionCard(
-        emoji: '💳',
-        title: 'Підсумок',
-        children: [
-          row('Сплачено занять', summary.paidCount, c.successText, c.successSoft),
-          row(
-            'Не сплачено',
-            summary.unpaid.length,
-            summary.unpaid.isEmpty ? c.inkSoft : c.danger,
-            summary.unpaid.isEmpty ? c.sand : c.dangerSoft,
-          ),
-          row('Залишок в абонементах', summary.lessonsLeftInSubscriptions, c.brandText, c.brandSoft),
-          row('Сертифікатом', summary.certificates.length, c.alertText, c.alertSoft),
-        ],
-      ),
       _SectionCard(
         emoji: '🎟️',
         title: 'Абонементи',
@@ -1505,6 +1548,10 @@ class _LessonsPageState extends State<_LessonsPage> {
     final list = widget.summary.lessons.where(_matches).toList();
     return SliverMainAxisGroup(
       slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          sliver: SliverToBoxAdapter(child: _CoursesCard(summary: widget.summary)),
+        ),
         SliverToBoxAdapter(
           child: SizedBox(
             height: 52,
