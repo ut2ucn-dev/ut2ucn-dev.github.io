@@ -27,6 +27,11 @@ Future<void> main() async {
   }
   final store = AppStore(api, LocalFiles.create());
   final reminders = Reminders(store, settings);
-  await reminders.init();
+  try {
+    await reminders.init();
+  } catch (e, st) {
+    // Reminders are a convenience; the app must still open without them.
+    debugPrint('Reminders unavailable: $e\n$st');
+  }
   runApp(StemikApp(store: store, settings: settings, reminders: reminders));
 }

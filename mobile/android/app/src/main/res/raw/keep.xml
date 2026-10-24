@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The notification icon is only looked up by name (Reminders in
+     lib/services/reminders.dart), so release resource shrinking would
+     otherwise remove it — and the reminders plugin then fails at startup. -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/ic_notification" />
