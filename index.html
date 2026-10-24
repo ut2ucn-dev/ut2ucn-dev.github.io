@@ -6551,7 +6551,7 @@ function StudentParentAccess({
     size: 13
   }), " Згенерувати пароль", phoneDigits.length === 9 ? " для " + formatParentPhone(student.phone) : ""), !hasOwnPhoneAccount && React.createElement("div", {
     className: "hint"
-  }, phoneDigits.length < 9 ? "Додайте в картку телефон батьків — він стане логіном." : "Логін — телефон з картки. Якщо кабінету ще немає, його буде створено; братів і сестер додайте в розділі «Батьки»."), result && React.createElement(ParentPasswordModal, {
+  }, phoneDigits.length < 9 ? "Додайте в картку телефон батьків — він стане логіном." : "Логін — телефон з картки. Якщо кабінету ще немає, його буде створено; братів і сестер додайте в розділі «Кабінети батьків»."), result && React.createElement(ParentPasswordModal, {
     result: result,
     onClose: () => setResult(null)
   }));
@@ -7985,7 +7985,7 @@ function Shell({
     className: "mode-btn-title"
   }, "Адміністрування"), /*#__PURE__*/React.createElement("div", {
     className: "mode-btn-sub"
-  }, isSuperAdmin ? "Викладачі, календар, тарифи, звіт, батьки" : "Викладачі, календар студії")))), section === "workspace" && isAdmin && /*#__PURE__*/React.createElement("button", {
+  }, isSuperAdmin ? "Викладачі, календар, друк, тарифи, звіт, кабінети батьків" : "Викладачі, календар студії, друк")))), section === "workspace" && isAdmin && /*#__PURE__*/React.createElement("button", {
     type: "button",
     className: "peek-toggle" + (peekAsTeacher ? " active" : ""),
     onClick: () => setPeekAsTeacher(v => !v),
@@ -8051,7 +8051,7 @@ function Shell({
   }, /*#__PURE__*/React.createElement(Icon, {
     name: "printer",
     size: 17
-  })), " Друк"), isSuperAdmin && /*#__PURE__*/React.createElement("button", {
+  })), " Друк (бета)"), isSuperAdmin && /*#__PURE__*/React.createElement("button", {
     className: "studio-nav-btn" + (adminSection === "rates" ? " active" : ""),
     onClick: () => setAdminSection("rates")
   }, /*#__PURE__*/React.createElement("span", {
@@ -8075,7 +8075,7 @@ function Shell({
   }, /*#__PURE__*/React.createElement(Icon, {
     name: "heart",
     size: 17
-  })), " Батьки")), (section === "workspace" || section === "admin" && adminTeacher) && /*#__PURE__*/React.createElement("div", {
+  })), " Кабінети батьків")), (section === "workspace" || section === "admin" && adminTeacher) && /*#__PURE__*/React.createElement("div", {
     className: "nav-group"
   }, /*#__PURE__*/React.createElement("button", {
     className: "studio-nav-btn" + (tab === "schedule" ? " active" : ""),
