@@ -147,7 +147,7 @@ class CourseProgress {
 
 /// Everything the portal's screens show, derived once per child.
 class PortalSummary {
-  PortalSummary(this.student, String today) {
+  PortalSummary(this.student, this.today) {
     lessons = [...student.lessons]..sort((a, b) => b.sortKey.compareTo(a.sortKey));
     attended = lessons.where((l) => l.status == 'present').toList();
     upcoming = lessons.where((l) => l.state(today) == LessonState.upcoming).toList()
@@ -178,6 +178,7 @@ class PortalSummary {
   }
 
   final PortalStudent student;
+  final String today;
   late final List<PortalLesson> lessons;
   late final List<PortalLesson> attended;
   late final List<PortalLesson> upcoming;
@@ -190,7 +191,69 @@ class PortalSummary {
   late final List<CourseProgress> courses;
 
   int get paidCount => attended.length - unpaid.length;
+  int get printedModels => models.where((w) => w.printed).length;
+
+  /// Level by lessons attended, as levelOf() in client/index.html.
+  PortalLevel get level {
+    var i = 0;
+    while (i + 1 < portalLevels.length && attended.length >= portalLevels[i + 1].$1) {
+      i++;
+    }
+    final next = i + 1 < portalLevels.length ? portalLevels[i + 1] : null;
+    final from = portalLevels[i].$1;
+    return PortalLevel(
+      number: i + 1,
+      name: portalLevels[i].$2,
+      nextName: next?.$2,
+      toNext: next == null ? 0 : next.$1 - attended.length,
+      progress: next == null ? 1 : (attended.length - from) / (next.$1 - from),
+    );
+  }
+
+  /// The same badges as achievementsOf() in client/index.html.
+  List<Achievement> get achievements => [
+    Achievement('🚀', 'Перший старт', 'Перше заняття в студії', attended.length, 1),
+    Achievement('🧊', 'Перша модель', 'Створив(-ла) свою модель', models.length, 1),
+    Achievement('🖨️', 'Друкар', 'Модель надруковано на 3D-принтері', printedModels, 1),
+    Achievement('🔥', 'У ритмі', '5 відвіданих занять', attended.length, 5),
+    Achievement('🏅', 'Десятка', '10 відвіданих занять', attended.length, 10),
+    Achievement('🎨', 'Колекціонер', '5 власних моделей', models.length, 5),
+    Achievement('🧭', 'Мультитул', 'Заняття у двох напрямах', courses.length, 2),
+    Achievement('🏆', 'Чемпіон', '25 відвіданих занять', attended.length, 25),
+  ];
   int get lessonsLeftInSubscriptions => activeSubscriptions.fold(0, (s, x) => s + x.remainingLessons);
+}
+
+/// (lessons attended to reach it, name) — the portal's game layer.
+const portalLevels = [
+  (0, 'Новачок'),
+  (4, 'Дослідник'),
+  (8, 'Конструктор'),
+  (16, 'Інженер'),
+  (32, 'Винахідник'),
+  (64, 'Майстер Stemik'),
+];
+
+class PortalLevel {
+  final int number;
+  final String name;
+  final String? nextName;
+  final int toNext;
+  final double progress;
+  const PortalLevel({
+    required this.number,
+    required this.name,
+    required this.nextName,
+    required this.toNext,
+    required this.progress,
+  });
+}
+
+class Achievement {
+  final String emoji, title, description;
+  final int have, need;
+  const Achievement(this.emoji, this.title, this.description, this.have, this.need);
+  bool get unlocked => have >= need;
 }
 
 /// Thrown when the token is no longer valid (expired, signed out

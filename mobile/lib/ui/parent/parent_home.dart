@@ -124,7 +124,7 @@ class _ParentHomeState extends State<ParentHome> {
         titleSpacing: 16,
         title: Row(
           children: [
-            const StemikMark(size: 30),
+            const StemikMark(size: 34),
             const SizedBox(width: 10),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -204,7 +204,7 @@ class _ParentHomeState extends State<ParentHome> {
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                    child: _Hero(summary: summary),
+                    child: _Hero(summary: summary, parentName: portal.parentName),
                   ),
                 ),
               pages![_tab],
@@ -261,7 +261,7 @@ const _violet = Color(0xFF8B5CF6);
 const _heroGradient = LinearGradient(
   begin: Alignment.topLeft,
   end: Alignment.bottomRight,
-  colors: [Color(0xFF5B4FE0), Color(0xFF7C4DEB), Color(0xFFA855F7)],
+  colors: [Color(0xFF5CA7C9), Color(0xFF5B4FE0)],
 );
 
 String _formatPhone(String phone) {
@@ -466,20 +466,33 @@ class _KidPhoto extends StatelessWidget {
 }
 
 class _Hero extends StatelessWidget {
-  const _Hero({required this.summary});
+  const _Hero({required this.summary, required this.parentName});
   final PortalSummary summary;
+  final String? parentName;
+
+  static const _gold = Color(0xFFFFD36E);
 
   @override
   Widget build(BuildContext context) {
     final s = summary.student;
     final next = summary.upcoming.firstOrNull;
-    Widget stat(int v, String label) => Expanded(
+    final level = summary.level;
+    final greeting = parentName == null ? 'Вітаємо!' : 'Привіт, ${parentName!.split(' ').last}!';
+    final glass = BoxDecoration(
+      color: Colors.white.withValues(alpha: 0.07),
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: Colors.white.withValues(alpha: 0.11)),
+    );
+    final soft = Colors.white.withValues(alpha: 0.7);
+    Widget stat(String emoji, int v, String label) => Expanded(
       child: Container(
-        padding: const EdgeInsets.fromLTRB(10, 10, 8, 9),
-        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(16)),
+        padding: const EdgeInsets.fromLTRB(11, 10, 8, 10),
+        decoration: glass,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Text(emoji, style: const TextStyle(fontSize: 15)),
+            const SizedBox(height: 4),
             Text(
               '$v',
               style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800, height: 1),
@@ -488,12 +501,7 @@ class _Hero extends StatelessWidget {
             Text(
               label,
               maxLines: 2,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.85),
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                height: 1.15,
-              ),
+              style: TextStyle(color: soft, fontSize: 11, fontWeight: FontWeight.w600, height: 1.15),
             ),
           ],
         ),
@@ -505,102 +513,194 @@ class _Hero extends StatelessWidget {
     return Container(
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        gradient: _heroGradient,
         borderRadius: BorderRadius.circular(26),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF05263F), Color(0xFF0B3558)],
+        ),
         boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF5B4FE0).withValues(alpha: 0.28),
-            blurRadius: 24,
-            offset: const Offset(0, 10),
-          ),
+          BoxShadow(color: const Color(0xFF05263F).withValues(alpha: 0.3), blurRadius: 26, offset: const Offset(0, 12)),
         ],
       ),
       child: Stack(
         children: [
-          Positioned(
-            right: -60,
-            top: -90,
-            child: Container(
-              width: 210,
-              height: 210,
-              decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withValues(alpha: 0.1)),
-            ),
-          ),
+          Positioned(right: -80, top: -90, child: _glow(const Color(0xFF2B5C86), 260)),
+          Positioned(left: -90, bottom: -110, child: _glow(const Color(0xFF5B4FE0), 260)),
+          const Positioned(right: 2, top: 4, child: WavingRobot(width: 104, onDark: true)),
           Padding(
             padding: const EdgeInsets.all(18),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(21),
-                        border: Border.all(color: Colors.white.withValues(alpha: 0.35), width: 2),
+                Padding(
+                  padding: const EdgeInsets.only(right: 96),
+                  child: Row(
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(19),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 2),
+                        ),
+                        child: _KidPhoto(student: s, size: 56),
                       ),
-                      child: _KidPhoto(student: s, size: 62, onBrand: true),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Учень студії Stemik',
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.85),
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF5CA7C9).withValues(alpha: 0.18),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: const Color(0xFF5CA7C9).withValues(alpha: 0.35)),
+                              ),
+                              child: Text(
+                                '👋 $greeting',
+                                style: const TextStyle(
+                                  color: Color(0xFFBFE3F3),
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
                             ),
-                          ),
-                          Text(
-                            s.name,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 24,
-                              fontWeight: FontWeight.w800,
-                              height: 1.15,
+                            const SizedBox(height: 4),
+                            Text(
+                              s.name,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 23,
+                                fontWeight: FontWeight.w800,
+                                height: 1.15,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
                 if (summary.courses.isNotEmpty) ...[
                   const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: [
-                      for (final c in summary.courses.take(4))
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.18),
-                            borderRadius: BorderRadius.circular(20),
+                  Padding(
+                    padding: const EdgeInsets.only(right: 90),
+                    child: Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        for (final c in summary.courses.take(4))
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+                            ),
+                            child: Text(
+                              '${_courseEmoji(c.course)} ${c.course}',
+                              style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w700),
+                            ),
                           ),
-                          child: Text(
-                            '${_courseEmoji(c.course)} ${c.course}',
-                            style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w700),
-                          ),
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
                 ],
-                const SizedBox(height: 16),
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: glass,
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 38,
+                            height: 38,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              gradient: const LinearGradient(colors: [_gold, Color(0xFFF5A524)]),
+                              boxShadow: [
+                                BoxShadow(color: const Color(0xFFF5A524).withValues(alpha: 0.4), blurRadius: 12),
+                              ],
+                            ),
+                            child: Text(
+                              '${level.number}',
+                              style: const TextStyle(
+                                color: Color(0xFF05263F),
+                                fontSize: 17,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Рівень ${level.number} · ${level.name}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 14.5,
+                                  ),
+                                ),
+                                Text(
+                                  level.nextName == null
+                                      ? 'Найвищий рівень студії!'
+                                      : 'Ще ${level.toNext} ${_plural(level.toNext, 'заняття', 'заняття', 'занять')} '
+                                            'до «${level.nextName}»',
+                                  style: TextStyle(color: soft, fontSize: 11.5, fontWeight: FontWeight.w600),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Text(
+                            '${attended * 10} XP',
+                            style: const TextStyle(color: _gold, fontWeight: FontWeight.w800, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(9),
+                        child: SizedBox(
+                          height: 9,
+                          child: Stack(
+                            children: [
+                              Container(color: Colors.white.withValues(alpha: 0.12)),
+                              FractionallySizedBox(
+                                widthFactor: level.progress.clamp(0.04, 1.0),
+                                child: Container(
+                                  decoration: const BoxDecoration(
+                                    gradient: LinearGradient(colors: [Color(0xFF5CA7C9), Color(0xFF8B80FF), _gold]),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
                 IntrinsicHeight(
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       stat(
+                        '📚',
                         attended,
                         _plural(attended, 'заняття\nвідвідано', 'заняття\nвідвідано', 'занять\nвідвідано'),
                       ),
                       const SizedBox(width: 8),
-                      stat(models, _plural(models, 'модель', 'моделі', 'моделей')),
+                      stat('🧊', models, _plural(models, 'модель\nстворено', 'моделі\nстворено', 'моделей\nстворено')),
                       const SizedBox(width: 8),
                       stat(
+                        '🎟️',
                         left,
                         _plural(left, 'заняття в\nабонементах', 'заняття в\nабонементах', 'занять в\nабонементах'),
                       ),
@@ -612,8 +712,15 @@ class _Hero extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.96),
+                      color: Colors.white,
                       borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.18),
+                          blurRadius: 18,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
                     ),
                     child: Row(
                       children: [
@@ -632,9 +739,17 @@ class _Hero extends StatelessWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                'НАСТУПНЕ ЗАНЯТТЯ',
-                                style: TextStyle(
+                              Text.rich(
+                                TextSpan(
+                                  text: 'НАСТУПНЕ ЗАНЯТТЯ',
+                                  children: [
+                                    TextSpan(
+                                      text: ' · ${_daysUntil(next.date, summary.today).toUpperCase()}',
+                                      style: const TextStyle(color: Color(0xFF5B4FE0)),
+                                    ),
+                                  ],
+                                ),
+                                style: const TextStyle(
                                   fontSize: 10.5,
                                   letterSpacing: 0.5,
                                   fontWeight: FontWeight.w700,
@@ -644,7 +759,11 @@ class _Hero extends StatelessWidget {
                               Text(
                                 '${weekdayName(parseDate(next.date))}, ${_shortDate(next.date)}'
                                 '${next.time != null ? ' о ${next.time}' : ''}',
-                                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: navy),
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFF05263F),
+                                ),
                               ),
                               Text(
                                 [next.course, next.theme].whereType<String>().join(' · '),
@@ -664,6 +783,129 @@ class _Hero extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  static Widget _glow(Color color, double size) => Container(
+    width: size,
+    height: size,
+    decoration: BoxDecoration(
+      shape: BoxShape.circle,
+      gradient: RadialGradient(colors: [color.withValues(alpha: 0.55), color.withValues(alpha: 0)]),
+    ),
+  );
+}
+
+String _daysUntil(String date, String today) {
+  final n = parseDate(date).difference(parseDate(today)).inDays;
+  if (n <= 0) return 'сьогодні';
+  if (n == 1) return 'завтра';
+  return 'через $n ${_plural(n, 'день', 'дні', 'днів')}';
+}
+
+class _AchievementsCard extends StatelessWidget {
+  const _AchievementsCard({required this.summary});
+  final PortalSummary summary;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    final list = summary.achievements;
+    final got = list.where((a) => a.unlocked).length;
+    return _SectionCard(
+      emoji: '🏆',
+      title: 'Досягнення · $got з ${list.length}',
+      children: [
+        GridView.count(
+          crossAxisCount: 2,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 10,
+          crossAxisSpacing: 10,
+          childAspectRatio: 1.05,
+          children: [
+            for (final a in list)
+              Container(
+                padding: const EdgeInsets.fromLTRB(10, 12, 10, 10),
+                decoration: BoxDecoration(
+                  color: c.paper,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: c.line),
+                ),
+                child: Stack(
+                  children: [
+                    if (a.unlocked)
+                      Positioned(right: 0, top: 0, child: Icon(Icons.check_circle_rounded, size: 18, color: c.success)),
+                    Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Center(
+                          child: Opacity(
+                            opacity: a.unlocked ? 1 : 0.45,
+                            child: Container(
+                              width: 46,
+                              height: 46,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: a.unlocked ? null : c.line,
+                                gradient: a.unlocked
+                                    ? const RadialGradient(
+                                        center: Alignment(-0.4, -0.4),
+                                        colors: [Colors.white, Color(0xFFFFE7A8), Color(0xFFF5A524)],
+                                      )
+                                    : null,
+                                boxShadow: a.unlocked
+                                    ? [
+                                        BoxShadow(
+                                          color: const Color(0xFFF5A524).withValues(alpha: 0.35),
+                                          blurRadius: 12,
+                                        ),
+                                      ]
+                                    : null,
+                              ),
+                              child: Text(a.emoji, style: const TextStyle(fontSize: 22)),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 7),
+                        Text(
+                          a.title,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 13,
+                            color: a.unlocked ? c.ink : c.inkSoft,
+                          ),
+                        ),
+                        Text(
+                          a.unlocked || a.need == 1 ? a.description : '${a.have} / ${a.need}',
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(color: c.inkSoft, fontSize: 11, height: 1.25),
+                        ),
+                        if (!a.unlocked && a.need > 1) ...[
+                          const SizedBox(height: 5),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: LinearProgressIndicator(
+                              value: a.have / a.need,
+                              minHeight: 4,
+                              backgroundColor: c.line,
+                              color: c.brand,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ],
     );
   }
 }
@@ -687,6 +929,7 @@ class _OverviewPage extends StatelessWidget {
           ? [_muted(context, 'Нових занять поки не заплановано')]
           : [for (final l in summary.upcoming.take(4)) _LessonRow(lesson: l, today: portal.today)],
     ),
+    _AchievementsCard(summary: summary),
     _CoursesCard(summary: summary),
     ?_specialsCard(context, summary),
   ]);
