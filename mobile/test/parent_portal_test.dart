@@ -90,7 +90,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Не сплачені'), findsOneWidget);
 
-    await tester.tap(find.text('Софія'));
+    await tester.tap(find.byTooltip('Софія Коваль'));
     await tester.pumpAndSettle();
     expect(find.textContaining('Знайомство з VR'), findsOneWidget);
     expect(settings.parentChildId, 'demo-kid-2');
