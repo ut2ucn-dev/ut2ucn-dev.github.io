@@ -29,6 +29,8 @@ import '../ui/theme.dart';
 import '../ui/widgets.dart';
 import '../util/dates.dart';
 import '../util/domain.dart';
+import '../ui/students/student_card_screen.dart';
+import 'command_palette.dart';
 import 'platform.dart';
 import 'split_view.dart';
 
@@ -197,6 +199,114 @@ class DesktopShellState extends State<DesktopShell> with WidgetsBindingObserver 
 
   void export(ExportFormat format) => _exportable?.exportAs(format);
 
+  /// A student's card, next to the list of students.
+  void openStudent(String id) =>
+      _inSplit(DeskSection.students, (split) => split.open(StudentCardScreen(studentId: id)));
+
+  /// A teacher's schedule (the sidebar then says "Переглядаєте як").
+  void openTeacher(String id) {
+    context.storeRead.teacherFilter = id;
+    go(DeskSection.schedule);
+  }
+
+  bool _searching = false;
+
+  /// The ⌘K palette. Ignored while it is already open (⌘K from inside it).
+  Future<void> openSearch() async {
+    if (_searching) return;
+    _searching = true;
+    try {
+      await showCommandPalette(
+        context,
+        commands: _paletteCommands(context.storeRead),
+        openStudent: openStudent,
+        openLesson: openLesson,
+        openTeacher: openTeacher,
+      );
+    } finally {
+      _searching = false;
+    }
+  }
+
+  /// The menu bar's commands, for the palette.
+  List<PaletteCommand> _paletteCommands(AppStore store) {
+    final settings = SettingsScope.read(context);
+    String key(DeskSection s) => s.key == LogicalKeyboardKey.comma ? '⌘,' : '⌘${s.key.keyLabel}';
+    return [
+      for (final s in DeskSection.values)
+        if (!s.superOnly || store.isSuperAdmin)
+          PaletteCommand(
+            title: s.label,
+            icon: s.icon,
+            shortcut: key(s),
+            navigation: true,
+            keywords: switch (s) {
+              DeskSection.payroll => 'зарплата зп оплата',
+              DeskSection.print => 'собівартість пластик принтери',
+              DeskSection.parents => 'батьки паролі доступ',
+              DeskSection.report => 'борги оплачено',
+              DeskSection.calendar => 'тиждень сітка',
+              _ => '',
+            },
+            run: () => go(s),
+          ),
+      PaletteCommand(title: 'Нове заняття', icon: Icons.add_rounded, shortcut: '⌘N', run: newLesson),
+      PaletteCommand(title: 'Новий учень', icon: Icons.person_add_alt_1_rounded, shortcut: '⇧⌘N', run: newStudent),
+      if (store.isSuperAdmin)
+        PaletteCommand(title: 'Новий кабінет батьків', icon: Icons.favorite_rounded, run: newParentAccount),
+      PaletteCommand(
+        title: _section == DeskSection.calendar ? 'Цей тиждень' : 'Сьогодні',
+        icon: Icons.today_rounded,
+        shortcut: '⌘T',
+        run: today,
+      ),
+      if (_exportable != null) ...[
+        PaletteCommand(
+          title: 'Експортувати в Excel',
+          icon: Icons.table_view_rounded,
+          shortcut: '⌘E',
+          keywords: 'xlsx таблиця',
+          run: () => export(ExportFormat.xlsx),
+        ),
+        PaletteCommand(
+          title: 'Експортувати в PDF',
+          icon: Icons.picture_as_pdf_rounded,
+          shortcut: '⇧⌘E',
+          run: () => export(ExportFormat.pdf),
+        ),
+      ],
+      PaletteCommand(title: 'Синхронізувати', icon: Icons.sync_rounded, shortcut: '⌘R', keywords: 'оновити', run: sync),
+      if (store.teacherFilter != null)
+        PaletteCommand(
+          title: 'Уся студія (зняти фільтр викладача)',
+          icon: Icons.groups_rounded,
+          run: () => store.teacherFilter = null,
+        ),
+      PaletteCommand(title: 'Мій профіль', icon: Icons.account_circle_rounded, run: editProfile),
+      PaletteCommand(
+        title: 'Тема: світла',
+        icon: Icons.light_mode_rounded,
+        run: () => settings.themeMode = ThemeMode.light,
+      ),
+      PaletteCommand(
+        title: 'Тема: темна',
+        icon: Icons.dark_mode_rounded,
+        run: () => settings.themeMode = ThemeMode.dark,
+      ),
+      PaletteCommand(
+        title: 'Тема: як у системі',
+        icon: Icons.brightness_auto_rounded,
+        run: () => settings.themeMode = ThemeMode.system,
+      ),
+      PaletteCommand(
+        title: 'Перевірити оновлення',
+        icon: Icons.system_update_rounded,
+        run: () => checkForUpdate(context, manual: true),
+      ),
+      PaletteCommand(title: 'Вийти з акаунта', icon: Icons.logout_rounded, run: signOut),
+    ];
+  }
+
   void newParentAccount() {
     go(DeskSection.parents);
     WidgetsBinding.instance.addPostFrameCallback((_) => _parents.currentState?.create());
@@ -317,6 +427,7 @@ class DesktopShellState extends State<DesktopShell> with WidgetsBindingObserver 
         cmd(LogicalKeyboardKey.keyN, mac: false): newLesson,
         cmd(LogicalKeyboardKey.keyN, shift: true, mac: false): newStudent,
         cmd(LogicalKeyboardKey.keyR, mac: false): sync,
+        cmd(LogicalKeyboardKey.keyK, mac: false): openSearch,
         cmd(LogicalKeyboardKey.keyE, mac: false): () => export(ExportFormat.xlsx),
         cmd(LogicalKeyboardKey.keyE, shift: true, mac: false): () => export(ExportFormat.pdf),
         cmd(LogicalKeyboardKey.keyT, mac: false): today,
@@ -391,6 +502,7 @@ class DesktopShellState extends State<DesktopShell> with WidgetsBindingObserver 
       PlatformMenu(
         label: 'Перейти',
         menus: [
+          PlatformMenuItemGroup(members: [item('Пошук…', openSearch, cmd(LogicalKeyboardKey.keyK))]),
           PlatformMenuItemGroup(
             members: [for (final s in DeskSection.workspace) item(s.label, () => go(s), cmd(s.key))],
           ),
@@ -586,6 +698,8 @@ class _Sidebar extends StatelessWidget {
                   ),
                 ),
               ),
+              const SizedBox(height: 10),
+              _SearchButton(onTap: shell.openSearch),
               if (teacher != null) ...[
                 const SizedBox(height: 10),
                 Container(
@@ -643,6 +757,55 @@ class _Sidebar extends StatelessWidget {
                 onPressed: shell.signOut,
                 icon: const Icon(Icons.logout_rounded, size: 18),
                 label: const Text('Вийти'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// "Пошук ⌘K" under the profile: opens the palette.
+class _SearchButton extends StatelessWidget {
+  const _SearchButton({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    return Material(
+      color: c.paper,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(
+            border: Border.all(color: c.line),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.search_rounded, size: 18, color: c.inkSoft),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Пошук',
+                  style: TextStyle(color: c.inkSoft, fontWeight: FontWeight.w600),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                decoration: BoxDecoration(
+                  border: Border.all(color: c.lineStrong),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  hasNativeMenuBar ? '⌘K' : 'Ctrl K',
+                  style: TextStyle(fontSize: 11.5, color: c.inkSoft, fontWeight: FontWeight.w700),
+                ),
               ),
             ],
           ),

@@ -53,6 +53,12 @@ class Settings extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// What was opened last from the ⌘K search (`student:<id>`,
+  /// `lesson:<id>`, `teacher:<id>`), newest first.
+  List<String> get recentSearch => _prefs.getStringList('recentSearch') ?? const [];
+  void addRecentSearch(String key) =>
+      _prefs.setStringList('recentSearch', [key, ...recentSearch.where((k) => k != key)].take(6).toList());
+
   /// The printer and filament picked last when marking a model printed.
   String? get lastPrinterId => _prefs.getString('lastPrinterId');
   String? get lastFilamentId => _prefs.getString('lastFilamentId');
