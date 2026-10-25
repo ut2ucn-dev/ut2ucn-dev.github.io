@@ -59,6 +59,12 @@ class AppStore extends ChangeNotifier {
   final List<String> rejected = [];
 
   final _messages = StreamController<String>.broadcast();
+  final _serverWrites = StreamController<void>.broadcast();
+
+  /// Fires when this store changed something on the server (sent queued
+  /// changes, or an online-only change went through), so other windows
+  /// showing the same data can reload.
+  Stream<void> get serverWrites => _serverWrites.stream;
 
   /// Short messages for the user (errors, "saved"); the shell shows them.
   Stream<String> get messages => _messages.stream;
@@ -153,6 +159,29 @@ class AppStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Takes over changes another window queued and couldn't send (its saved
+  /// outbox, as [_saveOutbox] writes it), and sends them from here.
+  Future<void> adoptOutbox(Object? saved) async {
+    if (_me == null || saved is! Map) return;
+    final ops = ((saved['ops'] as List?) ?? const []).map(PendingOp.fromJson).whereType<PendingOp>().toList();
+    if (ops.isEmpty) return;
+    _ops.addAll(ops);
+    await _saveOutbox();
+    _rebuild();
+    unawaited(sync());
+  }
+
+  /// Before a window goes: lets a send in progress finish, stops retrying
+  /// and leaves what's still queued saved, for the main window to adopt.
+  Future<void> shutDown() async {
+    _retryTimer?.cancel();
+    _refreshDebounce?.cancel();
+    try {
+      await _syncing;
+    } catch (_) {}
+    if (_me != null) await _saveOutbox();
+  }
+
   void updateMe(Profile p) {
     _me = p;
     notifyListeners();
@@ -221,7 +250,10 @@ class AppStore extends ChangeNotifier {
       _flushing = false;
     }
     _setConnection(reached ? Connection.online : Connection.offline);
-    if (sent) _rebuild();
+    if (sent) {
+      _rebuild();
+      _serverWrites.add(null);
+    }
     return reached;
   }
 
@@ -463,6 +495,7 @@ class AppStore extends ChangeNotifier {
       return false;
     }
     _setConnection(Connection.online);
+    _serverWrites.add(null);
     if (done != null) say(done);
     if (reload) unawaited(sync());
     return true;
@@ -515,6 +548,7 @@ class AppStore extends ChangeNotifier {
     _retryTimer?.cancel();
     _refreshDebounce?.cancel();
     _messages.close();
+    _serverWrites.close();
     super.dispose();
   }
 }

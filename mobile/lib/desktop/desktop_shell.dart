@@ -32,6 +32,7 @@ import '../util/domain.dart';
 import '../ui/students/student_card_screen.dart';
 import 'command_palette.dart';
 import 'platform.dart';
+import 'windows.dart';
 import 'split_view.dart';
 
 /// Sidebar sections, in the web's order: the workspace, then administration.
@@ -115,6 +116,7 @@ class DesktopShellState extends State<DesktopShell> with WidgetsBindingObserver 
     });
     if (SettingsScope.read(context).remindersEnabled) reminders.requestPermission();
     checkForUpdate(context);
+    AppWindows.main?.adoptLeftovers();
   }
 
   @override
@@ -216,10 +218,18 @@ class DesktopShellState extends State<DesktopShell> with WidgetsBindingObserver 
     if (_searching) return;
     _searching = true;
     try {
+      final windows = AppWindows.main;
+      final store = context.storeRead;
       await showCommandPalette(
         context,
-        commands: _paletteCommands(context.storeRead),
+        commands: _paletteCommands(store),
         openStudent: openStudent,
+        openStudentWindow: windows == null
+            ? null
+            : (id) {
+                final s = store.data.studentById[id];
+                if (s != null) windows.openStudent(s);
+              },
         openLesson: openLesson,
         openTeacher: openTeacher,
       );
@@ -335,6 +345,7 @@ class DesktopShellState extends State<DesktopShell> with WidgetsBindingObserver 
       );
       if (ok != true) return;
     }
+    await AppWindows.main?.discardAll();
     await widget.onSignOut();
   }
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../desktop/windows.dart';
 import '../contact.dart';
 import '../scope.dart';
 import '../split.dart';
@@ -111,39 +112,70 @@ class _StudentsScreenState extends State<StudentsScreen> {
                           );
                         }
                         final s = list[i - 1];
+                        final windows = AppWindows.main;
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 8),
-                          child: Card(
-                            clipBehavior: Clip.antiAlias,
-                            child: InkWell(
-                              onTap: () => openPage(context, StudentCardScreen(studentId: s.id)),
-                              child: Padding(
-                                padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
-                                child: Row(
-                                  children: [
-                                    Avatar(initial: s.initial, url: store.isAdmin ? s.photo : null, size: 42),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            s.name,
-                                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15.5),
-                                          ),
-                                          if (s.parentsName.isNotEmpty || s.phone != null)
-                                            Text(
-                                              [s.parentsName, ?s.phone].where((e) => e.isNotEmpty).join(' · '),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: TextStyle(color: c.inkSoft, fontSize: 13),
-                                            ),
-                                        ],
+                          child: GestureDetector(
+                            // On the Mac, a right-click can open the card in a window.
+                            onSecondaryTapUp: windows == null
+                                ? null
+                                : (d) async {
+                                    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+                                    final v = await showMenu<bool>(
+                                      context: context,
+                                      position: RelativeRect.fromRect(
+                                        d.globalPosition & const Size(1, 1),
+                                        Offset.zero & overlay.size,
                                       ),
-                                    ),
-                                    if (s.phone != null)
-                                      ContactButtons(phone: s.phone!, compact: true, only: const ['call']),
-                                  ],
+                                      items: const [
+                                        PopupMenuItem(
+                                          value: false,
+                                          child: ListTile(leading: Icon(Icons.person_rounded), title: Text('Відкрити')),
+                                        ),
+                                        PopupMenuItem(
+                                          value: true,
+                                          child: ListTile(
+                                            leading: Icon(Icons.open_in_new_rounded),
+                                            title: Text('Відкрити в окремому вікні'),
+                                          ),
+                                        ),
+                                      ],
+                                    );
+                                    if (v == null || !context.mounted) return;
+                                    v ? windows.openStudent(s) : openPage(context, StudentCardScreen(studentId: s.id));
+                                  },
+                            child: Card(
+                              clipBehavior: Clip.antiAlias,
+                              child: InkWell(
+                                onTap: () => openPage(context, StudentCardScreen(studentId: s.id)),
+                                child: Padding(
+                                  padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+                                  child: Row(
+                                    children: [
+                                      Avatar(initial: s.initial, url: store.isAdmin ? s.photo : null, size: 42),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              s.name,
+                                              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15.5),
+                                            ),
+                                            if (s.parentsName.isNotEmpty || s.phone != null)
+                                              Text(
+                                                [s.parentsName, ?s.phone].where((e) => e.isNotEmpty).join(' · '),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: TextStyle(color: c.inkSoft, fontSize: 13),
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                      if (s.phone != null)
+                                        ContactButtons(phone: s.phone!, compact: true, only: const ['call']),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),

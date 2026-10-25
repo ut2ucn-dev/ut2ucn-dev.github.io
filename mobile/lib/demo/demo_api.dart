@@ -311,6 +311,12 @@ class DemoApi implements StemikApi {
   Stream<AuthEvent> get authEvents => _auth.stream;
 
   @override
+  String? get accessToken => null;
+
+  @override
+  Stream<String?> get accessTokens => const Stream.empty();
+
+  @override
   Future<void> signIn(String email, String password) => _io(() {
     if (password.length < 3) throw ServerRejected('Invalid login credentials');
     _uid = _meId;

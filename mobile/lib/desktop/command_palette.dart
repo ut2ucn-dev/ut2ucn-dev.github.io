@@ -45,14 +45,20 @@ Future<void> showCommandPalette(
   required void Function(String id) openStudent,
   required void Function(String id) openLesson,
   required void Function(String id) openTeacher,
+  void Function(String id)? openStudentWindow,
 }) => showGeneralDialog<void>(
   context: context,
   barrierDismissible: true,
   barrierLabel: 'Закрити пошук',
   barrierColor: Colors.black.withValues(alpha: 0.28),
   transitionDuration: const Duration(milliseconds: 160),
-  pageBuilder: (_, _, _) =>
-      CommandPalette(commands: commands, openStudent: openStudent, openLesson: openLesson, openTeacher: openTeacher),
+  pageBuilder: (_, _, _) => CommandPalette(
+    commands: commands,
+    openStudent: openStudent,
+    openLesson: openLesson,
+    openTeacher: openTeacher,
+    openStudentWindow: openStudentWindow,
+  ),
   transitionBuilder: (_, animation, _, child) {
     final a = CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
     return FadeTransition(
@@ -71,6 +77,7 @@ class _Entry {
     this.shortcut,
     this.recentKey,
     required this.run,
+    this.runInWindow,
   });
   final Widget leading;
   final String title;
@@ -80,6 +87,9 @@ class _Entry {
   /// Remembered as recent when picked.
   final String? recentKey;
   final VoidCallback run;
+
+  /// ⌘↵: opens it in a window of its own (students on the Mac).
+  final VoidCallback? runInWindow;
 }
 
 class CommandPalette extends StatefulWidget {
@@ -89,11 +99,13 @@ class CommandPalette extends StatefulWidget {
     required this.openStudent,
     required this.openLesson,
     required this.openTeacher,
+    this.openStudentWindow,
   });
   final List<PaletteCommand> commands;
   final void Function(String id) openStudent;
   final void Function(String id) openLesson;
   final void Function(String id) openTeacher;
+  final void Function(String id)? openStudentWindow;
 
   @override
   State<CommandPalette> createState() => _CommandPaletteState();
@@ -158,13 +170,14 @@ class _CommandPaletteState extends State<CommandPalette> {
     }
   }
 
-  void _pick([_Entry? entry]) {
+  void _pick([_Entry? entry, bool inWindow = false]) {
     final flat = _flat;
     entry ??= flat.isEmpty ? null : flat[_selected.clamp(0, flat.length - 1)];
     if (entry == null) return;
+    if (inWindow && entry.runInWindow == null) return;
     if (entry.recentKey != null) SettingsScope.read(context).addRecentSearch(entry.recentKey!);
     Navigator.of(context).pop();
-    entry.run();
+    (inWindow ? entry.runInWindow! : entry.run)();
   }
 
   // --- entries --------------------------------------------------------------
@@ -175,6 +188,7 @@ class _CommandPaletteState extends State<CommandPalette> {
     subtitle: [if (s.parentsName.isNotEmpty) s.parentsName, ?s.phone].join(' · '),
     recentKey: 'student:${s.id}',
     run: () => widget.openStudent(s.id),
+    runInWindow: widget.openStudentWindow == null ? null : () => widget.openStudentWindow!(s.id),
   );
 
   _Entry _lesson(Lesson l) {
@@ -300,9 +314,14 @@ class _CommandPaletteState extends State<CommandPalette> {
                 SingleActivator(LogicalKeyboardKey.arrowUp): _MoveIntent(-1),
                 SingleActivator(LogicalKeyboardKey.tab): _MoveIntent(1),
                 SingleActivator(LogicalKeyboardKey.tab, shift: true): _MoveIntent(-1),
+                SingleActivator(LogicalKeyboardKey.enter, meta: true): _OpenInWindowIntent(),
+                SingleActivator(LogicalKeyboardKey.numpadEnter, meta: true): _OpenInWindowIntent(),
               },
               child: Actions(
-                actions: {_MoveIntent: CallbackAction<_MoveIntent>(onInvoke: (i) => _move(i.by))},
+                actions: {
+                  _MoveIntent: CallbackAction<_MoveIntent>(onInvoke: (i) => _move(i.by)),
+                  _OpenInWindowIntent: CallbackAction<_OpenInWindowIntent>(onInvoke: (_) => _pick(null, true)),
+                },
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -379,7 +398,8 @@ class _CommandPaletteState extends State<CommandPalette> {
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       color: c.paper,
                       child: Text(
-                        '↑↓ вибрати   ↵ відкрити   esc закрити',
+                        '↑↓ вибрати   ↵ відкрити   '
+                        '${widget.openStudentWindow != null ? '⌘↵ учня в окремому вікні   ' : ''}esc закрити',
                         style: TextStyle(fontSize: 12, color: c.inkSoft, fontWeight: FontWeight.w600),
                       ),
                     ),
@@ -467,6 +487,10 @@ class _CommandPaletteState extends State<CommandPalette> {
       ),
     );
   }
+}
+
+class _OpenInWindowIntent extends Intent {
+  const _OpenInWindowIntent();
 }
 
 class _MoveIntent extends Intent {

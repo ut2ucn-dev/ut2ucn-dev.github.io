@@ -25,6 +25,12 @@ abstract class StemikApi {
   Future<void> updatePassword(String password);
   Future<void> signOut();
 
+  /// The signed-in person's current access token, and every new one as it
+  /// is refreshed — handed to the Mac's extra windows, which don't keep a
+  /// session of their own. Null and empty where there is none (demo).
+  String? get accessToken;
+  Stream<String?> get accessTokens;
+
   // --- reads --------------------------------------------------------------
   Future<DbRow?> fetchProfile(String id);
   Future<List<DbRow>> fetchProfiles();

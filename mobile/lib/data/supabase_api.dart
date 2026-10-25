@@ -9,6 +9,12 @@ import 'api.dart';
 /// [StemikApi] over the studio's Supabase project — the same tables, views,
 /// RPCs and Edge Functions index.html uses.
 class SupabaseApi implements StemikApi {
+  /// [windowUserId]: in an extra Mac window, whose client has no session of
+  /// its own and sends the token the main window hands it (see
+  /// [initializeForWindow]).
+  SupabaseApi({this.windowUserId});
+  final String? windowUserId;
+
   SupabaseClient get _sb => Supabase.instance.client;
 
   static Future<void> initialize() async {
@@ -23,6 +29,13 @@ class SupabaseApi implements StemikApi {
       ),
     );
   }
+
+  /// For an extra window: no session, no token refresh (two engines
+  /// refreshing one session would sign each other out) — every request
+  /// carries the token [accessToken] returns, kept current by the main
+  /// window.
+  static Future<void> initializeForWindow(Future<String?> Function() accessToken) =>
+      Supabase.initialize(url: supabaseUrl, publishableKey: supabaseAnonKey, accessToken: accessToken);
 
   /// Turns "the server said no" into [ServerRejected]; everything else
   /// (no network, timeouts, 5xx, an expired token that can't be refreshed
@@ -67,19 +80,29 @@ class SupabaseApi implements StemikApi {
   // --- auth ---------------------------------------------------------------
 
   @override
-  String? get currentUserId => _sb.auth.currentUser?.id;
+  String? get currentUserId => windowUserId ?? _sb.auth.currentUser?.id;
 
   @override
-  Stream<AuthEvent> get authEvents => _sb.auth.onAuthStateChange.map((s) {
-    switch (s.event) {
-      case AuthChangeEvent.passwordRecovery:
-        return AuthEvent.passwordRecovery;
-      case AuthChangeEvent.signedOut:
-        return AuthEvent.signedOut;
-      default:
-        return s.session == null ? AuthEvent.signedOut : AuthEvent.signedIn;
-    }
-  });
+  String? get accessToken => windowUserId != null ? null : _sb.auth.currentSession?.accessToken;
+
+  @override
+  Stream<String?> get accessTokens => windowUserId != null
+      ? const Stream.empty()
+      : _sb.auth.onAuthStateChange.map((s) => s.session?.accessToken).distinct();
+
+  @override
+  Stream<AuthEvent> get authEvents => windowUserId != null
+      ? const Stream.empty()
+      : _sb.auth.onAuthStateChange.map((s) {
+          switch (s.event) {
+            case AuthChangeEvent.passwordRecovery:
+              return AuthEvent.passwordRecovery;
+            case AuthChangeEvent.signedOut:
+              return AuthEvent.signedOut;
+            default:
+              return s.session == null ? AuthEvent.signedOut : AuthEvent.signedIn;
+          }
+        });
 
   @override
   Future<void> signIn(String email, String password) =>
@@ -93,7 +116,9 @@ class SupabaseApi implements StemikApi {
   Future<void> updatePassword(String password) => _guard(() => _sb.auth.updateUser(UserAttributes(password: password)));
 
   @override
-  Future<void> signOut() => _sb.auth.signOut();
+  Future<void> signOut() async {
+    if (windowUserId == null) await _sb.auth.signOut();
+  }
 
   // --- reads --------------------------------------------------------------
 

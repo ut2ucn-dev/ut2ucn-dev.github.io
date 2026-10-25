@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../data/models.dart';
 import '../../data/store.dart';
+import '../../desktop/windows.dart';
 import '../../util/dates.dart';
 import '../../util/domain.dart';
 import '../admin/parent_accounts_screen.dart';
@@ -27,6 +28,10 @@ class _StudentCardScreenState extends State<StudentCardScreen> {
   List<Subscription>? _subs;
   List<StudentComment>? _comments;
 
+  /// The store's refresh the portfolio was loaded after: a newer one (a
+  /// sync here, or a change made in another window) reloads it.
+  DateTime? _loadedAfter;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -37,6 +42,7 @@ class _StudentCardScreenState extends State<StudentCardScreen> {
     final store = context.storeRead;
     final s = store.data.studentById[widget.studentId];
     if (s == null) return;
+    _loadedAfter = store.lastRefresh;
     final results = await Future.wait([
       store.portfolio(s),
       if (store.isAdmin)
@@ -60,6 +66,12 @@ class _StudentCardScreenState extends State<StudentCardScreen> {
   @override
   Widget build(BuildContext context) {
     final store = context.store;
+    if (_portfolio != null && store.lastRefresh != null && store.lastRefresh != _loadedAfter) {
+      _loadedAfter = store.lastRefresh;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _load();
+      });
+    }
     final s = store.data.studentById[widget.studentId];
     if (s == null) {
       return Scaffold(
@@ -81,6 +93,12 @@ class _StudentCardScreenState extends State<StudentCardScreen> {
         appBar: AppBar(
           title: const Text('Картка учня'),
           actions: [
+            if (AppWindows.main != null)
+              IconButton(
+                tooltip: 'Відкрити в окремому вікні',
+                onPressed: () => AppWindows.main!.openStudent(s),
+                icon: const Icon(Icons.open_in_new_rounded),
+              ),
             IconButton(
               tooltip: 'Редагувати',
               onPressed: () =>

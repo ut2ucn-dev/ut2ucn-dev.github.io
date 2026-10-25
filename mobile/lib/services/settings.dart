@@ -59,6 +59,12 @@ class Settings extends ChangeNotifier {
   void addRecentSearch(String key) =>
       _prefs.setStringList('recentSearch', [key, ...recentSearch.where((k) => k != key)].take(6).toList());
 
+  /// Extra Mac windows opened and not yet known to be closed: the main
+  /// window takes over what they couldn't send (desktop/windows.dart).
+  List<String> get openWindows => _prefs.getStringList('openWindows') ?? const [];
+  void rememberWindow(String key) => _prefs.setStringList('openWindows', {...openWindows, key}.toList());
+  void forgetWindow(String key) => _prefs.setStringList('openWindows', openWindows.where((k) => k != key).toList());
+
   /// The printer and filament picked last when marking a model printed.
   String? get lastPrinterId => _prefs.getString('lastPrinterId');
   String? get lastFilamentId => _prefs.getString('lastFilamentId');
