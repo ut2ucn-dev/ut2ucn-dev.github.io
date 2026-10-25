@@ -7,6 +7,8 @@ import '../data/api.dart';
 import '../data/models.dart';
 import '../data/parent_portal.dart';
 import '../data/store.dart';
+import '../desktop/desktop_shell.dart';
+import '../desktop/platform.dart';
 import '../services/reminders.dart';
 import '../services/settings.dart';
 import 'intro.dart';
@@ -67,6 +69,9 @@ enum _Gate { loading, signedOut, ready }
 /// in the background (and signs out a deactivated account, as the web does).
 /// A parent's session token (sql/0018) takes over the whole app with the
 /// parents' portal; parents never have a Supabase Auth session.
+///
+/// The macOS app is for admins only: a teacher's account is signed straight
+/// back out with a note on the login screen, and there is no parents' side.
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key, required this.api, required this.parentApi});
   final StemikApi api;
@@ -79,6 +84,9 @@ class AuthGate extends StatefulWidget {
 class _AuthGateState extends State<AuthGate> {
   _Gate _gate = _Gate.loading;
   StreamSubscription<AuthEvent>? _sub;
+
+  /// Why the last sign-in was turned away, for the login screen.
+  String? _notice;
 
   @override
   void initState() {
@@ -107,7 +115,8 @@ class _AuthGateState extends State<AuthGate> {
     }
     final store = context.storeRead;
     final settings = SettingsScope.read(context);
-    final cached = settings.cachedProfile(uid);
+    var cached = settings.cachedProfile(uid);
+    if (cached != null && isAdminDesktop && !Profile(cached).isAdmin) cached = null;
     if (cached != null) {
       await store.open(Profile(cached));
       if (mounted) setState(() => _gate = _Gate.ready);
@@ -128,6 +137,12 @@ class _AuthGateState extends State<AuthGate> {
       await _signOut();
       return;
     }
+    if (isAdminDesktop && !p.isAdmin) {
+      _notice = 'Цей застосунок — для адміністраторів студії. Викладачі працюють у мобільному застосунку Stemik або на сайті.';
+      await _signOut();
+      return;
+    }
+    _notice = null;
     settings.saveProfile(row);
     await store.open(p);
     if (mounted) setState(() => _gate = _Gate.ready);
@@ -147,14 +162,14 @@ class _AuthGateState extends State<AuthGate> {
 
   @override
   Widget build(BuildContext context) {
-    if (SettingsScope.of(context).parentToken != null) return ParentHome(api: widget.parentApi);
+    if (!isAdminDesktop && SettingsScope.of(context).parentToken != null) return ParentHome(api: widget.parentApi);
     switch (_gate) {
       case _Gate.loading:
         return const Scaffold(body: LoadingView());
       case _Gate.signedOut:
-        return LoginScreen(api: widget.api, parentApi: widget.parentApi);
+        return LoginScreen(api: widget.api, parentApi: widget.parentApi, notice: _notice);
       case _Gate.ready:
-        return HomeShell(onSignOut: _signOut);
+        return isAdminDesktop ? DesktopShell(onSignOut: _signOut) : HomeShell(onSignOut: _signOut);
     }
   }
 }

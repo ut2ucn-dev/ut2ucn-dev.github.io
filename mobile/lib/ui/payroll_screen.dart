@@ -5,6 +5,7 @@ import '../util/dates.dart';
 import '../util/domain.dart';
 import 'schedule/lesson_screen.dart';
 import 'scope.dart';
+import 'split.dart';
 import 'theme.dart';
 import 'widgets.dart';
 
@@ -211,7 +212,7 @@ class _LessonPayRow extends StatelessWidget {
     final c = context.c;
     final bucket = payrollBucket(lesson.format, lesson.studentIds.length);
     final body = InkWell(
-      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => LessonScreen(lessonId: lesson.id))),
+      onTap: () => openPage(context, LessonScreen(lessonId: lesson.id)),
       child: Padding(
         padding: const EdgeInsets.all(10),
         child: Row(

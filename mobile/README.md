@@ -1,6 +1,8 @@
 # Stemik — мобільний застосунок
 
-Нативний застосунок для Android та iPhone (Flutter). Він працює з тією самою
+Нативний застосунок для Android та iPhone (Flutter), а з того самого коду —
+**Stemik Admin для macOS**, робоче місце адміністратора (див.
+[MACOS.md](MACOS.md)). Він працює з тією самою
 базою Supabase, що й сайт: ті самі таблиці, функції й права доступу (RLS),
 тож сайт і застосунок завжди показують одні й ті самі дані.
 
@@ -22,6 +24,15 @@ https://github.com/ut2ucn-dev/ut2ucn-dev.github.io/releases/latest/download/stem
 - **Для всієї команди:** акаунт Apple Developer → TestFlight. Тоді збірку
   можна роздавати посиланням, і вона оновлюється сама. Для цього в CI треба
   додати сертифікат і профіль підпису.
+
+**Mac (лише для адміністраторів).** Завантажте
+https://github.com/ut2ucn-dev/ut2ucn-dev.github.io/releases/latest/download/stemik-admin.dmg,
+відкрийте й перетягніть **Stemik Admin** у «Програми». Застосунок не
+нотаризовано (для цього потрібен Apple Developer, $99/рік), тож при першому
+запуску macOS скаже, що не може перевірити розробника: натисніть «Готово»,
+відкрийте Системні параметри → Конфіденційність і безпека → «Усе одно
+відкрити». Далі він відкривається звичайно. Нова версія — той самий `.dmg`
+із заміною; застосунок сам про неї повідомить. Потрібна macOS 12+.
 
 ## Що вміє
 
@@ -57,8 +68,9 @@ https://github.com/ut2ucn-dev/ut2ucn-dev.github.io/releases/latest/download/stem
 ```
 lib/
   data/        Supabase API, знімок даних, офлайн-черга (outbox.dart), AppStore
+  desktop/     оболонка macOS: бічна панель, список | картка, меню, клавіші
   services/    нагадування, фото з камери, налаштування, оновлення
-  ui/          екрани
+  ui/          екрани (спільні для телефона й Mac)
   util/        правила студії з index.html (формати, сегменти ЗП, друк), дати
   demo/        вигадана студія без сервера — для перегляду й тестів
 ```
@@ -75,6 +87,9 @@ flutter pub get
 flutter analyze && flutter test
 flutter run                                        # на телефоні/емуляторі
 flutter run -d chrome --dart-define=STEMIK_DEMO=true   # демо без сервера
+flutter run -d macos                               # Stemik Admin (на Mac)
+flutter run -d chrome --dart-define=STEMIK_DEMO=true --dart-define=STEMIK_DESKTOP=true
+                                                   # Stemik Admin без Mac і сервера
 ```
 
 `STEMIK_DEMO_ROLE=teacher` (через `--dart-define`) показує демо очима
@@ -84,7 +99,7 @@ flutter run -d chrome --dart-define=STEMIK_DEMO=true   # демо без сер�
 ## Збірка і публікація
 
 `.github/workflows/mobile.yml` при кожній зміні в `mobile/` проганяє аналіз і
-тести та збирає APK (Linux) і IPA (macOS):
+тести та збирає APK (Linux), IPA і DMG для Mac (macOS):
 
 - з `main` — реліз `mobile-v2.0.<N>`, позначений як останній; на нього ведуть
   посилання вище й перевірка оновлень у застосунку;

@@ -145,6 +145,9 @@ class DemoApi implements StemikApi {
       ('18:00', 60, '3D Tinkercad FIRST (9-12)', 'Підставка для телефона', null, 'individual_online'),
     ];
     final today = DateTime.now();
+    // The studio is closed on Sundays: then the latest lessons, some still
+    // unmarked, are yesterday's.
+    final lastDay = today.weekday == DateTime.sunday ? -1 : 0;
     for (var day = -10; day <= 10; day++) {
       final d = DateTime(today.year, today.month, today.day + day);
       if (d.weekday == DateTime.sunday) continue;
@@ -177,7 +180,7 @@ class DemoApi implements StemikApi {
         if (day <= 0) {
           for (final sid in ids) {
             final status = rnd.nextInt(10) < 8 ? 'present' : (rnd.nextBool() ? 'absent' : 'excused');
-            if (day == 0 && rnd.nextBool()) continue;
+            if (day == lastDay && rnd.nextBool()) continue;
             final pm = status != 'present' ? null : ['card', 'cash', null, 'card'][rnd.nextInt(4)];
             attendance.add({
               'id': _uuid.v4(),

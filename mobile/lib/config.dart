@@ -15,5 +15,8 @@ const updateManifestUrl = 'https://github.com/ut2ucn-dev/ut2ucn-dev.github.io/re
 /// Always the newest Android build.
 const latestApkUrl = 'https://github.com/ut2ucn-dev/ut2ucn-dev.github.io/releases/latest/download/stemik.apk';
 
+/// Always the newest macOS admin app.
+const latestDmgUrl = 'https://github.com/ut2ucn-dev/ut2ucn-dev.github.io/releases/latest/download/stemik-admin.dmg';
+
 /// Lesson dates and times are stored as studio-local wall-clock values.
 const studioTimeZone = 'Europe/Kyiv';

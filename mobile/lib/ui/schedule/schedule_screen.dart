@@ -5,6 +5,7 @@ import '../../data/studio_data.dart';
 import '../../util/dates.dart';
 import '../../util/domain.dart';
 import '../scope.dart';
+import '../split.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'lesson_edit_screen.dart';
@@ -29,6 +30,9 @@ class ScheduleScreenState extends State<ScheduleScreen> {
   final Set<String> _rooms = {};
 
   DateTime get _day => _dayFor(_page);
+
+  /// The day on screen.
+  DateTime get day => _day;
   DateTime _dayFor(int page) => DateTime(_origin.year, _origin.month, _origin.day + page - _center);
 
   void goToDate(DateTime d) {
@@ -84,11 +88,8 @@ class ScheduleScreenState extends State<ScheduleScreen> {
       ),
       floatingActionButton: store.isAdmin
           ? FloatingActionButton.extended(
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => LessonEditScreen(presetDate: isoDate(_day), presetOwnerId: store.teacherFilter),
-                ),
-              ),
+              onPressed: () =>
+                  openPage(context, LessonEditScreen(presetDate: isoDate(_day), presetOwnerId: store.teacherFilter)),
               icon: const Icon(Icons.add_rounded),
               label: const Text('Заняття', style: TextStyle(fontWeight: FontWeight.w700)),
             )
@@ -346,7 +347,13 @@ class _DayAgenda extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(4, 4, 4, 10),
             child: Row(
               children: [
-                Text(dayHeader(day), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                Flexible(
+                  child: Text(
+                    dayHeader(day),
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                  ),
+                ),
                 if (isToday) ...[const SizedBox(width: 8), Tag('Сьогодні', color: Colors.white, soft: c.brand)],
                 const Spacer(),
                 if (sorted.isNotEmpty)
@@ -418,7 +425,7 @@ class LessonTile extends StatelessWidget {
       child: Card(
         clipBehavior: Clip.antiAlias,
         child: InkWell(
-          onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => LessonScreen(lessonId: lesson.id))),
+          onTap: () => openPage(context, LessonScreen(lessonId: lesson.id)),
           child: IntrinsicHeight(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,

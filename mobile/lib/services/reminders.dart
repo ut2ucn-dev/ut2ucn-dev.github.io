@@ -44,10 +44,17 @@ class Reminders {
     color: Color(0xFF5B4FE0),
     category: AndroidNotificationCategory.reminder,
   );
-  static const _details = NotificationDetails(android: _android, iOS: DarwinNotificationDetails());
+  static const _details = NotificationDetails(
+    android: _android,
+    iOS: DarwinNotificationDetails(),
+    macOS: DarwinNotificationDetails(),
+  );
 
   bool get supported =>
-      !kIsWeb && (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS);
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS ||
+          defaultTargetPlatform == TargetPlatform.macOS);
 
   Future<void> init() async {
     if (!supported) return;
@@ -60,6 +67,11 @@ class Reminders {
         android: AndroidInitializationSettings('ic_notification'),
         // Ask for permission after sign-in, not on the login screen.
         iOS: DarwinInitializationSettings(
+          requestAlertPermission: false,
+          requestBadgePermission: false,
+          requestSoundPermission: false,
+        ),
+        macOS: DarwinInitializationSettings(
           requestAlertPermission: false,
           requestBadgePermission: false,
           requestSoundPermission: false,
@@ -79,6 +91,8 @@ class Reminders {
     if (!_ready) return false;
     final android = _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
     if (android != null) return await android.requestNotificationsPermission() ?? false;
+    final mac = _plugin.resolvePlatformSpecificImplementation<MacOSFlutterLocalNotificationsPlugin>();
+    if (mac != null) return await mac.requestPermissions(alert: true, badge: true, sound: true) ?? false;
     final ios = _plugin.resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>();
     return await ios?.requestPermissions(alert: true, badge: true, sound: true) ?? false;
   }

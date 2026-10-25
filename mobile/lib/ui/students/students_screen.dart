@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../contact.dart';
 import '../scope.dart';
+import '../split.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'bulk_add_screen.dart';
@@ -50,14 +51,14 @@ class _StudentsScreenState extends State<StudentsScreen> {
         actions: [
           IconButton(
             tooltip: 'Додати кількох',
-            onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const BulkAddScreen())),
+            onPressed: () => openPage(context, const BulkAddScreen()),
             icon: const Icon(Icons.group_add_rounded),
           ),
           const SyncButton(),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const StudentEditScreen())),
+        onPressed: () => openPage(context, const StudentEditScreen()),
         icon: const Icon(Icons.person_add_alt_1_rounded),
         label: const Text('Учень', style: TextStyle(fontWeight: FontWeight.w700)),
       ),
@@ -115,9 +116,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
                           child: Card(
                             clipBehavior: Clip.antiAlias,
                             child: InkWell(
-                              onTap: () =>
-                                  Navigator.of(context)
-                                      .push(MaterialPageRoute(builder: (_) => StudentCardScreen(studentId: s.id))),
+                              onTap: () => openPage(context, StudentCardScreen(studentId: s.id)),
                               child: Padding(
                                 padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
                                 child: Row(
