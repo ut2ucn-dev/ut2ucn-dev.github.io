@@ -9,6 +9,8 @@ import 'data/supabase_api.dart';
 import 'data/supabase_parent_api.dart';
 import 'demo/demo_api.dart';
 import 'demo/demo_parent_api.dart';
+import 'desktop/platform.dart';
+import 'desktop/windows.dart';
 import 'services/reminders.dart';
 import 'services/settings.dart';
 import 'ui/app.dart';
@@ -17,7 +19,10 @@ import 'ui/app.dart';
 /// (for previews and screenshots).
 const demoMode = bool.fromEnvironment('STEMIK_DEMO');
 
-Future<void> main() async {
+/// An extra Mac window is started with the arguments ["window", <spec>]
+/// (desktop/windows.dart).
+Future<void> main(List<String> args) async {
+  if (args.length >= 2 && args.first == 'window') return runWindow(args[1]);
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('uk');
   final settings = await Settings.load();
@@ -31,7 +36,9 @@ Future<void> main() async {
     api = SupabaseApi();
     parentApi = SupabaseParentApi();
   }
-  final store = AppStore(api, LocalFiles.create());
+  final files = LocalFiles.create();
+  final store = AppStore(api, files);
+  if (hasNativeMenuBar && !demoMode) AppWindows.start(store, files, settings);
   final reminders = Reminders(store, settings);
   try {
     await reminders.init();

@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../services/photos.dart';
 import '../util/dates.dart';
 import '../util/domain.dart';
 import 'schedule/lesson_screen.dart';
+import 'print_data.dart';
 import 'scope.dart';
+import 'split.dart';
 import 'theme.dart';
 import 'widgets.dart';
 
@@ -74,9 +75,7 @@ class _QueueScreenState extends State<QueueScreen> {
                         return Card(
                           clipBehavior: Clip.antiAlias,
                           child: InkWell(
-                            onTap: () =>
-                                Navigator.of(context)
-                                    .push(MaterialPageRoute(builder: (_) => LessonScreen(lessonId: r.lesson.id))),
+                            onTap: () => openPage(context, LessonScreen(lessonId: r.lesson.id)),
                             child: Padding(
                               padding: const EdgeInsets.all(12),
                               child: Row(
@@ -121,11 +120,13 @@ class _QueueScreenState extends State<QueueScreen> {
                                           children: [
                                             PrintedPill(
                                               printed: printed,
-                                              onTap: () {
-                                                HapticFeedback.selectionClick();
-                                                store.setPrinted(r.lesson, r.student, !printed);
-                                              },
+                                              onTap: () => togglePrinted(context, r.lesson, r.student, r.work),
                                             ),
+                                            if (printed)
+                                              PrintDataChip(
+                                                work: r.work,
+                                                onTap: () => editPrintData(context, r.lesson, r.student, r.work),
+                                              ),
                                             if (isOnlineFormat(r.lesson.format))
                                               Tag(lessonFormatLabel(r.lesson, r.attendance)),
                                             if (store.isAdmin && owner != null)

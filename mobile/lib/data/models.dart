@@ -128,6 +128,12 @@ class Work {
   String? get printedByName => raw['printed_by_name'] as String?;
   bool get trial => raw['trial'] == true;
 
+  // What was entered when it was marked printed (sql/0019).
+  double? get weightG => _num(raw['weight_g']);
+  double? get printMinutes => _num(raw['print_minutes']);
+  String? get printerId => raw['printer_id'] as String?;
+  String? get filamentId => raw['filament_id'] as String?;
+
   /// A photo taken on this device that hasn't been uploaded yet.
   String? get localPhoto => raw['_local_photo'] as String?;
   bool get pending => raw['_pending'] == true;
@@ -173,4 +179,64 @@ class RateCard {
 
   String get course => raw['course'] as String;
   double? value(String column) => _num(raw[column]);
+}
+
+/// A printer from printers_safe; the numbers are null for teachers.
+class Printer {
+  final Map<String, dynamic> raw;
+  Printer(this.raw);
+
+  String? get id => raw['id'] as String?;
+  String get name => (raw['name'] as String?) ?? '';
+  double? get powerWatts => _num(raw['power_watts']);
+  double? get depreciationPerHour => _num(raw['depreciation_per_hour']);
+  bool get active => raw['active'] != false;
+}
+
+/// A filament from filaments_safe; the price is null for teachers.
+class Filament {
+  final Map<String, dynamic> raw;
+  Filament(this.raw);
+
+  String? get id => raw['id'] as String?;
+  String get material => (raw['material'] as String?) ?? '';
+  String? get color => raw['color'] as String?;
+  double? get pricePerKg => _num(raw['price_per_kg']);
+  bool get active => raw['active'] != false;
+}
+
+/// One printed model from report_print_costs. The costs are null until
+/// weight or time was entered.
+class PrintCost {
+  final Map<String, dynamic> raw;
+  PrintCost(this.raw);
+
+  String get workId => raw['work_id'] as String;
+  String get printDate => (raw['print_date'] as String?) ?? '';
+  String? get course => raw['course'] as String?;
+  String? get theme => raw['theme'] as String?;
+  String? get studentName => raw['student_name'] as String?;
+  double? get weightG => _num(raw['weight_g']);
+  double? get printMinutes => _num(raw['print_minutes']);
+  String? get printerName => raw['printer_name'] as String?;
+  String? get filamentMaterial => raw['filament_material'] as String?;
+  String? get filamentColor => raw['filament_color'] as String?;
+  double? get materialCost => _num(raw['material_cost']);
+  double? get electricityCost => _num(raw['electricity_cost']);
+  double? get depreciationCost => _num(raw['depreciation_cost']);
+  double? get totalCost => _num(raw['total_cost']);
+}
+
+/// A parents' portal account (parent_accounts). The phone is digits with
+/// the 380 prefix.
+class ParentAccount {
+  final Map<String, dynamic> raw;
+  ParentAccount(this.raw);
+
+  String get id => raw['id'] as String;
+  String get phone => (raw['phone'] as String?) ?? '';
+  String? get name => raw['name'] as String?;
+  bool get active => raw['active'] != false;
+  String? get passwordSetAt => raw['password_set_at'] as String?;
+  String? get lastLoginAt => raw['last_login_at'] as String?;
 }

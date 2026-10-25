@@ -46,11 +46,39 @@ class Settings extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Admins only: a notification when a colleague prints a model, adds a
+  /// student, moves or cancels a lesson.
+  bool get othersEvents => _prefs.getBool('othersEvents') ?? true;
+  set othersEvents(bool v) {
+    _prefs.setBool('othersEvents', v);
+    notifyListeners();
+  }
+
   /// Morning summary of the day's lessons.
   bool get dailyDigest => _prefs.getBool('dailyDigest') ?? true;
   set dailyDigest(bool v) {
     _prefs.setBool('dailyDigest', v);
     notifyListeners();
+  }
+
+  /// What was opened last from the ⌘K search (`student:<id>`,
+  /// `lesson:<id>`, `teacher:<id>`), newest first.
+  List<String> get recentSearch => _prefs.getStringList('recentSearch') ?? const [];
+  void addRecentSearch(String key) =>
+      _prefs.setStringList('recentSearch', [key, ...recentSearch.where((k) => k != key)].take(6).toList());
+
+  /// Extra Mac windows opened and not yet known to be closed: the main
+  /// window takes over what they couldn't send (desktop/windows.dart).
+  List<String> get openWindows => _prefs.getStringList('openWindows') ?? const [];
+  void rememberWindow(String key) => _prefs.setStringList('openWindows', {...openWindows, key}.toList());
+  void forgetWindow(String key) => _prefs.setStringList('openWindows', openWindows.where((k) => k != key).toList());
+
+  /// The printer and filament picked last when marking a model printed.
+  String? get lastPrinterId => _prefs.getString('lastPrinterId');
+  String? get lastFilamentId => _prefs.getString('lastFilamentId');
+  void saveLastPrintChoice(String? printerId, String? filamentId) {
+    printerId == null ? _prefs.remove('lastPrinterId') : _prefs.setString('lastPrinterId', printerId);
+    filamentId == null ? _prefs.remove('lastFilamentId') : _prefs.setString('lastFilamentId', filamentId);
   }
 
   /// The signed-in person's profile row, so the app can open offline.

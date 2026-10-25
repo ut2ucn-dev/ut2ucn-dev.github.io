@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../export/export_actions.dart';
+import '../../export/export_doc.dart';
+import '../../export/reports.dart';
 import '../../util/dates.dart';
 import '../../util/domain.dart';
 import '../scope.dart';
@@ -12,10 +15,10 @@ class ReportScreen extends StatefulWidget {
   const ReportScreen({super.key});
 
   @override
-  State<ReportScreen> createState() => _ReportScreenState();
+  State<ReportScreen> createState() => ReportScreenState();
 }
 
-class _ReportScreenState extends State<ReportScreen> {
+class ReportScreenState extends State<ReportScreen> with ExportableScreen {
   late DateTime _from = DateTime(DateTime.now().year, DateTime.now().month);
   late DateTime _to = dateOnly(DateTime.now());
   bool _loading = true;
@@ -55,6 +58,23 @@ class _ReportScreenState extends State<ReportScreen> {
     });
   }
 
+  @override
+  Future<ExportDoc?> exportDoc() async {
+    if (_loading || _summary == null) {
+      context.storeRead.say('Звіт ще завантажується');
+      return null;
+    }
+    return studioReportDoc(
+      from: isoDate(_from),
+      to: isoDate(_to),
+      summary: _summary!,
+      paid: _paid,
+      debt: _debt,
+      subscriptions: _subs,
+      excused: _excused,
+    );
+  }
+
   String _pm(Object? m) => optionLabel(paymentMethods, m as String?) ?? m ?? '';
 
   @override
@@ -63,7 +83,10 @@ class _ReportScreenState extends State<ReportScreen> {
     final s = _summary ?? const {};
     num n(String k) => (s[k] as num?) ?? 0;
     return Scaffold(
-      appBar: AppBar(title: const Text('Звіт студії')),
+      appBar: AppBar(
+        title: const Text('Звіт студії'),
+        actions: [ExportButton(onExport: exportAs)],
+      ),
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(

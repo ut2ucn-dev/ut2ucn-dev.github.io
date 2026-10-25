@@ -11,6 +11,7 @@ import 'models.dart';
 import 'outbox.dart';
 import 'snapshot.dart';
 import 'studio_data.dart';
+import 'studio_events.dart';
 
 enum Connection { unknown, online, offline }
 
@@ -23,10 +24,14 @@ enum Connection { unknown, online, offline }
 /// order whenever a connection is available. Rarer admin edits (lessons,
 /// students, rates, accounts) need a connection and go straight through.
 class AppStore extends ChangeNotifier {
-  AppStore(this.api, this.files);
+  /// [watchLive]: reload whenever anyone changes studio data (admins; see
+  /// [live]). Off in the Mac's extra windows, which hear it from the main
+  /// window.
+  AppStore(this.api, this.files, {this.watchLive = true});
 
   final StemikApi api;
   final LocalFiles files;
+  final bool watchLive;
 
   Profile? _me;
   Profile get me => _me!;
@@ -59,6 +64,86 @@ class AppStore extends ChangeNotifier {
   final List<String> rejected = [];
 
   final _messages = StreamController<String>.broadcast();
+  final _serverWrites = StreamController<void>.broadcast();
+  final _remoteChanges = StreamController<void>.broadcast();
+
+  /// Fires after the data was reloaded because someone else changed it.
+  Stream<void> get remoteChanges => _remoteChanges.stream;
+
+  final _othersEvents = StreamController<List<StudioEvent>>.broadcast();
+
+  /// What colleagues did, as found in a reload after someone else changed
+  /// something (models printed, students added, lessons moved or
+  /// cancelled). For notifications.
+  Stream<List<StudioEvent>> get othersEvents => _othersEvents.stream;
+
+  // An online-only change of this store's own is under way; its echo from
+  // the server mustn't be taken for someone else's.
+  int _writing = 0;
+  Completer<void>? _writesDone;
+
+  // --- live updates ---------------------------------------------------------
+
+  LiveWatch? _watch;
+  Timer? _liveDebounce;
+  bool _live = false;
+  bool _wasLive = false;
+
+  /// Changes made by others (the web, phones, other admins) arrive by
+  /// themselves: the server says something changed, the store reloads.
+  bool get live => _live;
+
+  void _startLive() {
+    _stopLive();
+    if (!watchLive || !isAdmin) return;
+    _watch = api.watchStudio(
+      onChange: _changedElsewhere,
+      onLive: (live) {
+        if (live == _live) return;
+        _live = live;
+        notifyListeners();
+        // Back after a drop: catch up on what happened meanwhile.
+        if (live && _wasLive) _changedElsewhere();
+        _wasLive |= live;
+      },
+    );
+  }
+
+  void _stopLive() {
+    _liveDebounce?.cancel();
+    final w = _watch;
+    _watch = null;
+    if (w != null) unawaited(w.cancel());
+    _live = false;
+    _wasLive = false;
+  }
+
+  /// One reload for a burst of changes (a lesson marked for a whole group
+  /// is a dozen events), and always a fresh one: a reload already running
+  /// may have read the data before the change.
+  void _changedElsewhere() {
+    _liveDebounce?.cancel();
+    _liveDebounce = Timer(const Duration(milliseconds: 1200), () async {
+      while (_writing > 0) {
+        await (_writesDone ??= Completer<void>()).future;
+      }
+      final running = _syncing;
+      if (running != null) await running;
+      if (_me == null) return;
+      final before = data;
+      await sync();
+      final me = _me;
+      if (me == null || _othersEvents.isClosed) return;
+      final events = findOthersEvents(before, data, me: me, now: DateTime.now());
+      if (events.isNotEmpty) _othersEvents.add(events);
+      _remoteChanges.add(null);
+    });
+  }
+
+  /// Fires when this store changed something on the server (sent queued
+  /// changes, or an online-only change went through), so other windows
+  /// showing the same data can reload.
+  Stream<void> get serverWrites => _serverWrites.stream;
 
   /// Short messages for the user (errors, "saved"); the shell shows them.
   Stream<String> get messages => _messages.stream;
@@ -129,12 +214,14 @@ class AppStore extends ChangeNotifier {
       if (_ops.isNotEmpty) sync();
     });
     unawaited(sync());
+    _startLive();
   }
 
   /// Forget everything about the signed-in person (sign-out).
   Future<void> close({bool discardPending = true}) async {
     _retryTimer?.cancel();
     _refreshDebounce?.cancel();
+    _stopLive();
     if (_me != null && discardPending) {
       for (final op in [..._ops, ..._synced]) {
         if (op.type == OpType.uploadWorkPhoto) await files.deletePhoto(op.data['photoHandle'] as String);
@@ -151,6 +238,30 @@ class AppStore extends ChangeNotifier {
     _connection = Connection.unknown;
     rejected.clear();
     notifyListeners();
+  }
+
+  /// Takes over changes another window queued and couldn't send (its saved
+  /// outbox, as [_saveOutbox] writes it), and sends them from here.
+  Future<void> adoptOutbox(Object? saved) async {
+    if (_me == null || saved is! Map) return;
+    final ops = ((saved['ops'] as List?) ?? const []).map(PendingOp.fromJson).whereType<PendingOp>().toList();
+    if (ops.isEmpty) return;
+    _ops.addAll(ops);
+    await _saveOutbox();
+    _rebuild();
+    unawaited(sync());
+  }
+
+  /// Before a window goes: lets a send in progress finish, stops retrying
+  /// and leaves what's still queued saved, for the main window to adopt.
+  Future<void> shutDown() async {
+    _retryTimer?.cancel();
+    _refreshDebounce?.cancel();
+    _stopLive();
+    try {
+      await _syncing;
+    } catch (_) {}
+    if (_me != null) await _saveOutbox();
   }
 
   void updateMe(Profile p) {
@@ -221,7 +332,10 @@ class AppStore extends ChangeNotifier {
       _flushing = false;
     }
     _setConnection(reached ? Connection.online : Connection.offline);
-    if (sent) _rebuild();
+    if (sent) {
+      _rebuild();
+      _serverWrites.add(null);
+    }
     return reached;
   }
 
@@ -338,7 +452,10 @@ class AppStore extends ChangeNotifier {
     }),
   );
 
-  Future<void> setPrinted(Lesson lesson, Student student, bool printed) => _enqueue(
+  /// [printData] — weight_g, print_minutes, printer_id, filament_id
+  /// (sql/0019) — goes with marking printed; un-marking keeps whatever was
+  /// entered, as on the web.
+  Future<void> setPrinted(Lesson lesson, Student student, bool printed, {Map<String, Object?>? printData}) => _enqueue(
     PendingOp(OpType.setWork, {
       'lessonId': lesson.id,
       'studentId': student.id,
@@ -347,9 +464,52 @@ class AppStore extends ChangeNotifier {
         'printed': printed,
         'printed_by_name': printed ? me.fullName : null,
         'printed_at': printed ? DateTime.now().toUtc().toIso8601String() : null,
+        ...?printData,
       },
     }),
   );
+
+  /// Corrects the weight, time, printer or filament of a printed model.
+  Future<void> setPrintData(Lesson lesson, Student student, Map<String, Object?> printData) => _enqueue(
+    PendingOp(OpType.setWork, {
+      'lessonId': lesson.id,
+      'studentId': student.id,
+      'ownerId': lesson.ownerId,
+      'patch': printData,
+    }),
+  );
+
+  // --- printers and filaments to pick from (sql/0019) ---------------------
+
+  List<Printer> _printers = const [];
+  List<Filament> _filaments = const [];
+  List<Printer> get printers => _printers;
+  List<Filament> get filaments => _filaments;
+  static const _printDirectoryFile = 'print_directory.json';
+
+  /// Refreshes the lists (kept on the device, so marking a model printed
+  /// works offline too).
+  Future<void> loadPrintDirectory() async {
+    try {
+      final (p, f) = (await api.fetchPrinters(), await api.fetchFilaments());
+      _printers = p.map(Printer.new).toList();
+      _filaments = f.map(Filament.new).toList();
+      await files.writeJson(_printDirectoryFile, {'printers': p, 'filaments': f});
+    } catch (_) {
+      if (_printers.isEmpty && _filaments.isEmpty) {
+        final saved = await files.readJson(_printDirectoryFile);
+        if (saved is Map) {
+          _printers = [
+            for (final r in (saved['printers'] as List? ?? const [])) Printer(Map<String, dynamic>.from(r as Map)),
+          ];
+          _filaments = [
+            for (final r in (saved['filaments'] as List? ?? const [])) Filament(Map<String, dynamic>.from(r as Map)),
+          ];
+        }
+      }
+    }
+    notifyListeners();
+  }
 
   Future<void> setTrial(Lesson lesson, Student student, bool trial) => _enqueue(
     PendingOp(OpType.setWork, {
@@ -406,6 +566,7 @@ class AppStore extends ChangeNotifier {
   /// Runs an online-only change. Returns true on success; on failure tells
   /// the user why and returns false.
   Future<bool> online(Future<void> Function() change, {String? done, bool reload = true}) async {
+    _writing++;
     try {
       await change();
     } on ServerRejected catch (e) {
@@ -415,8 +576,16 @@ class AppStore extends ChangeNotifier {
       _setConnection(Connection.offline);
       say("Немає з'єднання з сервером. Ця дія потребує інтернету.");
       return false;
+    } finally {
+      // Before the reload below starts: a live reload waiting on this then
+      // waits for that one too, and sees the change as already there.
+      if (--_writing == 0) {
+        _writesDone?.complete();
+        _writesDone = null;
+      }
     }
     _setConnection(Connection.online);
+    _serverWrites.add(null);
     if (done != null) say(done);
     if (reload) unawaited(sync());
     return true;
@@ -469,6 +638,10 @@ class AppStore extends ChangeNotifier {
     _retryTimer?.cancel();
     _refreshDebounce?.cancel();
     _messages.close();
+    _stopLive();
+    _serverWrites.close();
+    _remoteChanges.close();
+    _othersEvents.close();
     super.dispose();
   }
 }

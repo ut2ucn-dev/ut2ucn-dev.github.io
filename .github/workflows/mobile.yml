@@ -1,7 +1,8 @@
 name: Mobile app
 
-# Builds the Flutter app in mobile/ for Android and iPhone and publishes the
-# files as a GitHub Release:
+# Builds the Flutter app in mobile/ for Android and iPhone, and the admin
+# console for macOS from the same code, and publishes the files as a GitHub
+# Release:
 #   - main:           release "mobile-v2.0.<run>", marked latest — the in-app
 #                     update check and the download links point at it;
 #   - other branches: prerelease "mobile-preview-<branch>", replaced on
@@ -115,8 +116,40 @@ jobs:
           name: stemik-ios
           path: dist/stemik-unsigned.ipa
 
+  macos:
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      # Signed ad hoc, not notarized: the first launch needs "Open Anyway"
+      # in System Settings (see mobile/README.md). The same build numbers as
+      # the phone builds, so the in-app update check compares like for like.
+      - name: Build macOS app
+        run: |
+          flutter build macos --release \
+            --build-number=$((1000 + GITHUB_RUN_NUMBER)) \
+            --build-name=2.0.$GITHUB_RUN_NUMBER
+          mkdir -p dmg ../dist
+          cp -R "build/macos/Build/Products/Release/Stemik Admin.app" dmg/
+          ln -s /Applications dmg/Applications
+          hdiutil create -volname "Stemik Admin" -srcfolder dmg -ov -format UDZO ../dist/stemik-admin.dmg
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: stemik-macos
+          path: dist/stemik-admin.dmg
+
   publish:
-    needs: [android, ios]
+    needs: [android, ios, macos]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v5
@@ -145,8 +178,8 @@ jobs:
           fi
           BASE="https://github.com/$REPO/releases/latest/download"
           cat > dist/version.json <<EOF
-          {"versionCode": $CODE, "versionName": "$VERSION", "apkUrl": "$BASE/stemik.apk"}
+          {"versionCode": $CODE, "versionName": "$VERSION", "apkUrl": "$BASE/stemik.apk", "dmgUrl": "$BASE/stemik-admin.dmg"}
           EOF
-          gh release create "$TAG" dist/stemik.apk dist/stemik-unsigned.ipa dist/version.json \
+          gh release create "$TAG" dist/stemik.apk dist/stemik-unsigned.ipa dist/stemik-admin.dmg dist/version.json \
             --repo "$REPO" --target "$GITHUB_SHA" --title "$TITLE" $FLAGS \
-            --notes "Android: встановіть stemik.apk. iPhone: stemik-unsigned.ipa — див. mobile/README.md."
+            --notes "Android: встановіть stemik.apk. iPhone: stemik-unsigned.ipa. Mac (для адміністраторів): stemik-admin.dmg — див. mobile/README.md."

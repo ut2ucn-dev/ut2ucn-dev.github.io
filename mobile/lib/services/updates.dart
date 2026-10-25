@@ -13,11 +13,13 @@ Future<String> appVersion() async {
   return '${p.version} (${p.buildNumber})';
 }
 
-/// The app isn't in Google Play, so it checks the manifest CI publishes next
-/// to the APK and offers the download when a newer build is out. Android
-/// only — iPhones get updates however the IPA was installed.
+/// The app isn't in Google Play or the Mac App Store, so it checks the
+/// manifest CI publishes next to the APK and the DMG and offers the
+/// download when a newer build is out. Android and macOS — iPhones get
+/// updates however the IPA was installed.
 Future<void> checkForUpdate(BuildContext context, {bool manual = false}) async {
-  if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+  final mac = !kIsWeb && defaultTargetPlatform == TargetPlatform.macOS;
+  if (kIsWeb || (defaultTargetPlatform != TargetPlatform.android && !mac)) {
     if (manual && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('На iPhone оновлення встановлюються тим самим способом, що й застосунок.')),
@@ -48,13 +50,15 @@ Future<void> checkForUpdate(BuildContext context, {bool manual = false}) async {
     }
     return;
   }
-  final url = (manifest['apkUrl'] as String?) ?? latestApkUrl;
+  final url = mac ? (manifest['dmgUrl'] as String?) ?? latestDmgUrl : (manifest['apkUrl'] as String?) ?? latestApkUrl;
   final go = await showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(
       title: const Text('Доступна нова версія', style: TextStyle(fontWeight: FontWeight.w800)),
       content: Text(
-        'Stemik ${manifest!['versionName'] ?? ''} готовий до встановлення. Завантажте файл і відкрийте його — Android оновить застосунок, дані збережуться.',
+        mac
+            ? 'Stemik Admin ${manifest!['versionName'] ?? ''} готовий до встановлення. Завантажте .dmg, відкрийте його й перетягніть застосунок у «Програми» із заміною — вхід і дані збережуться.'
+            : 'Stemik ${manifest!['versionName'] ?? ''} готовий до встановлення. Завантажте файл і відкрийте його — Android оновить застосунок, дані збережуться.',
       ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Пізніше')),

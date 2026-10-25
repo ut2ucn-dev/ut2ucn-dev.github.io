@@ -14,6 +14,26 @@ class ServerRejected implements Exception {
   String toString() => message;
 }
 
+/// The tables whose changes the apps hear about (sql/0020_realtime.sql).
+const liveTables = [
+  'lessons',
+  'lesson_attendance',
+  'works',
+  'students',
+  'subscriptions',
+  'profiles',
+  'student_comments',
+  'rate_cards',
+];
+
+/// A running [StemikApi.watchStudio]; [cancel] stops it.
+class LiveWatch {
+  const LiveWatch(this.cancel);
+  final Future<void> Function() cancel;
+
+  static final none = LiveWatch(() async {});
+}
+
 /// Everything the app asks of the backend. [SupabaseApi] is the real one;
 /// the demo build and the tests use an in-memory fake.
 abstract class StemikApi {
@@ -24,6 +44,20 @@ abstract class StemikApi {
   Future<void> sendPasswordReset(String email);
   Future<void> updatePassword(String password);
   Future<void> signOut();
+
+  /// The signed-in person's current access token, and every new one as it
+  /// is refreshed — handed to the Mac's extra windows, which don't keep a
+  /// session of their own. Null and empty where there is none (demo).
+  String? get accessToken;
+  Stream<String?> get accessTokens;
+
+  // --- live updates (sql/0020) ---------------------------------------------
+
+  /// Calls [onChange] whenever studio data ([liveTables]) changes on the
+  /// server, whoever changed it; [onLive] says whether the connection is
+  /// up. For admins only: a change event carries the whole row, prices
+  /// included.
+  LiveWatch watchStudio({required void Function() onChange, required void Function(bool live) onLive});
 
   // --- reads --------------------------------------------------------------
   Future<DbRow?> fetchProfile(String id);
@@ -81,4 +115,48 @@ abstract class StemikApi {
 
   /// Calls a Supabase Edge Function (create-teacher, reset-password).
   Future<DbRow> callFunction(String name, DbRow body);
+
+  // --- cost of printed models (sql/0019) ----------------------------------
+
+  /// Printers and filaments, oldest first (printers_safe / filaments_safe):
+  /// everyone picks from them when marking a model printed; the prices come
+  /// back for admins only.
+  Future<List<DbRow>> fetchPrinters();
+  Future<List<DbRow>> fetchFilaments();
+
+  /// The electricity tariff and filament waste % (studio_settings).
+  Future<DbRow?> fetchPrintCostSettings();
+
+  /// One row per model printed in [from]..[to] (report_print_costs), newest
+  /// first; admins only.
+  Future<List<DbRow>> fetchPrintCosts(String from, String to);
+
+  /// Saves the directories (rows without an id are added) and the tariff.
+  Future<void> savePrintSetup({
+    required List<DbRow> printers,
+    required List<DbRow> filaments,
+    required double tariff,
+    required double wastePercent,
+  });
+
+  // --- parents' portal accounts (sql/0018), superadmin only ---------------
+
+  /// Newest first.
+  Future<List<DbRow>> fetchParentAccounts();
+
+  /// Which children each account sees: rows of (parent_id, student_id).
+  Future<List<DbRow>> fetchParentLinks();
+
+  /// parent_create_account, parent_reset_password or
+  /// parent_password_for_student: each returns the new plain-text password.
+  Future<DbRow> parentRpc(String name, DbRow params);
+  Future<void> saveParentAccount(
+    String id, {
+    required String phone,
+    String? name,
+    required List<String> linkStudents,
+    required List<String> unlinkStudents,
+  });
+  Future<void> setParentAccountActive(String id, bool active);
+  Future<void> deleteParentAccount(String id);
 }

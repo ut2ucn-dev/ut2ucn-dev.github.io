@@ -81,6 +81,22 @@ class SettingsScreen extends StatelessWidget {
               ],
             ),
           ),
+          if (store.isAdmin && reminders.supported) ...[
+            const SectionTitle('Дії колег'),
+            Card(
+              child: SwitchListTile(
+                value: settings.othersEvents,
+                onChanged: (v) async {
+                  settings.othersEvents = v;
+                  if (v) await reminders.requestPermission();
+                },
+                title: const Text('Сповіщати про дії колег', style: TextStyle(fontWeight: FontWeight.w700)),
+                subtitle: const Text(
+                  'Модель надруковано, новий учень, заняття перенесено чи скасовано — поки застосунок відкритий',
+                ),
+              ),
+            ),
+          ],
           const SectionTitle('Тема'),
           Card(
             child: Padding(

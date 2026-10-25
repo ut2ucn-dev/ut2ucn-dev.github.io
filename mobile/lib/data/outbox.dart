@@ -54,7 +54,9 @@ class PendingOp {
       case OpType.setAttendancePrint:
         return 'Друк для учня';
       case OpType.setWork:
-        return data['patch']?['printed'] != null ? 'Статус друку' : 'Пробне заняття';
+        final patch = data['patch'] as Map? ?? const {};
+        if (patch['printed'] != null) return 'Статус друку';
+        return patch.containsKey('weight_g') ? 'Дані друку' : 'Пробне заняття';
       case OpType.uploadWorkPhoto:
         return 'Фото роботи';
       case OpType.setLessonCompleted:

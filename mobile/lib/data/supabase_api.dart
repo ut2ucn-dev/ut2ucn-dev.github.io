@@ -9,6 +9,12 @@ import 'api.dart';
 /// [StemikApi] over the studio's Supabase project — the same tables, views,
 /// RPCs and Edge Functions index.html uses.
 class SupabaseApi implements StemikApi {
+  /// [windowUserId]: in an extra Mac window, whose client has no session of
+  /// its own and sends the token the main window hands it (see
+  /// [initializeForWindow]).
+  SupabaseApi({this.windowUserId});
+  final String? windowUserId;
+
   SupabaseClient get _sb => Supabase.instance.client;
 
   static Future<void> initialize() async {
@@ -23,6 +29,13 @@ class SupabaseApi implements StemikApi {
       ),
     );
   }
+
+  /// For an extra window: no session, no token refresh (two engines
+  /// refreshing one session would sign each other out) — every request
+  /// carries the token [accessToken] returns, kept current by the main
+  /// window.
+  static Future<void> initializeForWindow(Future<String?> Function() accessToken) =>
+      Supabase.initialize(url: supabaseUrl, publishableKey: supabaseAnonKey, accessToken: accessToken);
 
   /// Turns "the server said no" into [ServerRejected]; everything else
   /// (no network, timeouts, 5xx, an expired token that can't be refreshed
@@ -67,19 +80,48 @@ class SupabaseApi implements StemikApi {
   // --- auth ---------------------------------------------------------------
 
   @override
-  String? get currentUserId => _sb.auth.currentUser?.id;
+  String? get currentUserId => windowUserId ?? _sb.auth.currentUser?.id;
 
   @override
-  Stream<AuthEvent> get authEvents => _sb.auth.onAuthStateChange.map((s) {
-    switch (s.event) {
-      case AuthChangeEvent.passwordRecovery:
-        return AuthEvent.passwordRecovery;
-      case AuthChangeEvent.signedOut:
-        return AuthEvent.signedOut;
-      default:
-        return s.session == null ? AuthEvent.signedOut : AuthEvent.signedIn;
+  String? get accessToken => windowUserId != null ? null : _sb.auth.currentSession?.accessToken;
+
+  @override
+  Stream<String?> get accessTokens => windowUserId != null
+      ? const Stream.empty()
+      : _sb.auth.onAuthStateChange.map((s) => s.session?.accessToken).distinct();
+
+  @override
+  LiveWatch watchStudio({required void Function() onChange, required void Function(bool live) onLive}) {
+    // Extra windows hear about changes from the main window instead.
+    if (windowUserId != null) return LiveWatch.none;
+    final channel = _sb.channel('studio-live-${DateTime.now().microsecondsSinceEpoch}');
+    for (final table in liveTables) {
+      channel.onPostgresChanges(
+        event: PostgresChangeEvent.all,
+        schema: 'public',
+        table: table,
+        callback: (_) => onChange(),
+      );
     }
-  });
+    channel.subscribe((status, _) => onLive(status == RealtimeSubscribeStatus.subscribed));
+    return LiveWatch(() async {
+      await _sb.removeChannel(channel);
+    });
+  }
+
+  @override
+  Stream<AuthEvent> get authEvents => windowUserId != null
+      ? const Stream.empty()
+      : _sb.auth.onAuthStateChange.map((s) {
+          switch (s.event) {
+            case AuthChangeEvent.passwordRecovery:
+              return AuthEvent.passwordRecovery;
+            case AuthChangeEvent.signedOut:
+              return AuthEvent.signedOut;
+            default:
+              return s.session == null ? AuthEvent.signedOut : AuthEvent.signedIn;
+          }
+        });
 
   @override
   Future<void> signIn(String email, String password) =>
@@ -93,7 +135,9 @@ class SupabaseApi implements StemikApi {
   Future<void> updatePassword(String password) => _guard(() => _sb.auth.updateUser(UserAttributes(password: password)));
 
   @override
-  Future<void> signOut() => _sb.auth.signOut();
+  Future<void> signOut() async {
+    if (windowUserId == null) await _sb.auth.signOut();
+  }
 
   // --- reads --------------------------------------------------------------
 
@@ -301,4 +345,86 @@ class SupabaseApi implements StemikApi {
     final data = res.data;
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   });
+
+  // --- cost of printed models ---------------------------------------------
+
+  @override
+  Future<List<DbRow>> fetchPrinters() => _guard(() => _sb.from('printers_safe').select().order('created_at'));
+
+  @override
+  Future<List<DbRow>> fetchFilaments() => _guard(() => _sb.from('filaments_safe').select().order('created_at'));
+
+  @override
+  Future<DbRow?> fetchPrintCostSettings() => _guard(
+    () => _sb.from('studio_settings').select('electricity_tariff, filament_waste_percent').limit(1).maybeSingle(),
+  );
+
+  @override
+  Future<List<DbRow>> fetchPrintCosts(String from, String to) async {
+    final rows = await _paged(
+      () => _sb.from('report_print_costs').select().gte('print_date', from).lte('print_date', to),
+      orderBy: 'print_date',
+    );
+    return rows.reversed.toList();
+  }
+
+  @override
+  Future<void> savePrintSetup({
+    required List<DbRow> printers,
+    required List<DbRow> filaments,
+    required double tariff,
+    required double wastePercent,
+  }) => _guard(() async {
+    // Same as PrintCostSetup.saveRows() in index.html.
+    for (final (table, rows) in [('printers', printers), ('filaments', filaments)]) {
+      final existing = rows.where((r) => r['id'] != null).toList();
+      final added = [
+        for (final r in rows.where((r) => r['id'] == null)) {...r}..remove('id'),
+      ];
+      if (existing.isNotEmpty) await _sb.from(table).upsert(existing);
+      if (added.isNotEmpty) await _sb.from(table).insert(added);
+    }
+    await _sb.rpc('set_print_cost_settings', params: {'p_tariff': tariff, 'p_waste_percent': wastePercent});
+  });
+
+  // --- parents' portal accounts -------------------------------------------
+
+  @override
+  Future<List<DbRow>> fetchParentAccounts() =>
+      _guard(() => _sb.from('parent_accounts').select().order('created_at', ascending: false));
+
+  @override
+  Future<List<DbRow>> fetchParentLinks() => _paged(() => _sb.from('parent_students').select(), orderBy: 'created_at');
+
+  @override
+  Future<DbRow> parentRpc(String name, DbRow params) => _guard(() async {
+    final res = await _sb.rpc(name, params: params);
+    return Map<String, dynamic>.from(res as Map);
+  });
+
+  @override
+  Future<void> saveParentAccount(
+    String id, {
+    required String phone,
+    String? name,
+    required List<String> linkStudents,
+    required List<String> unlinkStudents,
+  }) => _guard(() async {
+    await _sb.from('parent_accounts').update({'phone': phone, 'name': name}).eq('id', id);
+    if (linkStudents.isNotEmpty) {
+      await _sb.from('parent_students').insert([
+        for (final s in linkStudents) {'parent_id': id, 'student_id': s},
+      ]);
+    }
+    if (unlinkStudents.isNotEmpty) {
+      await _sb.from('parent_students').delete().eq('parent_id', id).inFilter('student_id', unlinkStudents);
+    }
+  });
+
+  @override
+  Future<void> setParentAccountActive(String id, bool active) =>
+      _guard(() => _sb.from('parent_accounts').update({'active': active}).eq('id', id));
+
+  @override
+  Future<void> deleteParentAccount(String id) => _guard(() => _sb.from('parent_accounts').delete().eq('id', id));
 }

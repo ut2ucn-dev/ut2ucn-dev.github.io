@@ -3,6 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../data/api.dart' show ServerRejected, StemikApi;
 import '../data/parent_portal.dart';
+import '../desktop/platform.dart';
 import 'scope.dart';
 import 'theme.dart';
 import 'widgets.dart';
@@ -11,9 +12,12 @@ import 'widgets.dart';
 /// password the superadmin generated (sql/0018), which opens the parents'
 /// portal instead of the CRM.
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key, required this.api, required this.parentApi});
+  const LoginScreen({super.key, required this.api, required this.parentApi, this.notice});
   final StemikApi api;
   final ParentApi parentApi;
+
+  /// Why the last sign-in was turned away (the macOS app is admins-only).
+  final String? notice;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -31,12 +35,24 @@ class _LoginScreenState extends State<LoginScreen> {
   String? _info;
 
   @override
+  void initState() {
+    super.initState();
+    _error = widget.notice;
+  }
+
+  @override
+  void didUpdateWidget(LoginScreen old) {
+    super.didUpdateWidget(old);
+    if (widget.notice != null && widget.notice != old.notice) _error = widget.notice;
+  }
+
+  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     final settings = SettingsScope.read(context);
     if (_email.text.isEmpty) _email.text = settings.lastEmail ?? '';
     if (_phone.text.isEmpty) _phone.text = settings.lastParentPhone ?? '';
-    _parent = settings.parentLoginMode;
+    _parent = !isAdminDesktop && settings.parentLoginMode;
   }
 
   void _setMode(bool parent) {
@@ -125,21 +141,23 @@ class _LoginScreenState extends State<LoginScreen> {
                       style: TextStyle(fontSize: 34, fontWeight: FontWeight.w800),
                     ),
                     Text(
-                      'Освітня студія VR · AI · 3D',
+                      isAdminDesktop ? 'Адмін-консоль студії' : 'Освітня студія VR · AI · 3D',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: c.inkSoft, fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(height: 24),
-                    SegmentedButton<bool>(
-                      segments: const [
-                        ButtonSegment(value: false, label: Text('Співробітник'), icon: Icon(Icons.badge_outlined)),
-                        ButtonSegment(value: true, label: Text('Батьки'), icon: Icon(Icons.family_restroom_rounded)),
-                      ],
-                      selected: {_parent},
-                      showSelectedIcon: false,
-                      onSelectionChanged: (v) => _setMode(v.first),
-                    ),
-                    const SizedBox(height: 18),
+                    if (!isAdminDesktop) ...[
+                      SegmentedButton<bool>(
+                        segments: const [
+                          ButtonSegment(value: false, label: Text('Співробітник'), icon: Icon(Icons.badge_outlined)),
+                          ButtonSegment(value: true, label: Text('Батьки'), icon: Icon(Icons.family_restroom_rounded)),
+                        ],
+                        selected: {_parent},
+                        showSelectedIcon: false,
+                        onSelectionChanged: (v) => _setMode(v.first),
+                      ),
+                      const SizedBox(height: 18),
+                    ],
                     if (_error != null) _banner(_error!, c.danger, c.dangerSoft, Icons.error_outline_rounded),
                     if (_info != null)
                       _banner(_info!, c.successText, c.successSoft, Icons.check_circle_outline_rounded),
@@ -210,6 +228,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     Text(
                       _parent
                           ? 'Пароль видає адміністратор студії. Забули — напишіть нам, і ми згенеруємо новий.'
+                          : isAdminDesktop
+                          ? 'Вхід для адміністраторів і суперадміністраторів студії.'
                           : 'Акаунт викладача створює адміністратор студії.',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: c.inkSoft, fontSize: 13),
