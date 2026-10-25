@@ -91,6 +91,25 @@ class SupabaseApi implements StemikApi {
       : _sb.auth.onAuthStateChange.map((s) => s.session?.accessToken).distinct();
 
   @override
+  LiveWatch watchStudio({required void Function() onChange, required void Function(bool live) onLive}) {
+    // Extra windows hear about changes from the main window instead.
+    if (windowUserId != null) return LiveWatch.none;
+    final channel = _sb.channel('studio-live-${DateTime.now().microsecondsSinceEpoch}');
+    for (final table in liveTables) {
+      channel.onPostgresChanges(
+        event: PostgresChangeEvent.all,
+        schema: 'public',
+        table: table,
+        callback: (_) => onChange(),
+      );
+    }
+    channel.subscribe((status, _) => onLive(status == RealtimeSubscribeStatus.subscribed));
+    return LiveWatch(() async {
+      await _sb.removeChannel(channel);
+    });
+  }
+
+  @override
   Stream<AuthEvent> get authEvents => windowUserId != null
       ? const Stream.empty()
       : _sb.auth.onAuthStateChange.map((s) {

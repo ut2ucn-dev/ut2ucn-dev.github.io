@@ -14,6 +14,26 @@ class ServerRejected implements Exception {
   String toString() => message;
 }
 
+/// The tables whose changes the apps hear about (sql/0020_realtime.sql).
+const liveTables = [
+  'lessons',
+  'lesson_attendance',
+  'works',
+  'students',
+  'subscriptions',
+  'profiles',
+  'student_comments',
+  'rate_cards',
+];
+
+/// A running [StemikApi.watchStudio]; [cancel] stops it.
+class LiveWatch {
+  const LiveWatch(this.cancel);
+  final Future<void> Function() cancel;
+
+  static final none = LiveWatch(() async {});
+}
+
 /// Everything the app asks of the backend. [SupabaseApi] is the real one;
 /// the demo build and the tests use an in-memory fake.
 abstract class StemikApi {
@@ -30,6 +50,14 @@ abstract class StemikApi {
   /// session of their own. Null and empty where there is none (demo).
   String? get accessToken;
   Stream<String?> get accessTokens;
+
+  // --- live updates (sql/0020) ---------------------------------------------
+
+  /// Calls [onChange] whenever studio data ([liveTables]) changes on the
+  /// server, whoever changed it; [onLive] says whether the connection is
+  /// up. For admins only: a change event carries the whole row, prices
+  /// included.
+  LiveWatch watchStudio({required void Function() onChange, required void Function(bool live) onLive});
 
   // --- reads --------------------------------------------------------------
   Future<DbRow?> fetchProfile(String id);

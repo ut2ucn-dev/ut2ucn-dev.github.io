@@ -23,10 +23,14 @@ enum Connection { unknown, online, offline }
 /// order whenever a connection is available. Rarer admin edits (lessons,
 /// students, rates, accounts) need a connection and go straight through.
 class AppStore extends ChangeNotifier {
-  AppStore(this.api, this.files);
+  /// [watchLive]: reload whenever anyone changes studio data (admins; see
+  /// [live]). Off in the Mac's extra windows, which hear it from the main
+  /// window.
+  AppStore(this.api, this.files, {this.watchLive = true});
 
   final StemikApi api;
   final LocalFiles files;
+  final bool watchLive;
 
   Profile? _me;
   Profile get me => _me!;
@@ -60,6 +64,60 @@ class AppStore extends ChangeNotifier {
 
   final _messages = StreamController<String>.broadcast();
   final _serverWrites = StreamController<void>.broadcast();
+  final _remoteChanges = StreamController<void>.broadcast();
+
+  /// Fires after the data was reloaded because someone else changed it.
+  Stream<void> get remoteChanges => _remoteChanges.stream;
+
+  // --- live updates ---------------------------------------------------------
+
+  LiveWatch? _watch;
+  Timer? _liveDebounce;
+  bool _live = false;
+  bool _wasLive = false;
+
+  /// Changes made by others (the web, phones, other admins) arrive by
+  /// themselves: the server says something changed, the store reloads.
+  bool get live => _live;
+
+  void _startLive() {
+    _stopLive();
+    if (!watchLive || !isAdmin) return;
+    _watch = api.watchStudio(
+      onChange: _changedElsewhere,
+      onLive: (live) {
+        if (live == _live) return;
+        _live = live;
+        notifyListeners();
+        // Back after a drop: catch up on what happened meanwhile.
+        if (live && _wasLive) _changedElsewhere();
+        _wasLive |= live;
+      },
+    );
+  }
+
+  void _stopLive() {
+    _liveDebounce?.cancel();
+    final w = _watch;
+    _watch = null;
+    if (w != null) unawaited(w.cancel());
+    _live = false;
+    _wasLive = false;
+  }
+
+  /// One reload for a burst of changes (a lesson marked for a whole group
+  /// is a dozen events), and always a fresh one: a reload already running
+  /// may have read the data before the change.
+  void _changedElsewhere() {
+    _liveDebounce?.cancel();
+    _liveDebounce = Timer(const Duration(milliseconds: 1200), () async {
+      final running = _syncing;
+      if (running != null) await running;
+      if (_me == null) return;
+      await sync();
+      _remoteChanges.add(null);
+    });
+  }
 
   /// Fires when this store changed something on the server (sent queued
   /// changes, or an online-only change went through), so other windows
@@ -135,12 +193,14 @@ class AppStore extends ChangeNotifier {
       if (_ops.isNotEmpty) sync();
     });
     unawaited(sync());
+    _startLive();
   }
 
   /// Forget everything about the signed-in person (sign-out).
   Future<void> close({bool discardPending = true}) async {
     _retryTimer?.cancel();
     _refreshDebounce?.cancel();
+    _stopLive();
     if (_me != null && discardPending) {
       for (final op in [..._ops, ..._synced]) {
         if (op.type == OpType.uploadWorkPhoto) await files.deletePhoto(op.data['photoHandle'] as String);
@@ -176,6 +236,7 @@ class AppStore extends ChangeNotifier {
   Future<void> shutDown() async {
     _retryTimer?.cancel();
     _refreshDebounce?.cancel();
+    _stopLive();
     try {
       await _syncing;
     } catch (_) {}
@@ -548,7 +609,9 @@ class AppStore extends ChangeNotifier {
     _retryTimer?.cancel();
     _refreshDebounce?.cancel();
     _messages.close();
+    _stopLive();
     _serverWrites.close();
+    _remoteChanges.close();
     super.dispose();
   }
 }

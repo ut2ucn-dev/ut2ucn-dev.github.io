@@ -310,6 +310,22 @@ class DemoApi implements StemikApi {
   @override
   Stream<AuthEvent> get authEvents => _auth.stream;
 
+  final _watchers = <void Function()>[];
+
+  /// What another admin's change looks like to this app (demo, tests).
+  void simulateRemoteChange() {
+    for (final w in [..._watchers]) {
+      w();
+    }
+  }
+
+  @override
+  LiveWatch watchStudio({required void Function() onChange, required void Function(bool live) onLive}) {
+    _watchers.add(onChange);
+    scheduleMicrotask(() => onLive(!offline));
+    return LiveWatch(() async => _watchers.remove(onChange));
+  }
+
   @override
   String? get accessToken => null;
 

@@ -54,6 +54,7 @@ class AppWindows {
   void _listen() {
     _channel.setMethodCallHandler(_handle);
     store.serverWrites.listen((_) => _broadcast({'type': 'changed'}));
+    store.remoteChanges.listen((_) => _broadcast({'type': 'changed'}));
     store.api.accessTokens.listen((t) {
       if (t != null) _broadcast({'type': 'token', 'token': t});
     });
@@ -236,7 +237,11 @@ Future<void> runWindow(String specJson) async {
   final settings = await Settings.load();
   var token = spec.accessToken;
   await SupabaseApi.initializeForWindow(() async => token);
-  final store = AppStore(SupabaseApi(windowUserId: spec.userId), WindowFiles(LocalFiles.create(), spec.key));
+  final store = AppStore(
+    SupabaseApi(windowUserId: spec.userId),
+    WindowFiles(LocalFiles.create(), spec.key),
+    watchLive: false,
+  );
   await store.open(Profile(spec.profile));
 
   const channel = MethodChannel('studio.stemik/window');

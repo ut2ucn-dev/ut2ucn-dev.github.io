@@ -565,6 +565,13 @@ class _SyncSheet extends StatelessWidget {
               offline ? c.alertText : c.successText,
             ),
             _line(context, Icons.update_rounded, 'Дані оновлено: ${when(store.lastRefresh ?? cached)}', c.inkSoft),
+            if (store.live)
+              _line(
+                context,
+                Icons.bolt_rounded,
+                "Наживо: зміни інших (сайт, телефони, інші адміни) з'являються самі",
+                c.successText,
+              ),
             _line(
               context,
               ops.isEmpty ? Icons.check_circle_rounded : Icons.schedule_send_rounded,

@@ -841,6 +841,8 @@ class _SyncLine extends StatelessWidget {
         ? (c.alert, pending > 0 ? 'Офлайн · чекають $pending' : 'Офлайн — дані з Mac')
         : pending > 0
         ? (c.alert, 'Надсилання: $pending')
+        : store.live
+        ? (c.success, 'Наживо · зміни приходять самі')
         : (c.success, 'Supabase підключено');
     return InkWell(
       borderRadius: BorderRadius.circular(10),
