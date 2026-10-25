@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../data/store.dart';
+import '../export/export_actions.dart';
+import '../export/export_doc.dart';
 import '../services/updates.dart';
 import '../ui/admin/parent_accounts_screen.dart';
 import '../ui/admin/print_costs_screen.dart';
@@ -72,6 +74,9 @@ class DesktopShellState extends State<DesktopShell> with WidgetsBindingObserver 
   final _splits = {for (final s in DeskSection.workspace) s: GlobalKey<SplitViewState>()};
   final _schedule = GlobalKey<ScheduleScreenState>();
   final _calendar = GlobalKey<StudioCalendarScreenState>();
+  final _payroll = GlobalKey<PayrollScreenState>();
+  final _report = GlobalKey<ReportScreenState>();
+  final _printCosts = GlobalKey<PrintCostsScreenState>();
   final _parents = GlobalKey<ParentAccountsScreenState>();
   StreamSubscription<String>? _messages;
   StreamSubscription<String>? _taps;
@@ -182,6 +187,16 @@ class DesktopShellState extends State<DesktopShell> with WidgetsBindingObserver 
     });
   }
 
+  /// The report of the current section, if it has one.
+  ExportableScreen? get _exportable => switch (_section) {
+    DeskSection.payroll => _payroll.currentState,
+    DeskSection.report => _report.currentState,
+    DeskSection.print => _printCosts.currentState,
+    _ => null,
+  };
+
+  void export(ExportFormat format) => _exportable?.exportAs(format);
+
   void newParentAccount() {
     go(DeskSection.parents);
     WidgetsBinding.instance.addPostFrameCallback((_) => _parents.currentState?.create());
@@ -248,7 +263,7 @@ class DesktopShellState extends State<DesktopShell> with WidgetsBindingObserver 
       case DeskSection.payroll:
         return SplitView(
           key: _splits[s],
-          list: const PayrollScreen(),
+          list: PayrollScreen(key: _payroll),
           listWidth: 480,
           emptyIcon: Icons.receipt_long_rounded,
           emptyText: 'Виберіть заняття, щоб побачити деталі',
@@ -261,13 +276,13 @@ class DesktopShellState extends State<DesktopShell> with WidgetsBindingObserver 
           maxWidth: double.infinity,
         );
       case DeskSection.print:
-        return plain(const PrintCostsScreen(), maxWidth: 1100);
+        return plain(PrintCostsScreen(key: _printCosts), maxWidth: 1100);
       case DeskSection.parents:
         return plain(ParentAccountsScreen(key: _parents));
       case DeskSection.rates:
         return plain(const RatesScreen(), maxWidth: 1100);
       case DeskSection.report:
-        return plain(const ReportScreen(), maxWidth: 1100);
+        return plain(ReportScreen(key: _report), maxWidth: 1100);
       case DeskSection.settings:
         return plain(const SettingsScreen(), maxWidth: 760);
     }
@@ -302,6 +317,8 @@ class DesktopShellState extends State<DesktopShell> with WidgetsBindingObserver 
         cmd(LogicalKeyboardKey.keyN, mac: false): newLesson,
         cmd(LogicalKeyboardKey.keyN, shift: true, mac: false): newStudent,
         cmd(LogicalKeyboardKey.keyR, mac: false): sync,
+        cmd(LogicalKeyboardKey.keyE, mac: false): () => export(ExportFormat.xlsx),
+        cmd(LogicalKeyboardKey.keyE, shift: true, mac: false): () => export(ExportFormat.pdf),
         cmd(LogicalKeyboardKey.keyT, mac: false): today,
         cmd(LogicalKeyboardKey.bracketLeft, mac: false): () => shiftDay(-1),
         cmd(LogicalKeyboardKey.bracketRight, mac: false): () => shiftDay(1),
@@ -349,6 +366,20 @@ class DesktopShellState extends State<DesktopShell> with WidgetsBindingObserver 
               item('Нове заняття', newLesson, cmd(LogicalKeyboardKey.keyN)),
               item('Новий учень', newStudent, cmd(LogicalKeyboardKey.keyN, shift: true)),
               if (store.isSuperAdmin) item('Новий кабінет батьків', newParentAccount),
+            ],
+          ),
+          PlatformMenuItemGroup(
+            members: [
+              PlatformMenuItem(
+                label: 'Експортувати в Excel…',
+                shortcut: cmd(LogicalKeyboardKey.keyE),
+                onSelected: _exportable == null ? null : () => export(ExportFormat.xlsx),
+              ),
+              PlatformMenuItem(
+                label: 'Експортувати в PDF…',
+                shortcut: cmd(LogicalKeyboardKey.keyE, shift: true),
+                onSelected: _exportable == null ? null : () => export(ExportFormat.pdf),
+              ),
             ],
           ),
           PlatformMenuItemGroup(

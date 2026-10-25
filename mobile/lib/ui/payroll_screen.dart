@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../data/models.dart';
+import '../export/export_actions.dart';
+import '../export/export_doc.dart';
+import '../export/reports.dart';
 import '../util/dates.dart';
 import '../util/domain.dart';
 import 'schedule/lesson_screen.dart';
@@ -15,10 +18,10 @@ class PayrollScreen extends StatefulWidget {
   const PayrollScreen({super.key});
 
   @override
-  State<PayrollScreen> createState() => _PayrollScreenState();
+  State<PayrollScreen> createState() => PayrollScreenState();
 }
 
-class _PayrollScreenState extends State<PayrollScreen> {
+class PayrollScreenState extends State<PayrollScreen> with ExportableScreen {
   late DateTime _from = DateTime(DateTime.now().year, DateTime.now().month);
   late DateTime _to = dateOnly(DateTime.now());
   String? _expanded;
@@ -31,6 +34,10 @@ class _PayrollScreenState extends State<PayrollScreen> {
       _to = monthsBack == 0 ? dateOnly(now) : DateTime(start.year, start.month + 1, 0);
     });
   }
+
+  /// The period and scope on screen, as an Excel or PDF file.
+  @override
+  Future<ExportDoc?> exportDoc() async => payrollDoc(context.storeRead, isoDate(_from), isoDate(_to));
 
   Future<void> _pickRange() async {
     final r = await showDateRangePicker(
@@ -74,7 +81,10 @@ class _PayrollScreenState extends State<PayrollScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(aggregate ? 'Зарплата студії' : (store.isAdmin ? 'Зарплата викладача' : 'Моя зарплата')),
-        actions: const [SyncButton()],
+        actions: [
+          ExportButton(onExport: exportAs),
+          const SyncButton(),
+        ],
       ),
       body: RefreshIndicator(
         onRefresh: store.refresh,

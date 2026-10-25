@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../data/models.dart';
+import '../../export/export_actions.dart';
+import '../../export/export_doc.dart';
+import '../../export/reports.dart';
 import '../../util/dates.dart';
 import '../../util/domain.dart';
 import '../scope.dart';
@@ -16,17 +19,29 @@ class PrintCostsScreen extends StatefulWidget {
   const PrintCostsScreen({super.key});
 
   @override
-  State<PrintCostsScreen> createState() => _PrintCostsScreenState();
+  State<PrintCostsScreen> createState() => PrintCostsScreenState();
 }
 
-class _PrintCostsScreenState extends State<PrintCostsScreen> {
+class PrintCostsScreenState extends State<PrintCostsScreen> with ExportableScreen {
   bool _setup = false;
+  final _stats = GlobalKey<_PrintStatsState>();
+
+  /// The analytics for the period on screen (from either tab).
+  @override
+  Future<ExportDoc?> exportDoc() async {
+    if (_setup) {
+      setState(() => _setup = false);
+      await WidgetsBinding.instance.endOfFrame;
+    }
+    return _stats.currentState?.exportDoc();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Собівартість друку'),
+        actions: [ExportButton(onExport: exportAs)],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(52),
           child: Padding(
@@ -46,7 +61,7 @@ class _PrintCostsScreenState extends State<PrintCostsScreen> {
           ),
         ),
       ),
-      body: _setup ? const _PrintSetup() : const _PrintStats(),
+      body: _setup ? const _PrintSetup() : _PrintStats(key: _stats),
     );
   }
 }
@@ -54,7 +69,7 @@ class _PrintCostsScreenState extends State<PrintCostsScreen> {
 // --- analytics --------------------------------------------------------------
 
 class _PrintStats extends StatefulWidget {
-  const _PrintStats();
+  const _PrintStats({super.key});
 
   @override
   State<_PrintStats> createState() => _PrintStatsState();
@@ -77,7 +92,16 @@ class _PrintStatsState extends State<_PrintStats> {
     }
   }
 
-  Future<void> _load() async {
+  Future<void>? _loadingDone;
+
+  Future<ExportDoc?> exportDoc() async {
+    await _loadingDone;
+    return printCostsDoc(_rows, isoDate(_from), isoDate(_to));
+  }
+
+  Future<void> _load() => _loadingDone = _fetch();
+
+  Future<void> _fetch() async {
     final store = context.storeRead;
     setState(() => _loading = true);
     final rows = await store.fetch(() => store.api.fetchPrintCosts(isoDate(_from), isoDate(_to)));
