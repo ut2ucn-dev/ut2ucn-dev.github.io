@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:stemik/data/models.dart';
 import 'package:stemik/demo/demo_api.dart';
 import 'package:stemik/desktop/desktop_shell.dart';
 import 'package:stemik/ui/admin/parent_accounts_screen.dart';
@@ -9,6 +10,38 @@ import 'package:stemik/util/dates.dart';
 import 'package:stemik/util/domain.dart';
 
 import 'desktop_test.dart' show closeMacApp, mac, pumpMacApp;
+
+/// The calendar block of [lesson] (themes repeat across days, so the one
+/// under [lesson]'s day header).
+Finder blockOf(WidgetTester tester, Lesson lesson) {
+  final d = parseDate(lesson.date);
+  final x = tester.getCenter(find.text('${d.day} ${months[d.month - 1]}')).dx;
+  final hits = find.text(lesson.theme).evaluate().where((e) {
+    final box = e.renderObject! as RenderBox;
+    return (box.localToGlobal(box.size.center(Offset.zero)).dx - x).abs() < 60;
+  });
+  return find.byElementPredicate((e) => e == hits.first);
+}
+
+/// Drags [block] to the column of [day], keeping its height (time).
+Future<void> dragToDay(WidgetTester tester, Finder block, DateTime day) async {
+  final from = tester.getCenter(block);
+  final x = tester.getCenter(find.text('${day.day} ${months[day.month - 1]}')).dx;
+  final gesture = await tester.startGesture(from);
+  for (var i = 1; i <= 10; i++) {
+    await gesture.moveTo(Offset(from.dx + (x - from.dx) * i / 10, from.dy));
+    await tester.pump(const Duration(milliseconds: 16));
+  }
+  await gesture.up();
+  await settleSave(tester);
+}
+
+/// Lets the (demo) server answer: pumpAndSettle alone doesn't wait for timers.
+Future<void> settleSave(WidgetTester tester) async {
+  await tester.pumpAndSettle();
+  await tester.pump(const Duration(seconds: 1));
+  await tester.pumpAndSettle();
+}
 
 void main() {
   test('parent phones are normalized and formatted like sql/0018', () {
@@ -131,6 +164,55 @@ void main() {
     expect(work['printed'], isTrue);
     expect(work['print_minutes'], 60);
     expect(store.pendingCount, 0);
+    await closeMacApp(tester, store);
+  }, variant: mac);
+
+  testWidgets('a lesson dragged to another day moves there, and can be put back', (tester) async {
+    final store = await pumpMacApp(tester, role: 'superadmin');
+    final shell = tester.state<DesktopShellState>(find.byType(DesktopShell));
+    shell.go(DeskSection.calendar);
+    await tester.pumpAndSettle();
+    shell.shiftDay(1); // next week: lessons ahead, nothing marked yet
+    await tester.pumpAndSettle();
+
+    final monday = startOfWeek(DateTime.now()).add(const Duration(days: 7));
+    final sunday = monday.add(const Duration(days: 6));
+    final lesson = store.data.lessons.where((l) => l.date == isoDate(monday) && l.time != null).first;
+    await dragToDay(tester, blockOf(tester, lesson), sunday);
+
+    final row = (store.api as DemoApi).lessons.firstWhere((l) => l['id'] == lesson.id);
+    expect(row['date'], isoDate(sunday));
+    expect(row['time'], lesson.time);
+    expect(find.text('Скасувати'), findsOneWidget);
+
+    await tester.tap(find.text('Скасувати'));
+    await settleSave(tester);
+    expect(row['date'], lesson.date);
+    await closeMacApp(tester, store);
+  }, variant: mac);
+
+  testWidgets('a lesson that already has attendance asks before it moves', (tester) async {
+    final store = await pumpMacApp(tester, role: 'superadmin');
+    final shell = tester.state<DesktopShellState>(find.byType(DesktopShell));
+    shell.go(DeskSection.calendar);
+    await tester.pumpAndSettle();
+
+    final monday = startOfWeek(DateTime.now());
+    final target = monday.add(const Duration(days: 6)); // Sunday: no lessons
+    final lesson = store.data.lessons.where((l) => l.date == isoDate(monday) && l.time != null).first;
+    await dragToDay(tester, blockOf(tester, lesson), target);
+    expect(find.text('Перенести заняття?'), findsOneWidget);
+    expect(find.textContaining('вже є відмітки присутності'), findsOneWidget);
+
+    await tester.tap(find.text('Скасувати'));
+    await tester.pumpAndSettle();
+    final row = (store.api as DemoApi).lessons.firstWhere((l) => l['id'] == lesson.id);
+    expect(row['date'], lesson.date);
+
+    await dragToDay(tester, blockOf(tester, lesson), target);
+    await tester.tap(find.text('Перенести'));
+    await settleSave(tester);
+    expect(row['date'], isoDate(target));
     await closeMacApp(tester, store);
   }, variant: mac);
 }
