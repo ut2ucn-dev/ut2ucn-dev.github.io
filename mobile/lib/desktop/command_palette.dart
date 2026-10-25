@@ -497,26 +497,3 @@ class _MoveIntent extends Intent {
   const _MoveIntent(this.by);
   final int by;
 }
-
-/// [text] with the parts that match [tokens] in [hi].
-TextSpan highlight(String text, List<String> tokens, TextStyle base, TextStyle hi) {
-  final lower = text.toLowerCase();
-  final marks = List.filled(text.length, false);
-  for (final t in tokens) {
-    if (t.isEmpty) continue;
-    final i = lower.indexOf(t);
-    if (i < 0) continue;
-    for (var j = i; j < i + t.length && j < marks.length; j++) {
-      marks[j] = true;
-    }
-  }
-  final spans = <TextSpan>[];
-  var start = 0;
-  for (var i = 1; i <= text.length; i++) {
-    if (i == text.length || marks[i] != marks[start]) {
-      spans.add(TextSpan(text: text.substring(start, i), style: marks[start] ? hi : base));
-      start = i;
-    }
-  }
-  return TextSpan(children: spans, style: base);
-}

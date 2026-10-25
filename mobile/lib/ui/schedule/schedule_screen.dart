@@ -4,7 +4,9 @@ import '../../data/models.dart';
 import '../../data/studio_data.dart';
 import '../../util/dates.dart';
 import '../../util/domain.dart';
+import '../../desktop/platform.dart';
 import '../scope.dart';
+import '../search_screen.dart';
 import '../split.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -72,6 +74,8 @@ class ScheduleScreenState extends State<ScheduleScreen> {
       appBar: AppBar(
         title: Text(title, overflow: TextOverflow.ellipsis),
         actions: [
+          // Picking a teacher there filters this very schedule.
+          if (!isAdminDesktop) SearchAction(onOpenTeacherSchedule: () {}),
           IconButton(
             tooltip: 'Сьогодні',
             onPressed: () => goToDate(DateTime.now()),

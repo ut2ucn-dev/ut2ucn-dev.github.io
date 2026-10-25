@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../desktop/platform.dart';
 import '../../desktop/windows.dart';
 import '../contact.dart';
 import '../scope.dart';
+import '../search_screen.dart';
 import '../split.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -50,6 +52,7 @@ class _StudentsScreenState extends State<StudentsScreen> {
       appBar: AppBar(
         title: const Text('Учні студії'),
         actions: [
+          if (!isAdminDesktop) const SearchAction(),
           IconButton(
             tooltip: 'Додати кількох',
             onPressed: () => openPage(context, const BulkAddScreen()),
