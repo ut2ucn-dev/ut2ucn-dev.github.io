@@ -53,6 +53,14 @@ class Settings extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// The printer and filament picked last when marking a model printed.
+  String? get lastPrinterId => _prefs.getString('lastPrinterId');
+  String? get lastFilamentId => _prefs.getString('lastFilamentId');
+  void saveLastPrintChoice(String? printerId, String? filamentId) {
+    printerId == null ? _prefs.remove('lastPrinterId') : _prefs.setString('lastPrinterId', printerId);
+    filamentId == null ? _prefs.remove('lastFilamentId') : _prefs.setString('lastFilamentId', filamentId);
+  }
+
   /// The signed-in person's profile row, so the app can open offline.
   Map<String, dynamic>? cachedProfile(String userId) {
     final raw = _prefs.getString('profile');

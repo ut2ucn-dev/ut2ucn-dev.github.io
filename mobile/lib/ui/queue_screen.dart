@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../services/photos.dart';
 import '../util/dates.dart';
 import '../util/domain.dart';
 import 'schedule/lesson_screen.dart';
+import 'print_data.dart';
 import 'scope.dart';
 import 'split.dart';
 import 'theme.dart';
@@ -120,11 +120,13 @@ class _QueueScreenState extends State<QueueScreen> {
                                           children: [
                                             PrintedPill(
                                               printed: printed,
-                                              onTap: () {
-                                                HapticFeedback.selectionClick();
-                                                store.setPrinted(r.lesson, r.student, !printed);
-                                              },
+                                              onTap: () => togglePrinted(context, r.lesson, r.student, r.work),
                                             ),
+                                            if (printed)
+                                              PrintDataChip(
+                                                work: r.work,
+                                                onTap: () => editPrintData(context, r.lesson, r.student, r.work),
+                                              ),
                                             if (isOnlineFormat(r.lesson.format))
                                               Tag(lessonFormatLabel(r.lesson, r.attendance)),
                                             if (store.isAdmin && owner != null)

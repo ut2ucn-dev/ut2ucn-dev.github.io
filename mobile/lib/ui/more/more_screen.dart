@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../services/updates.dart';
+import '../admin/parent_accounts_screen.dart';
+import '../admin/print_costs_screen.dart';
+import '../admin/studio_calendar_screen.dart';
 import '../../util/domain.dart';
 import '../scope.dart';
 import '../theme.dart';
@@ -88,6 +91,27 @@ class MoreScreen extends StatelessWidget {
                     subtitle: 'Ролі, доступ, паролі, розклад викладача',
                     onTap: () => push(UsersScreen(onOpenSchedule: onOpenSchedule)),
                   ),
+                  const Divider(indent: 70),
+                  tile(
+                    Icons.calendar_view_week_rounded,
+                    'Календар студії',
+                    subtitle: 'Усі заняття студії по тижнях',
+                    onTap: () => push(
+                      StudioCalendarScreen(
+                        onOpenTeacherSchedule: () {
+                          Navigator.of(context).popUntil((r) => r.isFirst);
+                          onOpenSchedule();
+                        },
+                      ),
+                    ),
+                  ),
+                  const Divider(indent: 70),
+                  tile(
+                    Icons.view_in_ar_rounded,
+                    'Друк (бета)',
+                    subtitle: 'Собівартість моделей, принтери і пластик',
+                    onTap: () => push(const PrintCostsScreen()),
+                  ),
                   if (store.isSuperAdmin) ...[
                     const Divider(indent: 70),
                     tile(
@@ -102,6 +126,13 @@ class MoreScreen extends StatelessWidget {
                       'Звіт студії',
                       subtitle: 'Оплачено, борги, невикористане',
                       onTap: () => push(const ReportScreen()),
+                    ),
+                    const Divider(indent: 70),
+                    tile(
+                      Icons.favorite_rounded,
+                      'Кабінети батьків',
+                      subtitle: 'Доступ батьків, паролі, діти',
+                      onTap: () => push(const ParentAccountsScreen()),
                     ),
                   ],
                 ],

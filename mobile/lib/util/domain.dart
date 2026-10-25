@@ -1,6 +1,7 @@
 // Studio vocabulary and business rules ported from index.html. The values
 // here must match the database constraints (sql/0015-0017) and the web UI.
 
+import '../config.dart';
 import '../data/models.dart';
 
 const courseOptions = [
@@ -147,3 +148,64 @@ CourseTrack courseTrack(String? course) {
   if (course.startsWith('Robo')) return CourseTrack.robo;
   return CourseTrack.other;
 }
+
+// --- cost of printed models (sql/0019) ------------------------------------
+
+/// "PLA Matte · Чорний", as filamentLabel() on the web.
+String filamentLabel(String? material, String? color) =>
+    [material, color].whereType<String>().where((s) => s.trim().isNotEmpty).join(' · ');
+
+/// "2:05" for 125 minutes.
+String formatPrintMinutes(num minutes) {
+  final m = minutes.round();
+  return '${m ~/ 60}:${(m % 60).toString().padLeft(2, '0')}';
+}
+
+/// "42 г · 2:05 год", or null when nothing was entered (workPrintSummary()).
+String? printSummary(double? weightG, double? minutes) {
+  if (weightG == null && minutes == null) return null;
+  return [
+    if (weightG != null) '${formatGrams(weightG)} г',
+    if (minutes != null) '${formatPrintMinutes(minutes)} год',
+  ].join(' · ');
+}
+
+/// One decimal at most, as formatMoneyless() on the web.
+String formatGrams(num g) {
+  final v = (g * 10).round() / 10;
+  return v == v.roundToDouble() ? '${v.round()}' : v.toString().replaceAll('.', ',');
+}
+
+/// "3 моделі", "5 моделей".
+String pluralUk(int n, String one, String few, String many) {
+  final m10 = n % 10, m100 = n % 100;
+  if (m10 == 1 && m100 != 11) return '$n $one';
+  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return '$n $few';
+  return '$n $many';
+}
+
+String pluralModels(int n) => pluralUk(n, 'модель', 'моделі', 'моделей');
+
+// --- parents' portal (sql/0018) -------------------------------------------
+
+/// Digits with the 380 prefix, like parent_normalize_phone(): "067 123 45
+/// 67", "+380671234567" and "380 (67) 123-45-67" are the same login.
+String normalizeParentPhone(String? phone) {
+  final d = (phone ?? '').replaceAll(RegExp(r'\D'), '');
+  if (RegExp(r'^0\d{9}$').hasMatch(d)) return '38$d';
+  if (RegExp(r'^\d{9}$').hasMatch(d)) return '380$d';
+  if (RegExp(r'^80\d{9}$').hasMatch(d)) return '3$d';
+  return d;
+}
+
+/// "+380 67 123 45 67", as formatParentPhone() on the web.
+String formatParentPhone(String? phone) {
+  if (phone == null || phone.isEmpty) return '';
+  final d = normalizeParentPhone(phone);
+  final m = RegExp(r'^380(\d{2})(\d{3})(\d{2})(\d{2})$').firstMatch(d);
+  return m == null ? '+$d' : '+380 ${m[1]} ${m[2]} ${m[3]} ${m[4]}';
+}
+
+/// What to send a parent with a new password (ParentPasswordModal).
+String parentPasswordMessage(String phone, String password) =>
+    'Кабінет батьків Stemik: $parentPortalUrl\nЛогін: ${formatParentPhone(phone)}\nПароль: $password';

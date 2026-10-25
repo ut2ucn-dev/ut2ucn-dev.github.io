@@ -8,6 +8,7 @@ import '../../services/photos.dart';
 import '../../util/dates.dart';
 import '../../util/domain.dart';
 import '../contact.dart';
+import '../print_data.dart';
 import '../scope.dart';
 import '../students/student_card_screen.dart';
 import '../theme.dart';
@@ -274,11 +275,12 @@ class _RosterCard extends StatelessWidget {
                               onTap: () async {
                                 final completesLesson =
                                     !printed && data.printedCount(lesson) + 1 == data.printable(lesson).length;
-                                HapticFeedback.selectionClick();
-                                await store.setPrinted(lesson, student, !printed);
-                                if (completesLesson) store.say('🎉 Усі роботи цього заняття надруковано!');
+                                final marked = await togglePrinted(context, lesson, student, work);
+                                if (marked && completesLesson) store.say('🎉 Усі роботи цього заняття надруковано!');
                               },
                             ),
+                            if (printed)
+                              PrintDataChip(work: work, onTap: () => editPrintData(context, lesson, student, work)),
                             if (started && work?.photo == null && work?.localPhoto == null && !printed)
                               Tag(
                                 'Немає фото',

@@ -33,6 +33,12 @@ class DemoApi implements StemikApi {
   final comments = <DbRow>[];
   final rateCards = <DbRow>[];
   String? calcStart;
+  final printers = <DbRow>[];
+  final filaments = <DbRow>[];
+  var electricityTariff = 4.32;
+  var wastePercent = 10.0;
+  final parentAccounts = <DbRow>[];
+  final parentLinks = <DbRow>[];
 
   Future<T> _io<T>(T Function() f) async {
     await Future<void>.delayed(const Duration(milliseconds: 120));
@@ -222,6 +228,8 @@ class DemoApi implements StemikApi {
       'payment_method': 'card',
       'status': 'active',
     });
+    _seedPrinting(rnd);
+    _seedParents();
     comments.add({
       'id': _uuid.v4(),
       'student_id': students.first['id'],
@@ -229,6 +237,55 @@ class DemoApi implements StemikApi {
       'body': 'Дуже захоплюється 3D-друком, хоче наступного разу надрукувати динозавра.',
       'created_at': DateTime.now().subtract(const Duration(days: 3)).toUtc().toIso8601String(),
     });
+  }
+
+  /// Two printers, three filaments; most printed models have their weight
+  /// and time entered.
+  void _seedPrinting(Random rnd) {
+    String created(int n) => DateTime(2026, 1, n).toUtc().toIso8601String();
+    printers.addAll([
+      {'id': _uuid.v4(), 'name': 'Bambu Lab P1S', 'power_watts': 350, 'depreciation_per_hour': 6, 'active': true},
+      {'id': _uuid.v4(), 'name': 'Creality K1', 'power_watts': 300, 'depreciation_per_hour': 4, 'active': true},
+    ]);
+    filaments.addAll([
+      {'id': _uuid.v4(), 'material': 'PLA', 'color': 'Білий', 'price_per_kg': 650, 'active': true},
+      {'id': _uuid.v4(), 'material': 'PLA Matte', 'color': 'Чорний', 'price_per_kg': 780, 'active': true},
+      {'id': _uuid.v4(), 'material': 'PETG', 'color': 'Синій', 'price_per_kg': 720, 'active': true},
+    ]);
+    for (final (i, r) in [...printers, ...filaments].indexed) {
+      r['created_at'] = created(i + 1);
+    }
+    var n = 0;
+    for (final w in works.where((w) => w['printed'] == true)) {
+      if (n++ % 4 == 3) continue;
+      w['weight_g'] = 8 + rnd.nextInt(60);
+      w['print_minutes'] = 25 + rnd.nextInt(180);
+      w['printer_id'] = printers[rnd.nextInt(printers.length)]['id'];
+      w['filament_id'] = filaments[rnd.nextInt(filaments.length)]['id'];
+    }
+  }
+
+  /// One account with two children (same phone), one with a single child.
+  void _seedParents() {
+    DbRow account(String phone, String name, {String? lastLogin}) {
+      final a = {
+        'id': _uuid.v4(),
+        'phone': phone,
+        'name': name,
+        'active': true,
+        'password_set_at': DateTime.now().subtract(const Duration(days: 20)).toUtc().toIso8601String(),
+        'last_login_at': lastLogin,
+        'created_at': DateTime.now().subtract(const Duration(days: 20)).toUtc().toIso8601String(),
+      };
+      parentAccounts.add(a);
+      return a;
+    }
+
+    final a = account('380671234567', 'Сидоренко Сергій', lastLogin: '${addDays(todayStr(), -2)}T09:00:00Z');
+    final b = account('380501112233', 'Петренко Олена');
+    for (final (parent, student) in [(a, students[12]), (a, students[1]), (b, students[0])]) {
+      parentLinks.add({'parent_id': parent['id'], 'student_id': student['id']});
+    }
   }
 
   bool get _isAdmin => ['admin', 'superadmin'].contains(profiles.firstWhere((p) => p['id'] == _meId)['role']);
@@ -549,5 +606,199 @@ class DemoApi implements StemikApi {
       'active': true,
     });
     return <String, dynamic>{};
+  });
+
+  // --- cost of printed models ---------------------------------------------
+
+  DbRow _safe(DbRow r, List<String> numbers) => _isAdmin ? r : {...r, for (final k in numbers) k: null};
+
+  @override
+  Future<List<DbRow>> fetchPrinters() =>
+      _io(() => _copy(printers.map((p) => _safe(p, ['power_watts', 'depreciation_per_hour']))));
+
+  @override
+  Future<List<DbRow>> fetchFilaments() => _io(() => _copy(filaments.map((f) => _safe(f, ['price_per_kg']))));
+
+  @override
+  Future<DbRow?> fetchPrintCostSettings() =>
+      _io(() => {'electricity_tariff': electricityTariff, 'filament_waste_percent': wastePercent});
+
+  /// Computed live here; the database freezes it when a model is marked.
+  @override
+  Future<List<DbRow>> fetchPrintCosts(String from, String to) => _io(() {
+    final out = <DbRow>[];
+    for (final w in works.where((w) => w['printed'] == true)) {
+      final l = lessons.where((x) => x['id'] == w['lesson_id']).firstOrNull;
+      if (l == null) continue;
+      final printedAt = w['printed_at'] as String?;
+      final date = printedAt != null ? isoDate(DateTime.parse(printedAt).toLocal()) : l['date'] as String;
+      if (date.compareTo(from) < 0 || date.compareTo(to) > 0) continue;
+      final p = printers.where((x) => x['id'] == w['printer_id']).firstOrNull;
+      final f = filaments.where((x) => x['id'] == w['filament_id']).firstOrNull;
+      final weight = (w['weight_g'] as num?)?.toDouble();
+      final minutes = (w['print_minutes'] as num?)?.toDouble();
+      final costed = weight != null || minutes != null;
+      double r2(double v) => (v * 100).round() / 100;
+      final hours = (minutes ?? 0) / 60;
+      final material = r2((weight ?? 0) * (1 + wastePercent / 100) * ((f?['price_per_kg'] as num?) ?? 0) / 1000);
+      final electricity = r2(hours * ((p?['power_watts'] as num?) ?? 0) / 1000 * electricityTariff);
+      final depreciation = r2(hours * ((p?['depreciation_per_hour'] as num?) ?? 0));
+      out.add({
+        'work_id': w['id'],
+        'lesson_id': l['id'],
+        'student_id': w['student_id'],
+        'print_date': date,
+        'lesson_date': l['date'],
+        'course': l['course'],
+        'theme': l['theme'],
+        'student_name': students.where((s) => s['id'] == w['student_id']).firstOrNull?['name'],
+        'weight_g': weight,
+        'print_minutes': minutes,
+        'printer_name': p?['name'],
+        'filament_material': f?['material'],
+        'filament_color': f?['color'],
+        'material_cost': costed ? material : null,
+        'electricity_cost': costed ? electricity : null,
+        'depreciation_cost': costed ? depreciation : null,
+        'total_cost': costed ? material + electricity + depreciation : null,
+      });
+    }
+    out.sort((a, b) => (b['print_date'] as String).compareTo(a['print_date'] as String));
+    return out;
+  });
+
+  @override
+  Future<void> savePrintSetup({
+    required List<DbRow> printers,
+    required List<DbRow> filaments,
+    required double tariff,
+    required double wastePercent,
+  }) => _io(() {
+    for (final (list, rows) in [(this.printers, printers), (this.filaments, filaments)]) {
+      for (final r in rows) {
+        final existing = list.where((x) => x['id'] == r['id'] && r['id'] != null).firstOrNull;
+        if (existing != null) {
+          existing.addAll(r);
+        } else {
+          list.add({...r, 'id': _uuid.v4(), 'created_at': DateTime.now().toUtc().toIso8601String()});
+        }
+      }
+    }
+    electricityTariff = tariff;
+    this.wastePercent = wastePercent;
+  });
+
+  // --- parents' portal accounts -------------------------------------------
+
+  void _superadminOnly() {
+    if (profiles.firstWhere((p) => p['id'] == _meId)['role'] != 'superadmin') {
+      throw ServerRejected('Лише суперадмін може керувати кабінетами батьків');
+    }
+  }
+
+  String _newParentPassword() => 'stemik-${1000 + Random().nextInt(9000)}';
+
+  @override
+  Future<List<DbRow>> fetchParentAccounts() => _io(() {
+    _superadminOnly();
+    return _copy(parentAccounts)..sort((a, b) => (b['created_at'] as String).compareTo(a['created_at'] as String));
+  });
+
+  @override
+  Future<List<DbRow>> fetchParentLinks() => _io(() {
+    _superadminOnly();
+    return _copy(parentLinks);
+  });
+
+  @override
+  Future<DbRow> parentRpc(String name, DbRow params) => _io(() {
+    _superadminOnly();
+    final now = DateTime.now().toUtc().toIso8601String();
+    DbRow create(String phone, String? name) {
+      final a = {
+        'id': _uuid.v4(),
+        'phone': phone,
+        'name': name,
+        'active': true,
+        'password_set_at': now,
+        'last_login_at': null,
+        'created_at': now,
+      };
+      parentAccounts.add(a);
+      return a;
+    }
+
+    void link(String parentId, String studentId) {
+      if (!parentLinks.any((l) => l['parent_id'] == parentId && l['student_id'] == studentId)) {
+        parentLinks.add({'parent_id': parentId, 'student_id': studentId});
+      }
+    }
+
+    switch (name) {
+      case 'parent_create_account':
+        final phone = _normalizePhone(params['p_phone'] as String?);
+        if (!RegExp(r'^\d{10,15}$').hasMatch(phone)) throw ServerRejected('Невірний номер телефону');
+        if (parentAccounts.any((a) => a['phone'] == phone)) throw ServerRejected('Кабінет для номера $phone уже існує');
+        final a = create(phone, params['p_name'] as String?);
+        for (final s in (params['p_student_ids'] as List? ?? const [])) {
+          link(a['id'] as String, s as String);
+        }
+        return {'id': a['id'], 'phone': phone, 'password': _newParentPassword()};
+      case 'parent_reset_password':
+        final a = parentAccounts.firstWhere((x) => x['id'] == params['p_parent_id']);
+        a['password_set_at'] = now;
+        return {'id': a['id'], 'phone': a['phone'], 'name': a['name'], 'password': _newParentPassword()};
+      case 'parent_password_for_student':
+        final s = students.firstWhere((x) => x['id'] == params['p_student_id']);
+        final phone = _normalizePhone(s['phone'] as String?);
+        if (!RegExp(r'^\d{10,15}$').hasMatch(phone)) {
+          throw ServerRejected('У картці учня не вказано коректний телефон батьків');
+        }
+        var a = parentAccounts.where((x) => x['phone'] == phone).firstOrNull;
+        final created = a == null;
+        a ??= create(phone, '${s['parent_last_name'] ?? ''} ${s['parent_first_name'] ?? ''}'.trim());
+        link(a['id'] as String, s['id'] as String);
+        return {'id': a['id'], 'phone': phone, 'created': created, 'password': _newParentPassword()};
+      default:
+        throw ServerRejected('Unknown function $name');
+    }
+  });
+
+  String _normalizePhone(String? phone) {
+    final d = (phone ?? '').replaceAll(RegExp(r'\D'), '');
+    if (RegExp(r'^0\d{9}$').hasMatch(d)) return '38$d';
+    if (RegExp(r'^\d{9}$').hasMatch(d)) return '380$d';
+    if (RegExp(r'^80\d{9}$').hasMatch(d)) return '3$d';
+    return d;
+  }
+
+  @override
+  Future<void> saveParentAccount(
+    String id, {
+    required String phone,
+    String? name,
+    required List<String> linkStudents,
+    required List<String> unlinkStudents,
+  }) => _io(() {
+    _superadminOnly();
+    final normalized = _normalizePhone(phone);
+    if (parentAccounts.any((a) => a['phone'] == normalized && a['id'] != id)) {
+      throw ServerRejected('duplicate key value violates unique constraint "parent_accounts_phone_key"');
+    }
+    parentAccounts.firstWhere((a) => a['id'] == id).addAll({'phone': normalized, 'name': name});
+    for (final s in linkStudents) {
+      parentLinks.add({'parent_id': id, 'student_id': s});
+    }
+    parentLinks.removeWhere((l) => l['parent_id'] == id && unlinkStudents.contains(l['student_id']));
+  });
+
+  @override
+  Future<void> setParentAccountActive(String id, bool active) =>
+      _io(() => parentAccounts.firstWhere((a) => a['id'] == id)['active'] = active);
+
+  @override
+  Future<void> deleteParentAccount(String id) => _io(() {
+    parentAccounts.removeWhere((a) => a['id'] == id);
+    parentLinks.removeWhere((l) => l['parent_id'] == id);
   });
 }

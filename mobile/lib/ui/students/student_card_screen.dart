@@ -4,6 +4,7 @@ import '../../data/models.dart';
 import '../../data/store.dart';
 import '../../util/dates.dart';
 import '../../util/domain.dart';
+import '../admin/parent_accounts_screen.dart';
 import '../contact.dart';
 import '../schedule/lesson_screen.dart';
 import '../scope.dart';
@@ -207,6 +208,7 @@ class _ProfileTab extends StatelessWidget {
                     child: Wrap(spacing: 6, runSpacing: 6, children: [for (final co in courses) CourseTag(co)]),
                   ),
                 if (student.notes != null) InfoRow(label: 'Нотатки', child: Text(student.notes!)),
+                if (context.store.isSuperAdmin && !portfolio.offline) StudentParentAccess(student: student),
                 if (student.parentsName.isEmpty && student.phone == null && student.birthday == null && courses.isEmpty)
                   Text('Контакти ще не заповнені.', style: TextStyle(color: c.inkSoft)),
               ],

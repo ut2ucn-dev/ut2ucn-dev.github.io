@@ -301,4 +301,86 @@ class SupabaseApi implements StemikApi {
     final data = res.data;
     return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   });
+
+  // --- cost of printed models ---------------------------------------------
+
+  @override
+  Future<List<DbRow>> fetchPrinters() => _guard(() => _sb.from('printers_safe').select().order('created_at'));
+
+  @override
+  Future<List<DbRow>> fetchFilaments() => _guard(() => _sb.from('filaments_safe').select().order('created_at'));
+
+  @override
+  Future<DbRow?> fetchPrintCostSettings() => _guard(
+    () => _sb.from('studio_settings').select('electricity_tariff, filament_waste_percent').limit(1).maybeSingle(),
+  );
+
+  @override
+  Future<List<DbRow>> fetchPrintCosts(String from, String to) async {
+    final rows = await _paged(
+      () => _sb.from('report_print_costs').select().gte('print_date', from).lte('print_date', to),
+      orderBy: 'print_date',
+    );
+    return rows.reversed.toList();
+  }
+
+  @override
+  Future<void> savePrintSetup({
+    required List<DbRow> printers,
+    required List<DbRow> filaments,
+    required double tariff,
+    required double wastePercent,
+  }) => _guard(() async {
+    // Same as PrintCostSetup.saveRows() in index.html.
+    for (final (table, rows) in [('printers', printers), ('filaments', filaments)]) {
+      final existing = rows.where((r) => r['id'] != null).toList();
+      final added = [
+        for (final r in rows.where((r) => r['id'] == null)) {...r}..remove('id'),
+      ];
+      if (existing.isNotEmpty) await _sb.from(table).upsert(existing);
+      if (added.isNotEmpty) await _sb.from(table).insert(added);
+    }
+    await _sb.rpc('set_print_cost_settings', params: {'p_tariff': tariff, 'p_waste_percent': wastePercent});
+  });
+
+  // --- parents' portal accounts -------------------------------------------
+
+  @override
+  Future<List<DbRow>> fetchParentAccounts() =>
+      _guard(() => _sb.from('parent_accounts').select().order('created_at', ascending: false));
+
+  @override
+  Future<List<DbRow>> fetchParentLinks() => _paged(() => _sb.from('parent_students').select(), orderBy: 'created_at');
+
+  @override
+  Future<DbRow> parentRpc(String name, DbRow params) => _guard(() async {
+    final res = await _sb.rpc(name, params: params);
+    return Map<String, dynamic>.from(res as Map);
+  });
+
+  @override
+  Future<void> saveParentAccount(
+    String id, {
+    required String phone,
+    String? name,
+    required List<String> linkStudents,
+    required List<String> unlinkStudents,
+  }) => _guard(() async {
+    await _sb.from('parent_accounts').update({'phone': phone, 'name': name}).eq('id', id);
+    if (linkStudents.isNotEmpty) {
+      await _sb.from('parent_students').insert([
+        for (final s in linkStudents) {'parent_id': id, 'student_id': s},
+      ]);
+    }
+    if (unlinkStudents.isNotEmpty) {
+      await _sb.from('parent_students').delete().eq('parent_id', id).inFilter('student_id', unlinkStudents);
+    }
+  });
+
+  @override
+  Future<void> setParentAccountActive(String id, bool active) =>
+      _guard(() => _sb.from('parent_accounts').update({'active': active}).eq('id', id));
+
+  @override
+  Future<void> deleteParentAccount(String id) => _guard(() => _sb.from('parent_accounts').delete().eq('id', id));
 }

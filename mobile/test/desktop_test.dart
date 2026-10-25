@@ -72,18 +72,32 @@ void main() {
   testWidgets('a superadmin gets the sidebar with every section', (tester) async {
     final store = await pumpMacApp(tester, role: 'superadmin');
     expect(find.byType(DesktopShell), findsOneWidget);
-    for (final label in ['Розклад', 'Учні', 'Черга друку', 'Зарплати', 'Викладачі', 'Тарифи', 'Звіт студії']) {
+    for (final label in [
+      'Розклад',
+      'Учні',
+      'Черга друку',
+      'Зарплати',
+      'Викладачі',
+      'Календар',
+      'Друк (бета)',
+      'Тарифи',
+      'Звіт студії',
+      'Кабінети батьків',
+    ]) {
       expect(find.widgetWithText(InkWell, label), findsOneWidget, reason: label);
     }
     await closeMacApp(tester, store);
   }, variant: mac);
 
-  testWidgets('an admin has no rates or report', (tester) async {
+  testWidgets('an admin has the calendar and printing, but no rates, report or parents', (tester) async {
     final store = await pumpMacApp(tester, role: 'admin');
     expect(find.byType(DesktopShell), findsOneWidget);
     expect(find.widgetWithText(InkWell, 'Викладачі'), findsOneWidget);
+    expect(find.widgetWithText(InkWell, 'Календар'), findsOneWidget);
+    expect(find.widgetWithText(InkWell, 'Друк (бета)'), findsOneWidget);
     expect(find.widgetWithText(InkWell, 'Тарифи'), findsNothing);
     expect(find.widgetWithText(InkWell, 'Звіт студії'), findsNothing);
+    expect(find.widgetWithText(InkWell, 'Кабінети батьків'), findsNothing);
     await closeMacApp(tester, store);
   }, variant: mac);
 

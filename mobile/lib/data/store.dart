@@ -338,7 +338,10 @@ class AppStore extends ChangeNotifier {
     }),
   );
 
-  Future<void> setPrinted(Lesson lesson, Student student, bool printed) => _enqueue(
+  /// [printData] — weight_g, print_minutes, printer_id, filament_id
+  /// (sql/0019) — goes with marking printed; un-marking keeps whatever was
+  /// entered, as on the web.
+  Future<void> setPrinted(Lesson lesson, Student student, bool printed, {Map<String, Object?>? printData}) => _enqueue(
     PendingOp(OpType.setWork, {
       'lessonId': lesson.id,
       'studentId': student.id,
@@ -347,9 +350,52 @@ class AppStore extends ChangeNotifier {
         'printed': printed,
         'printed_by_name': printed ? me.fullName : null,
         'printed_at': printed ? DateTime.now().toUtc().toIso8601String() : null,
+        ...?printData,
       },
     }),
   );
+
+  /// Corrects the weight, time, printer or filament of a printed model.
+  Future<void> setPrintData(Lesson lesson, Student student, Map<String, Object?> printData) => _enqueue(
+    PendingOp(OpType.setWork, {
+      'lessonId': lesson.id,
+      'studentId': student.id,
+      'ownerId': lesson.ownerId,
+      'patch': printData,
+    }),
+  );
+
+  // --- printers and filaments to pick from (sql/0019) ---------------------
+
+  List<Printer> _printers = const [];
+  List<Filament> _filaments = const [];
+  List<Printer> get printers => _printers;
+  List<Filament> get filaments => _filaments;
+  static const _printDirectoryFile = 'print_directory.json';
+
+  /// Refreshes the lists (kept on the device, so marking a model printed
+  /// works offline too).
+  Future<void> loadPrintDirectory() async {
+    try {
+      final (p, f) = (await api.fetchPrinters(), await api.fetchFilaments());
+      _printers = p.map(Printer.new).toList();
+      _filaments = f.map(Filament.new).toList();
+      await files.writeJson(_printDirectoryFile, {'printers': p, 'filaments': f});
+    } catch (_) {
+      if (_printers.isEmpty && _filaments.isEmpty) {
+        final saved = await files.readJson(_printDirectoryFile);
+        if (saved is Map) {
+          _printers = [
+            for (final r in (saved['printers'] as List? ?? const [])) Printer(Map<String, dynamic>.from(r as Map)),
+          ];
+          _filaments = [
+            for (final r in (saved['filaments'] as List? ?? const [])) Filament(Map<String, dynamic>.from(r as Map)),
+          ];
+        }
+      }
+    }
+    notifyListeners();
+  }
 
   Future<void> setTrial(Lesson lesson, Student student, bool trial) => _enqueue(
     PendingOp(OpType.setWork, {

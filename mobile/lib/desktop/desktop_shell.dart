@@ -6,6 +6,9 @@ import 'package:flutter/services.dart';
 
 import '../data/store.dart';
 import '../services/updates.dart';
+import '../ui/admin/parent_accounts_screen.dart';
+import '../ui/admin/print_costs_screen.dart';
+import '../ui/admin/studio_calendar_screen.dart';
 import '../ui/more/profile_screen.dart';
 import '../ui/more/rates_screen.dart';
 import '../ui/more/report_screen.dart';
@@ -34,8 +37,11 @@ enum DeskSection {
   queue('Черга друку', Icons.print_rounded, LogicalKeyboardKey.digit3),
   payroll('Зарплати', Icons.account_balance_wallet_rounded, LogicalKeyboardKey.digit4),
   teachers('Викладачі', Icons.badge_rounded, LogicalKeyboardKey.digit5),
-  rates('Тарифи', Icons.price_change_rounded, LogicalKeyboardKey.digit6, superOnly: true),
-  report('Звіт студії', Icons.insights_rounded, LogicalKeyboardKey.digit7, superOnly: true),
+  calendar('Календар', Icons.calendar_view_week_rounded, LogicalKeyboardKey.digit6),
+  print('Друк (бета)', Icons.view_in_ar_rounded, LogicalKeyboardKey.digit7),
+  rates('Тарифи', Icons.price_change_rounded, LogicalKeyboardKey.digit8, superOnly: true),
+  report('Звіт студії', Icons.insights_rounded, LogicalKeyboardKey.digit9, superOnly: true),
+  parents('Кабінети батьків', Icons.favorite_rounded, LogicalKeyboardKey.digit0, superOnly: true),
   settings('Налаштування', Icons.tune_rounded, LogicalKeyboardKey.comma);
 
   const DeskSection(this.label, this.icon, this.key, {this.superOnly = false});
@@ -45,7 +51,7 @@ enum DeskSection {
   final bool superOnly;
 
   static const workspace = [schedule, students, queue, payroll];
-  static const admin = [teachers, rates, report];
+  static const admin = [teachers, calendar, print, rates, report, parents];
 }
 
 /// The signed-in macOS app: the web's sidebar on the left; on the right the
@@ -65,6 +71,8 @@ class DesktopShellState extends State<DesktopShell> with WidgetsBindingObserver 
   final _visited = <DeskSection>{DeskSection.schedule};
   final _splits = {for (final s in DeskSection.workspace) s: GlobalKey<SplitViewState>()};
   final _schedule = GlobalKey<ScheduleScreenState>();
+  final _calendar = GlobalKey<StudioCalendarScreenState>();
+  final _parents = GlobalKey<ParentAccountsScreenState>();
   StreamSubscription<String>? _messages;
   StreamSubscription<String>? _taps;
   StreamSubscription<List<ConnectivityResult>>? _net;
@@ -159,12 +167,25 @@ class DesktopShellState extends State<DesktopShell> with WidgetsBindingObserver 
 
   void newStudent() => _inSplit(DeskSection.students, (split) => split.open(const StudentEditScreen()));
 
-  void today() => _inSplit(DeskSection.schedule, (_) => _schedule.currentState?.goToDate(DateTime.now()));
+  /// Today in the schedule, or this week in the studio calendar.
+  void today() {
+    if (_section == DeskSection.calendar) return _calendar.currentState?.thisWeek();
+    _inSplit(DeskSection.schedule, (_) => _schedule.currentState?.goToDate(DateTime.now()));
+  }
 
-  void shiftDay(int days) => _inSplit(DeskSection.schedule, (_) {
-    final s = _schedule.currentState;
-    if (s != null) s.goToDate(s.day.add(Duration(days: days)));
-  });
+  /// A day back or forward in the schedule; a week in the studio calendar.
+  void shiftDay(int days) {
+    if (_section == DeskSection.calendar) return _calendar.currentState?.shiftWeek(days);
+    _inSplit(DeskSection.schedule, (_) {
+      final s = _schedule.currentState;
+      if (s != null) s.goToDate(s.day.add(Duration(days: days)));
+    });
+  }
+
+  void newParentAccount() {
+    go(DeskSection.parents);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _parents.currentState?.create());
+  }
 
   void sync() => context.storeRead.sync();
 
@@ -234,6 +255,15 @@ class DesktopShellState extends State<DesktopShell> with WidgetsBindingObserver 
         );
       case DeskSection.teachers:
         return plain(UsersScreen(onOpenSchedule: () => go(DeskSection.schedule)));
+      case DeskSection.calendar:
+        return plain(
+          StudioCalendarScreen(key: _calendar, onOpenTeacherSchedule: () => go(DeskSection.schedule)),
+          maxWidth: double.infinity,
+        );
+      case DeskSection.print:
+        return plain(const PrintCostsScreen(), maxWidth: 1100);
+      case DeskSection.parents:
+        return plain(ParentAccountsScreen(key: _parents));
       case DeskSection.rates:
         return plain(const RatesScreen(), maxWidth: 1100);
       case DeskSection.report:
@@ -318,6 +348,7 @@ class DesktopShellState extends State<DesktopShell> with WidgetsBindingObserver 
             members: [
               item('Нове заняття', newLesson, cmd(LogicalKeyboardKey.keyN)),
               item('Новий учень', newStudent, cmd(LogicalKeyboardKey.keyN, shift: true)),
+              if (store.isSuperAdmin) item('Новий кабінет батьків', newParentAccount),
             ],
           ),
           PlatformMenuItemGroup(
@@ -340,9 +371,17 @@ class DesktopShellState extends State<DesktopShell> with WidgetsBindingObserver 
           ),
           PlatformMenuItemGroup(
             members: [
-              item('Сьогодні', today, cmd(LogicalKeyboardKey.keyT)),
-              item('Попередній день', () => shiftDay(-1), cmd(LogicalKeyboardKey.bracketLeft)),
-              item('Наступний день', () => shiftDay(1), cmd(LogicalKeyboardKey.bracketRight)),
+              item(_section == DeskSection.calendar ? 'Цей тиждень' : 'Сьогодні', today, cmd(LogicalKeyboardKey.keyT)),
+              item(
+                _section == DeskSection.calendar ? 'Попередній тиждень' : 'Попередній день',
+                () => shiftDay(-1),
+                cmd(LogicalKeyboardKey.bracketLeft),
+              ),
+              item(
+                _section == DeskSection.calendar ? 'Наступний тиждень' : 'Наступний день',
+                () => shiftDay(1),
+                cmd(LogicalKeyboardKey.bracketRight),
+              ),
             ],
           ),
           if (store.teacherFilter != null)
