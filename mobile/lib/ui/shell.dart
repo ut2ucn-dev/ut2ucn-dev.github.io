@@ -13,6 +13,7 @@ import 'queue_screen.dart';
 import 'schedule/lesson_screen.dart';
 import 'schedule/schedule_screen.dart';
 import 'scope.dart';
+import 'students/student_card_screen.dart';
 import 'students/students_screen.dart';
 import 'theme.dart';
 
@@ -42,6 +43,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   final _schedule = GlobalKey<ScheduleScreenState>();
   StreamSubscription<String>? _messages;
   StreamSubscription<String>? _taps;
+  StreamSubscription<String>? _studentTaps;
   StreamSubscription<List<ConnectivityResult>>? _net;
   DateTime _pausedAt = DateTime.now();
 
@@ -63,6 +65,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
         ..showSnackBar(SnackBar(content: Text(m)));
     });
     _taps = reminders.taps.listen(_openLesson);
+    _studentTaps = reminders.studentTaps.listen(_openStudent);
     final launched = reminders.launchLessonId;
     if (launched != null) {
       reminders.launchLessonId = null;
@@ -71,7 +74,8 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     _net = Connectivity().onConnectivityChanged.listen((r) {
       if (r.any((x) => x != ConnectivityResult.none)) store.sync();
     });
-    if (SettingsScope.read(context).remindersEnabled) reminders.requestPermission();
+    final settings = SettingsScope.read(context);
+    if (settings.remindersEnabled || (store.isAdmin && settings.othersEvents)) reminders.requestPermission();
     checkForUpdate(context);
   }
 
@@ -87,6 +91,15 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     nav.push(MaterialPageRoute(builder: (_) => LessonScreen(lessonId: lessonId)));
   }
 
+  /// From "Новий учень": the Students tab with that student's card.
+  void _openStudent(String studentId) {
+    setState(() => _tab = 1);
+    final nav = _navigators[1].currentState;
+    if (nav == null) return;
+    nav.popUntil((r) => r.isFirst);
+    nav.push(MaterialPageRoute(builder: (_) => StudentCardScreen(studentId: studentId)));
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused) _pausedAt = DateTime.now();
@@ -100,6 +113,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _messages?.cancel();
     _taps?.cancel();
+    _studentTaps?.cancel();
     _net?.cancel();
     super.dispose();
   }

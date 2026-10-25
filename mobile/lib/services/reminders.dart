@@ -9,6 +9,7 @@ import 'package:timezone/timezone.dart' as tz;
 import '../config.dart';
 import '../data/models.dart';
 import '../data/store.dart';
+import '../data/studio_events.dart';
 import '../util/dates.dart';
 import 'settings.dart';
 
@@ -16,6 +17,9 @@ import 'settings.dart';
 /// day. Everything is computed on the device from the cached schedule, so
 /// it works offline and needs no push server. Re-planned whenever the
 /// schedule or the settings change.
+///
+/// For admins also what colleagues do ([AppStore.othersEvents]), shown as
+/// it arrives with the live updates.
 class Reminders {
   Reminders(this.store, this.settings);
 
@@ -23,6 +27,8 @@ class Reminders {
   final Settings settings;
   final _plugin = FlutterLocalNotificationsPlugin();
   final _taps = StreamController<String>.broadcast();
+  final _studentTaps = StreamController<String>.broadcast();
+  var _eventId = 0;
   late final tz.Location _kyiv;
 
   bool _ready = false;
@@ -32,8 +38,13 @@ class Reminders {
   /// Lesson ids from tapped notifications.
   Stream<String> get taps => _taps.stream;
 
+  /// Student ids from tapped notifications ("Новий учень").
+  Stream<String> get studentTaps => _studentTaps.stream;
+
   /// A lesson id if the app was opened by tapping a reminder.
   String? launchLessonId;
+
+  static const _studentPayload = 'student:';
 
   static const _android = AndroidNotificationDetails(
     'lessons',
@@ -48,6 +59,18 @@ class Reminders {
     android: _android,
     iOS: DarwinNotificationDetails(),
     macOS: DarwinNotificationDetails(),
+  );
+  static const _eventDetails = NotificationDetails(
+    android: AndroidNotificationDetails(
+      'events',
+      'Дії колег',
+      channelDescription: 'Модель надруковано, новий учень, заняття перенесено чи скасовано',
+      importance: Importance.defaultImportance,
+      color: Color(0xFF5B4FE0),
+      category: AndroidNotificationCategory.status,
+    ),
+    iOS: DarwinNotificationDetails(threadIdentifier: 'events'),
+    macOS: DarwinNotificationDetails(threadIdentifier: 'events'),
   );
 
   bool get supported =>
@@ -79,12 +102,49 @@ class Reminders {
       ),
       onDidReceiveNotificationResponse: (r) {
         final id = r.payload;
-        if (id != null && id.isNotEmpty) _taps.add(id);
+        if (id == null || id.isEmpty) return;
+        if (id.startsWith(_studentPayload)) {
+          _studentTaps.add(id.substring(_studentPayload.length));
+        } else {
+          _taps.add(id);
+        }
       },
     );
     final launch = await _plugin.getNotificationAppLaunchDetails();
-    if (launch?.didNotificationLaunchApp ?? false) launchLessonId = launch?.notificationResponse?.payload;
+    final payload = launch?.notificationResponse?.payload;
+    if ((launch?.didNotificationLaunchApp ?? false) && payload != null && !payload.startsWith(_studentPayload)) {
+      launchLessonId = payload;
+    }
+    store.othersEvents.listen(_showEvents);
     _ready = true;
+  }
+
+  /// Colleagues' doings. A burst (catching up after the connection was
+  /// down) comes as one notification rather than a stack of them.
+  Future<void> _showEvents(List<StudioEvent> events) async {
+    if (!_ready || !store.isAdmin || !settings.othersEvents) return;
+    for (final n in notificationsFor(events)) {
+      final e = n.tapTo;
+      await _plugin.show(
+        // Its own range, away from the planned reminders' ids.
+        id: 5000 + _eventId++ % 500,
+        title: n.title,
+        body: n.body,
+        notificationDetails: _eventDetails,
+        payload: e?.lessonId ?? (e?.studentId == null ? null : '$_studentPayload${e!.studentId}'),
+      );
+    }
+  }
+
+  /// What [events] show as: each on its own, or more than three as one
+  /// summary.
+  static List<({String title, String body, StudioEvent? tapTo})> notificationsFor(List<StudioEvent> events) {
+    if (events.length <= 3) return [for (final e in events) (title: e.title, body: e.body, tapTo: e)];
+    final lines = [for (final e in events.take(4)) '${e.title}: ${e.body}'];
+    if (events.length > 4) lines.add('і ще ${events.length - 4}');
+    return [
+      (title: 'Колеги: ${_plural(events.length, 'зміна', 'зміни', 'змін')}', body: lines.join('\n'), tapTo: null),
+    ];
   }
 
   Future<bool> requestPermission() async {
@@ -138,7 +198,8 @@ class Reminders {
     if (signature == _plannedSignature) return;
     _plannedSignature = signature;
 
-    await _plugin.cancelAll();
+    // Only what's planned: colleagues' notifications already shown stay.
+    await _plugin.cancelAllPendingNotifications();
     if (!settings.remindersEnabled) return;
 
     final mode = await _scheduleMode();

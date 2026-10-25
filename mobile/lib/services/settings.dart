@@ -46,6 +46,14 @@ class Settings extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Admins only: a notification when a colleague prints a model, adds a
+  /// student, moves or cancels a lesson.
+  bool get othersEvents => _prefs.getBool('othersEvents') ?? true;
+  set othersEvents(bool v) {
+    _prefs.setBool('othersEvents', v);
+    notifyListeners();
+  }
+
   /// Morning summary of the day's lessons.
   bool get dailyDigest => _prefs.getBool('dailyDigest') ?? true;
   set dailyDigest(bool v) {

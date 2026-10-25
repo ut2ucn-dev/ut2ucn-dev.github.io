@@ -11,6 +11,7 @@ import 'models.dart';
 import 'outbox.dart';
 import 'snapshot.dart';
 import 'studio_data.dart';
+import 'studio_events.dart';
 
 enum Connection { unknown, online, offline }
 
@@ -69,6 +70,18 @@ class AppStore extends ChangeNotifier {
   /// Fires after the data was reloaded because someone else changed it.
   Stream<void> get remoteChanges => _remoteChanges.stream;
 
+  final _othersEvents = StreamController<List<StudioEvent>>.broadcast();
+
+  /// What colleagues did, as found in a reload after someone else changed
+  /// something (models printed, students added, lessons moved or
+  /// cancelled). For notifications.
+  Stream<List<StudioEvent>> get othersEvents => _othersEvents.stream;
+
+  // An online-only change of this store's own is under way; its echo from
+  // the server mustn't be taken for someone else's.
+  int _writing = 0;
+  Completer<void>? _writesDone;
+
   // --- live updates ---------------------------------------------------------
 
   LiveWatch? _watch;
@@ -111,10 +124,18 @@ class AppStore extends ChangeNotifier {
   void _changedElsewhere() {
     _liveDebounce?.cancel();
     _liveDebounce = Timer(const Duration(milliseconds: 1200), () async {
+      while (_writing > 0) {
+        await (_writesDone ??= Completer<void>()).future;
+      }
       final running = _syncing;
       if (running != null) await running;
       if (_me == null) return;
+      final before = data;
       await sync();
+      final me = _me;
+      if (me == null || _othersEvents.isClosed) return;
+      final events = findOthersEvents(before, data, me: me, now: DateTime.now());
+      if (events.isNotEmpty) _othersEvents.add(events);
       _remoteChanges.add(null);
     });
   }
@@ -545,6 +566,7 @@ class AppStore extends ChangeNotifier {
   /// Runs an online-only change. Returns true on success; on failure tells
   /// the user why and returns false.
   Future<bool> online(Future<void> Function() change, {String? done, bool reload = true}) async {
+    _writing++;
     try {
       await change();
     } on ServerRejected catch (e) {
@@ -554,6 +576,13 @@ class AppStore extends ChangeNotifier {
       _setConnection(Connection.offline);
       say("Немає з'єднання з сервером. Ця дія потребує інтернету.");
       return false;
+    } finally {
+      // Before the reload below starts: a live reload waiting on this then
+      // waits for that one too, and sees the change as already there.
+      if (--_writing == 0) {
+        _writesDone?.complete();
+        _writesDone = null;
+      }
     }
     _setConnection(Connection.online);
     _serverWrites.add(null);
@@ -612,6 +641,7 @@ class AppStore extends ChangeNotifier {
     _stopLive();
     _serverWrites.close();
     _remoteChanges.close();
+    _othersEvents.close();
     super.dispose();
   }
 }

@@ -83,6 +83,7 @@ class DesktopShellState extends State<DesktopShell> with WidgetsBindingObserver 
   final _parents = GlobalKey<ParentAccountsScreenState>();
   StreamSubscription<String>? _messages;
   StreamSubscription<String>? _taps;
+  StreamSubscription<String>? _studentTaps;
   StreamSubscription<List<ConnectivityResult>>? _net;
   DateTime _pausedAt = DateTime.now();
 
@@ -106,6 +107,7 @@ class DesktopShellState extends State<DesktopShell> with WidgetsBindingObserver 
         ..showSnackBar(SnackBar(content: Text(m), width: 480));
     });
     _taps = reminders.taps.listen(openLesson);
+    _studentTaps = reminders.studentTaps.listen(openStudent);
     final launched = reminders.launchLessonId;
     if (launched != null) {
       reminders.launchLessonId = null;
@@ -114,7 +116,8 @@ class DesktopShellState extends State<DesktopShell> with WidgetsBindingObserver 
     _net = Connectivity().onConnectivityChanged.listen((r) {
       if (r.any((x) => x != ConnectivityResult.none)) store.sync();
     });
-    if (SettingsScope.read(context).remindersEnabled) reminders.requestPermission();
+    final settings = SettingsScope.read(context);
+    if (settings.remindersEnabled || (store.isAdmin && settings.othersEvents)) reminders.requestPermission();
     checkForUpdate(context);
     AppWindows.main?.adoptLeftovers();
   }
@@ -134,6 +137,7 @@ class DesktopShellState extends State<DesktopShell> with WidgetsBindingObserver 
     WidgetsBinding.instance.removeObserver(this);
     _messages?.cancel();
     _taps?.cancel();
+    _studentTaps?.cancel();
     _net?.cancel();
     super.dispose();
   }

@@ -54,6 +54,7 @@ class StudioData {
 
   Attendance? attendance(String lessonId, String studentId) => _attendance[_key(lessonId, studentId)];
   Work? work(String lessonId, String studentId) => _works[_key(lessonId, studentId)];
+  Iterable<Work> get works => _works.values;
 
   Subscription? activeSubscription(String studentId, String? course) {
     for (final s in subscriptions) {
