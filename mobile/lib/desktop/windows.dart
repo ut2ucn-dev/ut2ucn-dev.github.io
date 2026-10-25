@@ -15,14 +15,16 @@ import '../services/settings.dart';
 import '../ui/scope.dart';
 import '../ui/students/student_card_screen.dart';
 import '../ui/theme.dart';
+import 'platform.dart';
 
-// Extra windows on the Mac — a student's card next to the main window.
+// Extra windows on the Mac and on Windows — a student's card next to the
+// main window.
 //
 // Stable Flutter draws one window per engine, so each extra window runs
-// the app's Dart code again in an engine of its own (macos/Runner/
-// MainFlutterWindow.swift, StemikWindows), started with the entrypoint
-// arguments ["window", <spec>]. The two sides talk through the native
-// code:
+// the app's Dart code again in an engine of its own (StemikWindows in
+// macos/Runner/MainFlutterWindow.swift and windows/runner/
+// stemik_windows.cpp), started with the entrypoint arguments
+// ["window", <spec>]. The two sides talk through the native code:
 //
 //  * the window never refreshes the login session (two engines refreshing
 //    one session sign each other out): the main window hands it the
@@ -44,7 +46,7 @@ class AppWindows {
   static AppWindows? main;
   static const _channel = MethodChannel('studio.stemik/windows');
 
-  /// In the main window of the real Mac app.
+  /// In the main window of the real Mac or Windows app.
   static void start(AppStore store, LocalFiles files, Settings settings) {
     main = AppWindows._(store, files, settings).._listen();
   }
@@ -71,7 +73,7 @@ class AppWindows {
   Future<void> openStudent(Student s) async {
     final token = store.api.accessToken;
     if (!store.signedIn || token == null) {
-      store.say("Немає активного входу — оновіть дані (⌘R) і спробуйте ще раз.");
+      store.say("Немає активного входу — оновіть дані (${shortcutLabel('R')}) і спробуйте ще раз.");
       return;
     }
     final key = 'student-${s.id}';
@@ -94,6 +96,15 @@ class AppWindows {
       });
     } on PlatformException catch (e) {
       store.say('Не вдалося відкрити вікно: ${e.message}');
+    }
+  }
+
+  /// Windows: closes the app as the main window's close button would.
+  Future<void> quit() async {
+    try {
+      await _channel.invokeMethod('quit');
+    } on MissingPluginException {
+      // No native side (tests).
     }
   }
 
@@ -234,7 +245,9 @@ Future<void> runWindow(String specJson) async {
   isExtraWindow = true;
   final spec = WindowSpec.fromJson(Map<String, dynamic>.from(jsonDecode(specJson) as Map));
   await initializeDateFormatting('uk');
-  final settings = await Settings.load();
+  // A copy in memory: on Windows the settings file is rewritten whole, so
+  // a window saving its own would undo what the main window saved since.
+  final settings = await Settings.load(persist: false);
   var token = spec.accessToken;
   await SupabaseApi.initializeForWindow(() async => token);
   final store = AppStore(

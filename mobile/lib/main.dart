@@ -19,7 +19,7 @@ import 'ui/app.dart';
 /// (for previews and screenshots).
 const demoMode = bool.fromEnvironment('STEMIK_DEMO');
 
-/// An extra Mac window is started with the arguments ["window", <spec>]
+/// An extra window (Mac, Windows) is started with the arguments ["window", <spec>]
 /// (desktop/windows.dart).
 Future<void> main(List<String> args) async {
   if (args.length >= 2 && args.first == 'window') return runWindow(args[1]);
@@ -38,7 +38,7 @@ Future<void> main(List<String> args) async {
   }
   final files = LocalFiles.create();
   final store = AppStore(api, files);
-  if (hasNativeMenuBar && !demoMode) AppWindows.start(store, files, settings);
+  if (hasAppWindows && !demoMode) AppWindows.start(store, files, settings);
   final reminders = Reminders(store, settings);
   try {
     await reminders.init();

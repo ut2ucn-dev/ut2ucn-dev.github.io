@@ -9,6 +9,8 @@ import '../ui/widgets.dart';
 import '../util/dates.dart';
 import '../util/domain.dart';
 import '../util/search.dart';
+import 'platform.dart';
+import 'split_view.dart';
 
 /// Something the palette can run that isn't a record: go to a section,
 /// "Нове заняття", "Синхронізувати", a theme…
@@ -309,13 +311,13 @@ class _CommandPaletteState extends State<CommandPalette> {
             borderRadius: BorderRadius.circular(18),
             clipBehavior: Clip.antiAlias,
             child: Shortcuts(
-              shortcuts: const {
-                SingleActivator(LogicalKeyboardKey.arrowDown): _MoveIntent(1),
-                SingleActivator(LogicalKeyboardKey.arrowUp): _MoveIntent(-1),
-                SingleActivator(LogicalKeyboardKey.tab): _MoveIntent(1),
-                SingleActivator(LogicalKeyboardKey.tab, shift: true): _MoveIntent(-1),
-                SingleActivator(LogicalKeyboardKey.enter, meta: true): _OpenInWindowIntent(),
-                SingleActivator(LogicalKeyboardKey.numpadEnter, meta: true): _OpenInWindowIntent(),
+              shortcuts: {
+                const SingleActivator(LogicalKeyboardKey.arrowDown): const _MoveIntent(1),
+                const SingleActivator(LogicalKeyboardKey.arrowUp): const _MoveIntent(-1),
+                const SingleActivator(LogicalKeyboardKey.tab): const _MoveIntent(1),
+                const SingleActivator(LogicalKeyboardKey.tab, shift: true): const _MoveIntent(-1),
+                cmd(LogicalKeyboardKey.enter): const _OpenInWindowIntent(),
+                cmd(LogicalKeyboardKey.numpadEnter): const _OpenInWindowIntent(),
               },
               child: Actions(
                 actions: {
@@ -399,7 +401,7 @@ class _CommandPaletteState extends State<CommandPalette> {
                       color: c.paper,
                       child: Text(
                         '↑↓ вибрати   ↵ відкрити   '
-                        '${widget.openStudentWindow != null ? '⌘↵ учня в окремому вікні   ' : ''}esc закрити',
+                        '${widget.openStudentWindow != null ? '${shortcutLabel('↵')} учня в окремому вікні   ' : ''}esc закрити',
                         style: TextStyle(fontSize: 12, color: c.inkSoft, fontWeight: FontWeight.w600),
                       ),
                     ),

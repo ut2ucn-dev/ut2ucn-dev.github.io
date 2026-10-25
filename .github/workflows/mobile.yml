@@ -1,8 +1,8 @@
 name: Mobile app
 
 # Builds the Flutter app in mobile/ for Android and iPhone, and the admin
-# console for macOS from the same code, and publishes the files as a GitHub
-# Release:
+# console for macOS and Windows from the same code, and publishes the files
+# as a GitHub Release:
 #   - main:           release "mobile-v2.0.<run>", marked latest — the in-app
 #                     update check and the download links point at it;
 #   - other branches: prerelease "mobile-preview-<branch>", replaced on
@@ -148,8 +148,46 @@ jobs:
           name: stemik-macos
           path: dist/stemik-admin.dmg
 
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: mobile
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      # Not code-signed: SmartScreen asks once ("More info" → "Run anyway",
+      # see mobile/WINDOWS.md). The same build numbers as the other builds.
+      - name: Build Windows app
+        run: |
+          flutter build windows --release \
+            --build-number=$((1000 + GITHUB_RUN_NUMBER)) \
+            --build-name=2.0.$GITHUB_RUN_NUMBER
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup -y --no-progress
+          }
+          & $iscc "/DAppVersion=2.0.$env:GITHUB_RUN_NUMBER" windows\installer\stemik_admin.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: stemik-windows
+          path: dist/stemik-admin-setup.exe
+
   publish:
-    needs: [android, ios, macos]
+    needs: [android, ios, macos, windows]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v5
@@ -178,8 +216,9 @@ jobs:
           fi
           BASE="https://github.com/$REPO/releases/latest/download"
           cat > dist/version.json <<EOF
-          {"versionCode": $CODE, "versionName": "$VERSION", "apkUrl": "$BASE/stemik.apk", "dmgUrl": "$BASE/stemik-admin.dmg"}
+          {"versionCode": $CODE, "versionName": "$VERSION", "apkUrl": "$BASE/stemik.apk", "dmgUrl": "$BASE/stemik-admin.dmg", "exeUrl": "$BASE/stemik-admin-setup.exe"}
           EOF
-          gh release create "$TAG" dist/stemik.apk dist/stemik-unsigned.ipa dist/stemik-admin.dmg dist/version.json \
+          gh release create "$TAG" dist/stemik.apk dist/stemik-unsigned.ipa dist/stemik-admin.dmg \
+            dist/stemik-admin-setup.exe dist/version.json \
             --repo "$REPO" --target "$GITHUB_SHA" --title "$TITLE" $FLAGS \
-            --notes "Android: встановіть stemik.apk. iPhone: stemik-unsigned.ipa. Mac (для адміністраторів): stemik-admin.dmg — див. mobile/README.md."
+            --notes "Android: встановіть stemik.apk. iPhone: stemik-unsigned.ipa. Для адміністраторів: Mac — stemik-admin.dmg, Windows — stemik-admin-setup.exe. Див. mobile/README.md."

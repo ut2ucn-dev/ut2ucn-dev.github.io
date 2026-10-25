@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../ui/split.dart';
 import '../ui/theme.dart';
 import '../ui/widgets.dart';
+import 'platform.dart';
 
 /// A list on the left and whatever was picked in it on the right, as in
 /// Mail or Finder. The phone screens are reused as they are: a tap that
@@ -142,6 +143,6 @@ class Readable extends StatelessWidget {
   );
 }
 
-/// ⌘ on the Mac; Ctrl when the desktop app is previewed elsewhere.
-SingleActivator cmd(LogicalKeyboardKey key, {bool shift = false, bool mac = true}) =>
-    SingleActivator(key, meta: mac, control: !mac, shift: shift);
+/// ⌘ on the Mac; Ctrl on Windows (and when previewed elsewhere).
+SingleActivator cmd(LogicalKeyboardKey key, {bool shift = false}) =>
+    SingleActivator(key, meta: hasNativeMenuBar, control: !hasNativeMenuBar, shift: shift);

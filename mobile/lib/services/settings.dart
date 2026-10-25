@@ -6,9 +6,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Per-device preferences: theme and lesson reminders.
 class Settings extends ChangeNotifier {
   Settings._(this._prefs);
-  final SharedPreferences _prefs;
+  final _Prefs _prefs;
 
-  static Future<Settings> load() async => Settings._(await SharedPreferences.getInstance());
+  /// [persist] false: a copy of the saved settings that lives in memory
+  /// only (an extra desktop window's).
+  static Future<Settings> load({bool persist = true}) async {
+    final prefs = await SharedPreferences.getInstance();
+    return Settings._(persist ? _SavedPrefs(prefs) : _MemoryPrefs({for (final k in prefs.getKeys()) k: prefs.get(k)}));
+  }
 
   ThemeMode get themeMode {
     switch (_prefs.getString('theme')) {
@@ -129,5 +134,57 @@ class Settings extends ChangeNotifier {
       _prefs.setString('parentToken', token);
     }
     notifyListeners();
+  }
+}
+
+/// The part of [SharedPreferences] that [Settings] uses.
+abstract class _Prefs {
+  Object? get(String key);
+  String? getString(String key) => get(key) as String?;
+  bool? getBool(String key) => get(key) as bool?;
+  int? getInt(String key) => get(key) as int?;
+  List<String>? getStringList(String key) => (get(key) as List?)?.cast<String>();
+  Future<bool> set(String key, Object value);
+  Future<bool> setString(String key, String value) => set(key, value);
+  Future<bool> setBool(String key, bool value) => set(key, value);
+  Future<bool> setInt(String key, int value) => set(key, value);
+  Future<bool> setStringList(String key, List<String> value) => set(key, value);
+  Future<bool> remove(String key);
+}
+
+class _SavedPrefs extends _Prefs {
+  _SavedPrefs(this.prefs);
+  final SharedPreferences prefs;
+
+  @override
+  Object? get(String key) => prefs.get(key);
+  @override
+  Future<bool> set(String key, Object value) => switch (value) {
+    String v => prefs.setString(key, v),
+    bool v => prefs.setBool(key, v),
+    int v => prefs.setInt(key, v),
+    List<String> v => prefs.setStringList(key, v),
+    _ => throw ArgumentError.value(value, key),
+  };
+  @override
+  Future<bool> remove(String key) => prefs.remove(key);
+}
+
+class _MemoryPrefs extends _Prefs {
+  _MemoryPrefs(this.values);
+  final Map<String, Object?> values;
+
+  @override
+  Object? get(String key) => values[key];
+  @override
+  Future<bool> set(String key, Object value) async {
+    values[key] = value;
+    return true;
+  }
+
+  @override
+  Future<bool> remove(String key) async {
+    values.remove(key);
+    return true;
   }
 }

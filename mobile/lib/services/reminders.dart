@@ -35,6 +35,12 @@ class Reminders {
   String? _plannedSignature;
   Timer? _debounce;
 
+  /// Windows: a desktop app that isn't installed from the Store can't take
+  /// back a notification the system has scheduled, so the reminders are
+  /// timers in the running app instead.
+  final _timers = <Timer>[];
+  bool get _windows => defaultTargetPlatform == TargetPlatform.windows;
+
   /// Lesson ids from tapped notifications.
   Stream<String> get taps => _taps.stream;
 
@@ -77,7 +83,8 @@ class Reminders {
       !kIsWeb &&
       (defaultTargetPlatform == TargetPlatform.android ||
           defaultTargetPlatform == TargetPlatform.iOS ||
-          defaultTargetPlatform == TargetPlatform.macOS);
+          defaultTargetPlatform == TargetPlatform.macOS ||
+          defaultTargetPlatform == TargetPlatform.windows);
 
   Future<void> init() async {
     if (!supported) return;
@@ -98,6 +105,12 @@ class Reminders {
           requestAlertPermission: false,
           requestBadgePermission: false,
           requestSoundPermission: false,
+        ),
+        windows: WindowsInitializationSettings(
+          appName: 'Stemik Admin',
+          appUserModelId: 'StemikStudio.StemikAdmin',
+          // Identifies the app's notification activator (taps); never change.
+          guid: 'b79c4640-8466-4e9f-a6d0-376f21952e45',
         ),
       ),
       onDidReceiveNotificationResponse: (r) {
@@ -176,6 +189,7 @@ class Reminders {
   Future<void> _plan() async {
     if (!_ready) return;
     if (!store.signedIn) {
+      _cancelTimers();
       if (_plannedSignature != null) await _plugin.cancelAll();
       _plannedSignature = null;
       return;
@@ -199,10 +213,14 @@ class Reminders {
     _plannedSignature = signature;
 
     // Only what's planned: colleagues' notifications already shown stay.
-    await _plugin.cancelAllPendingNotifications();
+    if (_windows) {
+      _cancelTimers();
+    } else {
+      await _plugin.cancelAllPendingNotifications();
+    }
     if (!settings.remindersEnabled) return;
 
-    final mode = await _scheduleMode();
+    final mode = _windows ? AndroidScheduleMode.exact : await _scheduleMode();
     var id = 1000;
     // iOS keeps at most 64 pending notifications; stay well under it.
     for (final l in lessons.take(48)) {
@@ -210,11 +228,10 @@ class Reminders {
       if (!at.isAfter(now)) continue;
       final where = [l.course, l.room].whereType<String>().join(' · ');
       final kids = l.studentIds.length;
-      await _plugin.zonedSchedule(
+      await _schedule(
         id: id++,
-        scheduledDate: at,
-        notificationDetails: _details,
-        androidScheduleMode: mode,
+        at: at,
+        mode: mode,
         title: 'Через $lead хв: ${l.time} ${where.isEmpty ? l.theme : where}',
         body: [l.theme, if (kids > 0) _kids(kids)].join(' · '),
         payload: l.id,
@@ -236,17 +253,52 @@ class Reminders {
         if (at.isAfter(latest)) at = latest;
         if (!at.isAfter(now)) continue;
         final n = entry.value.length;
-        await _plugin.zonedSchedule(
+        await _schedule(
           id: digestId++,
-          scheduledDate: at,
-          notificationDetails: _details,
-          androidScheduleMode: mode,
+          at: at,
+          mode: mode,
           title: 'Сьогодні ${_lessons(n)}',
           body: entry.value.map((l) => '${l.time} ${l.course ?? l.theme}').join(', '),
           payload: entry.value.first.id,
         );
       }
     }
+  }
+
+  Future<void> _schedule({
+    required int id,
+    required tz.TZDateTime at,
+    required AndroidScheduleMode mode,
+    required String title,
+    required String body,
+    required String payload,
+  }) async {
+    if (_windows) {
+      final wait = at.difference(tz.TZDateTime.now(_kyiv));
+      _timers.add(
+        Timer(
+          wait,
+          () => _plugin.show(id: id, title: title, body: body, notificationDetails: _details, payload: payload),
+        ),
+      );
+      return;
+    }
+    await _plugin.zonedSchedule(
+      id: id,
+      scheduledDate: at,
+      notificationDetails: _details,
+      androidScheduleMode: mode,
+      title: title,
+      body: body,
+      payload: payload,
+    );
+  }
+
+  void _cancelTimers() {
+    for (final t in _timers) {
+      t.cancel();
+    }
+    _timers.clear();
   }
 
   Future<AndroidScheduleMode> _scheduleMode() async {

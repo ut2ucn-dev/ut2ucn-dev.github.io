@@ -18,6 +18,10 @@ const latestApkUrl = 'https://github.com/ut2ucn-dev/ut2ucn-dev.github.io/release
 /// Always the newest macOS admin app.
 const latestDmgUrl = 'https://github.com/ut2ucn-dev/ut2ucn-dev.github.io/releases/latest/download/stemik-admin.dmg';
 
+/// The Windows admin app's installer (Inno Setup).
+const latestExeUrl =
+    'https://github.com/ut2ucn-dev/ut2ucn-dev.github.io/releases/latest/download/stemik-admin-setup.exe';
+
 /// The parents' portal; messages with a new parent password point there
 /// (window.PARENT_PORTAL_URL in config.js).
 const parentPortalUrl = 'https://client.stemik.studio';

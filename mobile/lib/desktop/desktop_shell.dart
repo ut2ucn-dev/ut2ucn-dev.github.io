@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show AppExitType;
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
@@ -245,7 +246,7 @@ class DesktopShellState extends State<DesktopShell> with WidgetsBindingObserver 
   /// The menu bar's commands, for the palette.
   List<PaletteCommand> _paletteCommands(AppStore store) {
     final settings = SettingsScope.read(context);
-    String key(DeskSection s) => s.key == LogicalKeyboardKey.comma ? '⌘,' : '⌘${s.key.keyLabel}';
+    String key(DeskSection s) => shortcutLabel(s.key == LogicalKeyboardKey.comma ? ',' : s.key.keyLabel);
     return [
       for (final s in DeskSection.values)
         if (!s.superOnly || store.isSuperAdmin)
@@ -264,32 +265,43 @@ class DesktopShellState extends State<DesktopShell> with WidgetsBindingObserver 
             },
             run: () => go(s),
           ),
-      PaletteCommand(title: 'Нове заняття', icon: Icons.add_rounded, shortcut: '⌘N', run: newLesson),
-      PaletteCommand(title: 'Новий учень', icon: Icons.person_add_alt_1_rounded, shortcut: '⇧⌘N', run: newStudent),
+      PaletteCommand(title: 'Нове заняття', icon: Icons.add_rounded, shortcut: shortcutLabel('N'), run: newLesson),
+      PaletteCommand(
+        title: 'Новий учень',
+        icon: Icons.person_add_alt_1_rounded,
+        shortcut: shortcutLabel('N', shift: true),
+        run: newStudent,
+      ),
       if (store.isSuperAdmin)
         PaletteCommand(title: 'Новий кабінет батьків', icon: Icons.favorite_rounded, run: newParentAccount),
       PaletteCommand(
         title: _section == DeskSection.calendar ? 'Цей тиждень' : 'Сьогодні',
         icon: Icons.today_rounded,
-        shortcut: '⌘T',
+        shortcut: shortcutLabel('T'),
         run: today,
       ),
       if (_exportable != null) ...[
         PaletteCommand(
           title: 'Експортувати в Excel',
           icon: Icons.table_view_rounded,
-          shortcut: '⌘E',
+          shortcut: shortcutLabel('E'),
           keywords: 'xlsx таблиця',
           run: () => export(ExportFormat.xlsx),
         ),
         PaletteCommand(
           title: 'Експортувати в PDF',
           icon: Icons.picture_as_pdf_rounded,
-          shortcut: '⇧⌘E',
+          shortcut: shortcutLabel('E', shift: true),
           run: () => export(ExportFormat.pdf),
         ),
       ],
-      PaletteCommand(title: 'Синхронізувати', icon: Icons.sync_rounded, shortcut: '⌘R', keywords: 'оновити', run: sync),
+      PaletteCommand(
+        title: 'Синхронізувати',
+        icon: Icons.sync_rounded,
+        shortcut: shortcutLabel('R'),
+        keywords: 'оновити',
+        run: sync,
+      ),
       if (store.teacherFilter != null)
         PaletteCommand(
           title: 'Уся студія (зняти фільтр викладача)',
@@ -435,22 +447,44 @@ class DesktopShellState extends State<DesktopShell> with WidgetsBindingObserver 
     );
 
     if (hasNativeMenuBar) return PlatformMenuBar(menus: _menus(store), child: body);
-    // Previewed off the Mac: the same commands as keyboard shortcuts.
+    // Windows (and previews off the Mac): the same menus, drawn under the
+    // title bar, and their commands as keyboard shortcuts.
     return CallbackShortcuts(
       bindings: {
-        for (final s in sections) cmd(s.key, mac: false): () => go(s),
-        cmd(LogicalKeyboardKey.keyN, mac: false): newLesson,
-        cmd(LogicalKeyboardKey.keyN, shift: true, mac: false): newStudent,
-        cmd(LogicalKeyboardKey.keyR, mac: false): sync,
-        cmd(LogicalKeyboardKey.keyK, mac: false): openSearch,
-        cmd(LogicalKeyboardKey.keyE, mac: false): () => export(ExportFormat.xlsx),
-        cmd(LogicalKeyboardKey.keyE, shift: true, mac: false): () => export(ExportFormat.pdf),
-        cmd(LogicalKeyboardKey.keyT, mac: false): today,
-        cmd(LogicalKeyboardKey.bracketLeft, mac: false): () => shiftDay(-1),
-        cmd(LogicalKeyboardKey.bracketRight, mac: false): () => shiftDay(1),
+        for (final s in sections) cmd(s.key): () => go(s),
+        cmd(LogicalKeyboardKey.keyN): newLesson,
+        cmd(LogicalKeyboardKey.keyN, shift: true): newStudent,
+        cmd(LogicalKeyboardKey.keyR): sync,
+        cmd(LogicalKeyboardKey.keyK): openSearch,
+        cmd(LogicalKeyboardKey.keyE): () => export(ExportFormat.xlsx),
+        cmd(LogicalKeyboardKey.keyE, shift: true): () => export(ExportFormat.pdf),
+        cmd(LogicalKeyboardKey.keyT): today,
+        cmd(LogicalKeyboardKey.bracketLeft): () => shiftDay(-1),
+        cmd(LogicalKeyboardKey.bracketRight): () => shiftDay(1),
+        cmd(LogicalKeyboardKey.comma): () => go(DeskSection.settings),
       },
-      child: Focus(autofocus: true, child: body),
+      child: Focus(
+        autofocus: true,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _WindowMenuBar(menus: _menus(store)),
+            Expanded(child: body),
+          ],
+        ),
+      ),
     );
+  }
+
+  /// Closes the app as the window's close button would (extra windows
+  /// first finish sending).
+  void quit() {
+    final windows = AppWindows.main;
+    if (windows != null) {
+      windows.quit();
+    } else {
+      ServicesBinding.instance.exitApplication(AppExitType.cancelable);
+    }
   }
 
   List<PlatformMenuItem> _menus(AppStore store) {
@@ -459,31 +493,33 @@ class DesktopShellState extends State<DesktopShell> with WidgetsBindingObserver 
         PlatformMenuItem(label: label, onSelected: action, shortcut: shortcut);
     PlatformMenuItem theme(String label, ThemeMode mode) =>
         item('${settings.themeMode == mode ? '✓ ' : ''}$label', () => settings.themeMode = mode);
+    final mac = hasNativeMenuBar;
     return [
-      PlatformMenu(
-        label: 'Stemik Admin',
-        menus: [
-          if (PlatformProvidedMenuItem.hasMenu(PlatformProvidedMenuItemType.about))
-            const PlatformProvidedMenuItem(type: PlatformProvidedMenuItemType.about),
-          PlatformMenuItemGroup(
-            members: [
-              item('Налаштування…', () => go(DeskSection.settings), cmd(LogicalKeyboardKey.comma)),
-              item('Перевірити оновлення…', () => checkForUpdate(context, manual: true)),
-            ],
-          ),
-          const PlatformMenuItemGroup(
-            members: [PlatformProvidedMenuItem(type: PlatformProvidedMenuItemType.servicesSubmenu)],
-          ),
-          const PlatformMenuItemGroup(
-            members: [
-              PlatformProvidedMenuItem(type: PlatformProvidedMenuItemType.hide),
-              PlatformProvidedMenuItem(type: PlatformProvidedMenuItemType.hideOtherApplications),
-              PlatformProvidedMenuItem(type: PlatformProvidedMenuItemType.showAllApplications),
-            ],
-          ),
-          const PlatformProvidedMenuItem(type: PlatformProvidedMenuItemType.quit),
-        ],
-      ),
+      if (mac)
+        PlatformMenu(
+          label: 'Stemik Admin',
+          menus: [
+            if (PlatformProvidedMenuItem.hasMenu(PlatformProvidedMenuItemType.about))
+              const PlatformProvidedMenuItem(type: PlatformProvidedMenuItemType.about),
+            PlatformMenuItemGroup(
+              members: [
+                item('Налаштування…', () => go(DeskSection.settings), cmd(LogicalKeyboardKey.comma)),
+                item('Перевірити оновлення…', () => checkForUpdate(context, manual: true)),
+              ],
+            ),
+            const PlatformMenuItemGroup(
+              members: [PlatformProvidedMenuItem(type: PlatformProvidedMenuItemType.servicesSubmenu)],
+            ),
+            const PlatformMenuItemGroup(
+              members: [
+                PlatformProvidedMenuItem(type: PlatformProvidedMenuItemType.hide),
+                PlatformProvidedMenuItem(type: PlatformProvidedMenuItemType.hideOtherApplications),
+                PlatformProvidedMenuItem(type: PlatformProvidedMenuItemType.showAllApplications),
+              ],
+            ),
+            const PlatformProvidedMenuItem(type: PlatformProvidedMenuItemType.quit),
+          ],
+        ),
       PlatformMenu(
         label: 'Файл',
         menus: [
@@ -511,7 +547,17 @@ class DesktopShellState extends State<DesktopShell> with WidgetsBindingObserver 
           PlatformMenuItemGroup(
             members: [item('Синхронізувати', sync, cmd(LogicalKeyboardKey.keyR)), item('Мій профіль…', editProfile)],
           ),
-          item('Вийти з акаунта ${store.me.fullName}…', signOut),
+          // On Windows the File menu also holds what the Mac keeps in the
+          // app's menu.
+          if (!mac)
+            PlatformMenuItemGroup(
+              members: [
+                item('Налаштування…', () => go(DeskSection.settings), cmd(LogicalKeyboardKey.comma)),
+                item('Перевірити оновлення…', () => checkForUpdate(context, manual: true)),
+              ],
+            ),
+          PlatformMenuItemGroup(members: [item('Вийти з акаунта ${store.me.fullName}…', signOut)]),
+          if (!mac) item('Закрити Stemik Admin', quit),
         ],
       ),
       PlatformMenu(
@@ -818,7 +864,7 @@ class _SearchButton extends StatelessWidget {
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
-                  hasNativeMenuBar ? '⌘K' : 'Ctrl K',
+                  shortcutLabel('K'),
                   style: TextStyle(fontSize: 11.5, color: c.inkSoft, fontWeight: FontWeight.w700),
                 ),
               ),
@@ -842,7 +888,7 @@ class _SyncLine extends StatelessWidget {
     final (Color dot, String text) = store.refreshing
         ? (c.brand, 'Оновлення…')
         : store.connection == Connection.offline
-        ? (c.alert, pending > 0 ? 'Офлайн · чекають $pending' : 'Офлайн — дані з Mac')
+        ? (c.alert, pending > 0 ? 'Офлайн · чекають $pending' : 'Офлайн — дані з комп\'ютера')
         : pending > 0
         ? (c.alert, 'Надсилання: $pending')
         : store.live
@@ -869,6 +915,69 @@ class _SyncLine extends StatelessWidget {
             ),
             Icon(Icons.sync_rounded, size: 16, color: c.inkSoft),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The menus for Windows: the Mac's menu bar ([PlatformMenu]s) drawn as a
+/// [MenuBar] under the title bar. What only macOS provides (Services, Hide,
+/// the Window menu) is left out; groups are set apart by dividers.
+class _WindowMenuBar extends StatelessWidget {
+  const _WindowMenuBar({required this.menus});
+  final List<PlatformMenuItem> menus;
+
+  static List<Widget> _children(List<PlatformMenuItem> items) {
+    final out = <Widget>[];
+    var afterGroup = false;
+    void divide() {
+      if (out.isNotEmpty) out.add(const Divider(height: 8));
+    }
+
+    for (final i in items) {
+      if (i is PlatformProvidedMenuItem) continue;
+      if (i is PlatformMenuItemGroup) {
+        final members = _children(i.members);
+        if (members.isEmpty) continue;
+        divide();
+        out.addAll(members);
+        afterGroup = true;
+        continue;
+      }
+      if (afterGroup) divide();
+      afterGroup = false;
+      final w = _item(i);
+      if (w != null) out.add(w);
+    }
+    return out;
+  }
+
+  static Widget? _item(PlatformMenuItem i) {
+    if (i is PlatformMenu) {
+      final children = _children(i.menus);
+      if (children.isEmpty) return null;
+      return SubmenuButton(menuChildren: children, child: Text(i.label));
+    }
+    return MenuItemButton(onPressed: i.onSelected, shortcut: i.shortcut, child: Text(i.label));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    return Material(
+      color: c.paper,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: c.line)),
+        ),
+        child: MenuBar(
+          style: const MenuStyle(
+            elevation: WidgetStatePropertyAll(0),
+            backgroundColor: WidgetStatePropertyAll(Colors.transparent),
+            padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 6)),
+          ),
+          children: [for (final m in menus) ?_item(m)],
         ),
       ),
     );

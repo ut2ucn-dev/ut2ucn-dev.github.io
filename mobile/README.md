@@ -1,8 +1,8 @@
 # Stemik — мобільний застосунок
 
 Нативний застосунок для Android та iPhone (Flutter), а з того самого коду —
-**Stemik Admin для macOS**, робоче місце адміністратора (див.
-[MACOS.md](MACOS.md)). Він працює з тією самою
+**Stemik Admin для macOS і Windows**, робоче місце адміністратора (див.
+[MACOS.md](MACOS.md) і [WINDOWS.md](WINDOWS.md)). Він працює з тією самою
 базою Supabase, що й сайт: ті самі таблиці, функції й права доступу (RLS),
 тож сайт і застосунок завжди показують одні й ті самі дані.
 
@@ -33,6 +33,13 @@ https://github.com/ut2ucn-dev/ut2ucn-dev.github.io/releases/latest/download/stem
 відкрийте Системні параметри → Конфіденційність і безпека → «Усе одно
 відкрити». Далі він відкривається звичайно. Нова версія — той самий `.dmg`
 із заміною; застосунок сам про неї повідомить. Потрібна macOS 12+.
+
+**Windows (лише для адміністраторів).** Завантажте
+https://github.com/ut2ucn-dev/ut2ucn-dev.github.io/releases/latest/download/stemik-admin-setup.exe
+і запустіть. Інсталятор не підписаний, тож SmartScreen спершу попередить:
+«Додаткові відомості» → «Усе одно запустити». Права адміністратора не
+потрібні. Нова версія — той самий інсталятор поверх; застосунок сам про неї
+повідомить. Потрібна Windows 10/11, 64-біт. Докладно — [WINDOWS.md](WINDOWS.md).
 
 ## Що вміє
 
@@ -83,7 +90,7 @@ https://github.com/ut2ucn-dev/ut2ucn-dev.github.io/releases/latest/download/stem
 ```
 lib/
   data/        Supabase API, знімок даних, офлайн-черга (outbox.dart), AppStore
-  desktop/     оболонка macOS: бічна панель, список | картка, меню, клавіші
+  desktop/     оболонка macOS і Windows: бічна панель, список | картка, меню, клавіші
   services/    нагадування, фото з камери, налаштування, оновлення
   ui/          екрани (спільні для телефона й Mac)
   util/        правила студії з index.html (формати, сегменти ЗП, друк), дати
@@ -114,7 +121,8 @@ flutter run -d chrome --dart-define=STEMIK_DEMO=true --dart-define=STEMIK_DESKTO
 ## Збірка і публікація
 
 `.github/workflows/mobile.yml` при кожній зміні в `mobile/` проганяє аналіз і
-тести та збирає APK (Linux), IPA і DMG для Mac (macOS):
+тести та збирає APK (Linux), IPA і DMG для Mac (macOS), інсталятор для
+Windows (Windows, Inno Setup):
 
 - з `main` — реліз `mobile-v2.0.<N>`, позначений як останній; на нього ведуть
   посилання вище й перевірка оновлень у застосунку;

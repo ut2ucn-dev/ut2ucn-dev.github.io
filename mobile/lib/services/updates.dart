@@ -14,12 +14,13 @@ Future<String> appVersion() async {
 }
 
 /// The app isn't in Google Play or the Mac App Store, so it checks the
-/// manifest CI publishes next to the APK and the DMG and offers the
-/// download when a newer build is out. Android and macOS — iPhones get
-/// updates however the IPA was installed.
+/// manifest CI publishes next to the APK, the DMG and the Windows installer
+/// and offers the download when a newer build is out. Android, macOS and
+/// Windows — iPhones get updates however the IPA was installed.
 Future<void> checkForUpdate(BuildContext context, {bool manual = false}) async {
   final mac = !kIsWeb && defaultTargetPlatform == TargetPlatform.macOS;
-  if (kIsWeb || (defaultTargetPlatform != TargetPlatform.android && !mac)) {
+  final windows = !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
+  if (kIsWeb || (defaultTargetPlatform != TargetPlatform.android && !mac && !windows)) {
     if (manual && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('На iPhone оновлення встановлюються тим самим способом, що й застосунок.')),
@@ -50,7 +51,11 @@ Future<void> checkForUpdate(BuildContext context, {bool manual = false}) async {
     }
     return;
   }
-  final url = mac ? (manifest['dmgUrl'] as String?) ?? latestDmgUrl : (manifest['apkUrl'] as String?) ?? latestApkUrl;
+  final url = mac
+      ? (manifest['dmgUrl'] as String?) ?? latestDmgUrl
+      : windows
+      ? (manifest['exeUrl'] as String?) ?? latestExeUrl
+      : (manifest['apkUrl'] as String?) ?? latestApkUrl;
   final go = await showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(
@@ -58,6 +63,8 @@ Future<void> checkForUpdate(BuildContext context, {bool manual = false}) async {
       content: Text(
         mac
             ? 'Stemik Admin ${manifest!['versionName'] ?? ''} готовий до встановлення. Завантажте .dmg, відкрийте його й перетягніть застосунок у «Програми» із заміною — вхід і дані збережуться.'
+            : windows
+            ? 'Stemik Admin ${manifest!['versionName'] ?? ''} готовий до встановлення. Завантажте інсталятор і запустіть його — він закриє застосунок, оновить його, а вхід і дані збережуться.'
             : 'Stemik ${manifest!['versionName'] ?? ''} готовий до встановлення. Завантажте файл і відкрийте його — Android оновить застосунок, дані збережуться.',
       ),
       actions: [
