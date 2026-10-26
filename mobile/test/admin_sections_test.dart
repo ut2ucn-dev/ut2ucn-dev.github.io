@@ -196,8 +196,10 @@ void main() {
     final shell = tester.state<DesktopShellState>(find.byType(DesktopShell));
     shell.go(DeskSection.calendar);
     await tester.pumpAndSettle();
+    shell.shiftDay(-1); // last week: its lessons are marked, whatever today is
+    await tester.pumpAndSettle();
 
-    final monday = startOfWeek(DateTime.now());
+    final monday = startOfWeek(DateTime.now()).subtract(const Duration(days: 7));
     final target = monday.add(const Duration(days: 6)); // Sunday: no lessons
     final lesson = store.data.lessons.where((l) => l.date == isoDate(monday) && l.time != null).first;
     await dragToDay(tester, blockOf(tester, lesson), target);
