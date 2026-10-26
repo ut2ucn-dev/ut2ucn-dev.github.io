@@ -181,10 +181,21 @@ jobs:
           & $iscc "/DAppVersion=2.0.$env:GITHUB_RUN_NUMBER" windows\installer\stemik_admin.iss
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      # The same app without an installer, for when antivirus software
+      # holds back the unsigned installer (see mobile/WINDOWS.md).
+      - name: Build portable zip
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path zip | Out-Null
+          Copy-Item -Recurse build\windows\x64\runner\Release "zip\Stemik Admin"
+          Compress-Archive -Path "zip\Stemik Admin" -DestinationPath ..\dist\stemik-admin-windows.zip -Force
+
       - uses: actions/upload-artifact@v5
         with:
           name: stemik-windows
-          path: dist/stemik-admin-setup.exe
+          path: |
+            dist/stemik-admin-setup.exe
+            dist/stemik-admin-windows.zip
 
   publish:
     needs: [android, ios, macos, windows]
@@ -219,6 +230,6 @@ jobs:
           {"versionCode": $CODE, "versionName": "$VERSION", "apkUrl": "$BASE/stemik.apk", "dmgUrl": "$BASE/stemik-admin.dmg", "exeUrl": "$BASE/stemik-admin-setup.exe"}
           EOF
           gh release create "$TAG" dist/stemik.apk dist/stemik-unsigned.ipa dist/stemik-admin.dmg \
-            dist/stemik-admin-setup.exe dist/version.json \
+            dist/stemik-admin-setup.exe dist/stemik-admin-windows.zip dist/version.json \
             --repo "$REPO" --target "$GITHUB_SHA" --title "$TITLE" $FLAGS \
-            --notes "Android: встановіть stemik.apk. iPhone: stemik-unsigned.ipa. Для адміністраторів: Mac — stemik-admin.dmg, Windows — stemik-admin-setup.exe. Див. mobile/README.md."
+            --notes "Android: встановіть stemik.apk. iPhone: stemik-unsigned.ipa. Для адміністраторів: Mac — stemik-admin.dmg, Windows — stemik-admin-setup.exe (або stemik-admin-windows.zip без інсталятора). Див. mobile/README.md."
