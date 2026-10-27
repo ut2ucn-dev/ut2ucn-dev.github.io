@@ -1,0 +1,52 @@
+flowchart TB
+  classDef ent fill:#eef3fb,stroke:#1f3b63,stroke-width:2px,color:#000,font-weight:bold
+  classDef rel fill:#fff6e0,stroke:#8a6100,stroke-width:1.5px,color:#000
+  classDef assoc fill:#e9f6ec,stroke:#1d6b33,stroke-width:2px,color:#000,font-weight:bold
+
+  EMP[СПІВРОБІТНИК]:::ent
+  CRS[КУРС]:::ent
+  TAR[ТАРИФ]:::ent
+  LES[ЗАНЯТТЯ]:::ent
+  STU[УЧЕНЬ]:::ent
+  PAR[БАТЬКИ]:::ent
+  CRED[ОБЛІКОВІ ДАНІ]:::ent
+  SUB[АБОНЕМЕНТ]:::ent
+  ENR[[ЗАПИС НА ЗАНЯТТЯ]]:::assoc
+  ATT[ВІДВІДУВАННЯ]:::ent
+  WRK[РОБОТА УЧНЯ]:::ent
+  PRN[3D-ПРИНТЕР]:::ent
+  FIL[ФІЛАМЕНТ]:::ent
+  COM[КОМЕНТАР]:::ent
+
+  R1{веде}:::rel
+  R2{заміняє}:::rel
+  R3{має}:::rel
+  R4{за курсом}:::rel
+  R5{записаний}:::rel
+  R6{фіксує}:::rel
+  R7{результат}:::rel
+  R8{купує}:::rel
+  R9{на курс}:::rel
+  R10{списує}:::rel
+  R11{батьки}:::rel
+  R12{вхід}:::rel
+  R13{друкує}:::rel
+  R14{матеріал}:::rel
+  R15{про учня}:::rel
+
+  EMP ---|1| R1 ===|N| LES
+  EMP ---|1| R2 ---|N| LES
+  CRS ===|1| R3 ===|N| TAR
+  CRS ---|1| R4 ===|N| LES
+  LES ---|M| R5 ---|N| STU
+  R5 -.- ENR
+  ENR ---|1| R6 ===|0..1| ATT
+  ENR ---|1| R7 ===|0..1| WRK
+  STU ---|1| R8 ===|N| SUB
+  CRS ---|1| R9 ===|N| SUB
+  SUB ---|1| R10 ---|N| ATT
+  PAR ---|M| R11 ---|N| STU
+  PAR ---|1| R12 ===|1| CRED
+  PRN ---|1| R13 ---|N| WRK
+  FIL ---|1| R14 ---|N| WRK
+  STU ---|1| R15 ===|N| COM

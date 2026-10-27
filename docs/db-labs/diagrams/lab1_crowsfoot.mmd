@@ -1,0 +1,138 @@
+erDiagram
+  "СПІВРОБІТНИК" ||--o{ "ЗАНЯТТЯ" : "веде"
+  "СПІВРОБІТНИК" |o--o{ "ЗАНЯТТЯ" : "заміняє"
+  "КУРС" ||--|{ "ТАРИФ" : "має"
+  "КУРС" ||--o{ "ЗАНЯТТЯ" : "за курсом"
+  "КУРС" ||--o{ "АБОНЕМЕНТ" : "на курс"
+  "УЧЕНЬ" ||--o{ "АБОНЕМЕНТ" : "купує"
+  "ЗАНЯТТЯ" ||--o{ "ЗАПИС_НА_ЗАНЯТТЯ" : "містить"
+  "УЧЕНЬ" ||--o{ "ЗАПИС_НА_ЗАНЯТТЯ" : "записаний"
+  "ЗАПИС_НА_ЗАНЯТТЯ" ||--o| "ВІДВІДУВАННЯ" : "фіксує"
+  "ЗАПИС_НА_ЗАНЯТТЯ" ||--o| "РОБОТА_УЧНЯ" : "результат"
+  "АБОНЕМЕНТ" |o--o{ "ВІДВІДУВАННЯ" : "списує"
+  "3D_ПРИНТЕР" |o--o{ "РОБОТА_УЧНЯ" : "друкує"
+  "ФІЛАМЕНТ" |o--o{ "РОБОТА_УЧНЯ" : "матеріал"
+  "БАТЬКИ" ||--|{ "БАТЬКИ_УЧЕНЬ" : "є"
+  "УЧЕНЬ" ||--o{ "БАТЬКИ_УЧЕНЬ" : "має"
+  "БАТЬКИ" ||--o| "ОБЛІКОВІ_ДАНІ" : "вхід"
+  "УЧЕНЬ" ||--o{ "КОМЕНТАР" : "про учня"
+  "СПІВРОБІТНИК" |o--o{ "КОМЕНТАР" : "пише"
+
+  "СПІВРОБІТНИК" {
+    id employee_id PK "співробітник"
+    text email UK "ел. пошта"
+    text last_name "прізвище"
+    text first_name "ім'я"
+    text role "роль"
+    bool active "активний"
+  }
+  "КУРС" {
+    id course_id PK "курс"
+    text name UK "назва"
+    text direction "напрямок"
+    int age_min "вік від"
+    int age_max "вік до"
+    money online_print_price "ціна друку онлайн"
+  }
+  "ТАРИФ" {
+    id tariff_id PK "тариф"
+    id course_id FK "курс"
+    text tariff_type "тип тарифу"
+    money teacher_pay "ЗП викладача"
+    money lesson_price "ціна заняття"
+    money subscription_price "ціна абонемента"
+  }
+  "ЗАНЯТТЯ" {
+    id lesson_id PK "заняття"
+    id course_id FK "курс"
+    id teacher_id FK "викладач"
+    id substitute_id FK "замінює"
+    date lesson_date "дата"
+    time start_time "час початку"
+    int duration_minutes "тривалість, хв"
+    text format "формат"
+    text room "кабінет"
+    text theme "тема"
+  }
+  "УЧЕНЬ" {
+    id student_id PK "учень"
+    text last_name "прізвище"
+    text first_name "ім'я"
+    date birthday "дата народження"
+    text phone "телефон"
+    text notes "примітки"
+  }
+  "ЗАПИС_НА_ЗАНЯТТЯ" {
+    id lesson_id PK,FK "заняття"
+    id student_id PK,FK "учень"
+  }
+  "ВІДВІДУВАННЯ" {
+    id attendance_id PK "відмітка"
+    id lesson_id FK "заняття"
+    id student_id FK "учень"
+    text status "статус"
+    text payment_method "спосіб оплати"
+    money amount "сума"
+    percent discount_percent "знижка, %"
+    id subscription_id FK "абонемент"
+  }
+  "АБОНЕМЕНТ" {
+    id subscription_id PK "абонемент"
+    id student_id FK "учень"
+    id course_id FK "курс"
+    int total_lessons "занять у пакеті"
+    int remaining_lessons "залишок занять"
+    money total_price "вартість"
+    date purchased_at "дата купівлі"
+  }
+  "РОБОТА_УЧНЯ" {
+    id work_id PK "робота"
+    id lesson_id FK "заняття"
+    id student_id FK "учень"
+    text photo_url "фото"
+    bool printed "надруковано"
+    id printer_id FK "принтер"
+    id filament_id FK "філамент"
+    int weight_g "вага, г"
+    int print_minutes "час друку, хв"
+  }
+  "3D_ПРИНТЕР" {
+    id printer_id PK "принтер"
+    text name UK "назва"
+    int power_watts "потужність, Вт"
+    money depreciation_per_hour "амортизація/год"
+    bool active "активний"
+  }
+  "ФІЛАМЕНТ" {
+    id filament_id PK "філамент"
+    text material "матеріал"
+    text color "колір"
+    money price_per_kg "ціна за кг"
+    bool active "активний"
+  }
+  "БАТЬКИ" {
+    id parent_id PK "батьки"
+    text phone UK "телефон"
+    text last_name "прізвище"
+    text first_name "ім'я"
+    bool active "активний"
+  }
+  "БАТЬКИ_УЧЕНЬ" {
+    id parent_id PK,FK "батьки"
+    id student_id PK,FK "учень"
+    text relation "ступінь спорідненості"
+  }
+  "ОБЛІКОВІ_ДАНІ" {
+    id parent_id PK,FK "батьки"
+    text password_hash "хеш пароля"
+    date password_set_at "пароль задано"
+    int failed_attempts "невдалі спроби"
+    date locked_until "заблоковано до"
+  }
+  "КОМЕНТАР" {
+    id comment_id PK "коментар"
+    id student_id FK "учень"
+    id author_id FK "автор"
+    text body "текст"
+    date created_at "створено"
+  }
