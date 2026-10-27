@@ -97,6 +97,39 @@ void main() {
     expect(att.pending, isFalse);
   });
 
+  test('"+ друк" on an online lesson switches print on for children marked present', () async {
+    final api = DemoApi();
+    final files = MemoryFiles();
+    final store = await openStore(api, files);
+    final lesson = store.data.lessons.firstWhere(
+      (l) =>
+          l.format == 'individual_online' && store.data.roster(l).any((s) => store.data.attendance(l.id, s.id) == null),
+    );
+    final student = store.data.roster(lesson).firstWhere((s) => store.data.attendance(lesson.id, s.id) == null);
+    await store.online(() => api.updateLesson(lesson.id, {'print_default': true}));
+    await store.sync();
+    expect(store.data.lessonById[lesson.id]!.printDefault, isTrue);
+    expect(lessonFormatLabel(store.data.lessonById[lesson.id]!), endsWith('+друк'));
+
+    // Offline the estimate already includes it.
+    api.offline = true;
+    await store.markAttendance(store.data.lessonById[lesson.id]!, student, 'present', paymentMethod: 'cash');
+    final local = store.data.attendance(lesson.id, student.id)!;
+    expect(local.printEnabled, isTrue);
+    expect(local.amount, (lesson.priceAmount ?? 0) + defaultOnlinePrintPrice);
+
+    api.offline = false;
+    await store.sync();
+    final synced = store.data.attendance(lesson.id, student.id)!;
+    expect(synced.printEnabled, isTrue);
+
+    // Their own switch still wins, and re-marking keeps it.
+    await store.setAttendancePrint(store.data.lessonById[lesson.id]!, student, false, null);
+    await store.markAttendance(store.data.lessonById[lesson.id]!, student, 'present', paymentMethod: 'card');
+    await store.sync();
+    expect(store.data.attendance(lesson.id, student.id)!.printEnabled, isFalse);
+  });
+
   test('a change the server refuses is dropped and reported', () async {
     final api = DemoApi();
     final store = await openStore(api, MemoryFiles());

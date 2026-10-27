@@ -491,8 +491,13 @@ class DemoApi implements StemikApi {
     final l = lessons.firstWhere((x) => x['id'] == lessonId);
     final existing = attendance.where((a) => a['lesson_id'] == lessonId && a['student_id'] == studentId).firstOrNull;
     final present = status == 'present';
+    // As mark_attendance() in sql/0021: newly "П" takes the lesson's "+ друк".
+    final newlyPresent = present && existing?['status'] != 'present';
+    final online = l['format'] == 'individual_online' || l['format'] == 'group_online';
+    final print = newlyPresent ? (l['print_default'] == true && online) : existing?['print_enabled'] == true;
+    final printPrice = newlyPresent ? null : existing?['print_price'];
     var amount = present ? (l['price_amount'] as num).toDouble() : 0.0;
-    if (present && existing?['print_enabled'] == true) amount += (existing?['print_price'] as num?) ?? 100;
+    if (present && print) amount += (printPrice as num?) ?? 100;
     if (present && paymentMethod == 'subscription') amount = 350;
     amount = amount * (1 - discountPercent / 100);
     final row = {
@@ -505,8 +510,8 @@ class DemoApi implements StemikApi {
       'payment_method': present ? paymentMethod : null,
       'amount': amount,
       'discount_percent': present ? discountPercent : 0,
-      'print_enabled': existing?['print_enabled'] ?? false,
-      'print_price': existing?['print_price'],
+      'print_enabled': print,
+      'print_price': printPrice,
     };
     attendance.removeWhere((a) => a['lesson_id'] == lessonId && a['student_id'] == studentId);
     attendance.add(row);
@@ -548,8 +553,17 @@ class DemoApi implements StemikApi {
   @override
   Future<void> updateLesson(String id, DbRow patch) => _io(() {
     final l = lessons.firstWhere((x) => x['id'] == id);
+    final printBefore = l['print_default'] == true;
     l.addAll(patch);
     _price(l);
+    // trg_lesson_print_default (sql/0021).
+    final printNow = l['print_default'] == true;
+    if (printNow != printBefore && (l['format'] == 'individual_online' || l['format'] == 'group_online')) {
+      for (final a in attendance.where((a) => a['lesson_id'] == id && a['status'] == 'present')) {
+        a['print_enabled'] = printNow;
+        a['print_price'] = null;
+      }
+    }
   });
 
   @override

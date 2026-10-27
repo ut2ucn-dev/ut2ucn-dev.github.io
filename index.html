@@ -1119,9 +1119,11 @@ function formatLabel(format) {
   return found ? found.label : "Група (очно)";
 }
 // `att` (optional) is one child's attendance row: adds "+друк" when that
-// child's work on an online lesson is being printed.
+// child's work on an online lesson is being printed. Without it, "+друк"
+// is the lesson's own "+ друк" tick (sql/0021).
 function lessonFormatLabel(lesson, att) {
-  return formatLabel(lesson.format) + (isOnlineFormat(lesson.format) && att && att.print_enabled ? " +друк" : "");
+  const prints = att ? att.print_enabled : lesson.print_default;
+  return formatLabel(lesson.format) + (isOnlineFormat(lesson.format) && prints ? " +друк" : "");
 }
 function formatTagClass(format) {
   if (format === "individual") return " individual";
@@ -2943,6 +2945,14 @@ function LessonModal({
   const [course, setCourse] = useState(lesson ? lesson.course || "" : "");
   const [format, setFormat] = useState(lesson ? lesson.format || "group" : "group");
   const [extraService, setExtraService] = useState(lesson ? !!lesson.extra_service : false);
+  // "+ друк" on an online lesson (sql/0021): children marked "П" get their
+  // own print switched on. Only sent when used, so saving still works on a
+  // database that hasn't run 0021 yet.
+  const [printDefault, setPrintDefault] = useState(lesson ? !!lesson.print_default : false);
+  const printDefaultOn = printDefault && isOnlineFormat(format);
+  const printDefaultPatch = printDefaultOn || lesson && lesson.print_default ? {
+    print_default: printDefaultOn
+  } : {};
   const [rateCard, setRateCard] = useState(null);
   const [studentIds, setStudentIds] = useState(lesson ? lesson.student_ids : []);
   const [studentQuery, setStudentQuery] = useState("");
@@ -3051,6 +3061,7 @@ function LessonModal({
         format,
         student_ids: studentIds,
         extra_service: extraService,
+        ...printDefaultPatch,
         series_id: seriesId,
         owner_id: ownerId
       }).eq("id", lesson.id);
@@ -3091,7 +3102,8 @@ function LessonModal({
             course,
             format,
             student_ids: studentIds,
-            extra_service: extraService
+            extra_service: extraService,
+            ...printDefaultPatch
           });
         }
         const {
@@ -3121,7 +3133,8 @@ function LessonModal({
           course,
           format,
           student_ids: studentIds,
-          extra_service: extraService
+          extra_service: extraService,
+          ...printDefaultPatch
         });
       }
       const {
@@ -3210,7 +3223,20 @@ function LessonModal({
     type: "button",
     className: format === f.value ? "active" : "",
     onClick: () => setFormat(f.value)
-  }, f.label)))), isAdmin && /*#__PURE__*/React.createElement("div", {
+  }, f.label)))), isOnlineFormat(format) && /*#__PURE__*/React.createElement("div", {
+    className: "field"
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "field-label"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: printDefault,
+    onChange: e => setPrintDefault(e.target.checked),
+    style: {
+      marginRight: 6
+    }
+  }), "+ друк"), /*#__PURE__*/React.createElement("div", {
+    className: "hint"
+  }, "Учням із «П» друк увімкнеться сам (з доплатою за тарифом). Окремій дитині його можна вимкнути в картці заняття.")), isAdmin && /*#__PURE__*/React.createElement("div", {
     className: "field"
   }, /*#__PURE__*/React.createElement("label", {
     className: "field-label"
@@ -3515,9 +3541,7 @@ function readLastPrintChoice() {
 function PrintDataModal({
   work,
   title,
-  mode,
   onSave,
-  onSkip,
   onCancel
 }) {
   const last = readLastPrintChoice();
@@ -3574,7 +3598,7 @@ function PrintDataModal({
     onSubmit: save
   }, /*#__PURE__*/React.createElement("div", {
     className: "modal-title"
-  }, mode === "edit" ? "Дані друку" : "Надруковано", /*#__PURE__*/React.createElement("button", {
+  }, "Дані друку", /*#__PURE__*/React.createElement("button", {
     type: "button",
     className: "studio-btn ghost",
     onClick: onCancel
@@ -3664,12 +3688,7 @@ function PrintDataModal({
     }
   }, error), /*#__PURE__*/React.createElement("div", {
     className: "modal-actions"
-  }, mode === "print" && /*#__PURE__*/React.createElement("button", {
-    type: "button",
-    className: "studio-btn ghost",
-    disabled: saving,
-    onClick: onSkip
-  }, "Пропустити"), /*#__PURE__*/React.createElement("button", {
+  }, /*#__PURE__*/React.createElement("button", {
     type: "submit",
     className: "studio-btn primary",
     disabled: saving
@@ -3754,46 +3773,37 @@ function useWorkActions(ownerId, works, setWorks, me, lessonById) {
     setWorks(ws => existing ? ws.map(w => w.id === existing.id ? data : w) : [...ws, data]);
     return true;
   }
-  // Marking printed goes through PrintDataModal (weight, time, printer,
-  // filament); un-marking is immediate and keeps whatever was entered.
-  // Resolves to true once the work is actually marked printed.
+  // Marking printed is immediate; the print data (weight, time, printer,
+  // filament) is optional and added afterwards from PrintDataChip.
+  // Un-marking keeps whatever was entered. Resolves to true once the work
+  // is actually marked printed.
   const [printForm, setPrintForm] = useState(null);
-  const togglePrinted = useCallback((lessonId, studentId, title) => {
+  const togglePrinted = useCallback(async (lessonId, studentId) => {
     const existing = findWork(works, lessonId, studentId);
-    if (existing && existing.printed) {
-      return writeWork(lessonId, studentId, {
-        printed: false,
-        printed_by_name: null,
-        printed_at: null
-      }).then(() => false);
-    }
-    return new Promise(resolve => setPrintForm({
-      lessonId,
-      studentId,
-      title,
-      mode: "print",
-      resolve
-    }));
+    const printing = !(existing && existing.printed);
+    const ok = await writeWork(lessonId, studentId, printing ? {
+      printed: true,
+      printed_by_name: fullName(me),
+      printed_at: new Date().toISOString()
+    } : {
+      printed: false,
+      printed_by_name: null,
+      printed_at: null
+    });
+    return ok && printing;
   }, [ownerId, works, me, lessonById]);
   const editPrintData = useCallback((lessonId, studentId, title) => new Promise(resolve => setPrintForm({
     lessonId,
     studentId,
     title,
-    mode: "edit",
     resolve
   })), []);
   async function submitPrintForm(inputs) {
     const form = printForm;
-    const patch = form.mode === "print" ? {
-      printed: true,
-      printed_by_name: fullName(me),
-      printed_at: new Date().toISOString(),
-      ...(inputs || {})
-    } : inputs;
-    const ok = await writeWork(form.lessonId, form.studentId, patch);
+    const ok = await writeWork(form.lessonId, form.studentId, inputs);
     if (!ok) return;
     setPrintForm(null);
-    form.resolve(form.mode === "print");
+    form.resolve(false);
   }
   function cancelPrintForm() {
     printForm.resolve(false);
@@ -3803,9 +3813,7 @@ function useWorkActions(ownerId, works, setWorks, me, lessonById) {
     key: printForm.lessonId + "_" + printForm.studentId,
     work: findWork(works, printForm.lessonId, printForm.studentId),
     title: printForm.title,
-    mode: printForm.mode,
     onSave: submitPrintForm,
-    onSkip: () => submitPrintForm(null),
     onCancel: cancelPrintForm
   }) : null;
   return {

@@ -63,8 +63,10 @@ String formatLabel(String format) => optionLabel(formatOptions, format) ?? 'Гр
 
 /// `att` (optional) is one child's attendance row: adds "+друк" when that
 /// child's work on an online lesson is being printed.
+/// Without `att`, "+друк" means the lesson's own "+ друк" tick (sql/0021).
 String lessonFormatLabel(Lesson lesson, [Attendance? att]) =>
-    formatLabel(lesson.format) + (isOnlineFormat(lesson.format) && att != null && att.printEnabled ? ' +друк' : '');
+    formatLabel(lesson.format) +
+    (isOnlineFormat(lesson.format) && (att != null ? att.printEnabled : lesson.printDefault) ? ' +друк' : '');
 
 /// Must match the default in lesson_print_surcharge() (sql/0017).
 const defaultOnlinePrintPrice = 100.0;

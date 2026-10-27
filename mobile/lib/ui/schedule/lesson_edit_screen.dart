@@ -35,6 +35,7 @@ class _LessonEditScreenState extends State<LessonEditScreen> {
   late String? _course = l?.course;
   late String _format = l?.format ?? 'group';
   late bool _extra = l?.extraService ?? false;
+  late bool _printDefault = l?.printDefault ?? false;
   late final List<String> _studentIds = [...?l?.studentIds];
   final _query = TextEditingController();
   bool _repeat = false;
@@ -68,6 +69,7 @@ class _LessonEditScreenState extends State<LessonEditScreen> {
     });
     final duration = int.tryParse(_duration.text) ?? 60;
     final weeks = (int.tryParse(_weeks.text) ?? 1).clamp(1, 52);
+    final printDefault = _printDefault && isOnlineFormat(_format);
     DbRow fields(String date) => {
       'owner_id': _ownerId,
       'date': date,
@@ -79,6 +81,8 @@ class _LessonEditScreenState extends State<LessonEditScreen> {
       'format': _format,
       'student_ids': _studentIds,
       'extra_service': _extra,
+      // Only sent when used, so saving works on a database without 0021 too.
+      if (printDefault || (l?.printDefault ?? false)) 'print_default': printDefault,
     };
 
     final ok = await store.online(() async {
@@ -181,6 +185,17 @@ class _LessonEditScreenState extends State<LessonEditScreen> {
                 ),
             ],
           ),
+          if (isOnlineFormat(_format))
+            CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              value: _printDefault,
+              onChanged: (v) => setState(() => _printDefault = v ?? false),
+              title: const Text('+ друк', style: TextStyle(fontWeight: FontWeight.w600)),
+              subtitle: const Text(
+                'Учням із «П» друк увімкнеться сам (з доплатою за тарифом). Окремій дитині його можна вимкнути в картці заняття.',
+              ),
+              controlAffinity: ListTileControlAffinity.leading,
+            ),
           CheckboxListTile(
             contentPadding: EdgeInsets.zero,
             value: _extra,

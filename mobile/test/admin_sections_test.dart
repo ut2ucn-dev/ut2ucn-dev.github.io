@@ -141,15 +141,21 @@ void main() {
     await closeMacApp(tester, store);
   }, variant: mac);
 
-  testWidgets('marking a model printed asks for its weight and time', (tester) async {
+  testWidgets('a model is marked printed at once; its print data is optional', (tester) async {
     final store = await pumpMacApp(tester, role: 'superadmin');
     tester.state<DesktopShellState>(find.byType(DesktopShell)).go(DeskSection.queue);
     await tester.pumpAndSettle();
     final before = store.pendingPrintCount;
     await tester.tap(find.text('Не надруковано').first);
     await tester.pumpAndSettle();
-    expect(find.text('Вага моделі'), findsOneWidget);
+    expect(find.text('Вага моделі'), findsNothing, reason: 'no form before marking');
+    expect(store.pendingPrintCount, before - 1);
 
+    // Added afterwards from the chip.
+    await tester.tap(find.text('Усі'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('дані друку').first);
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Готово'));
     await tester.pump();
     expect(find.text('Вкажіть вагу моделі в грамах'), findsOneWidget);
@@ -158,8 +164,7 @@ void main() {
     await tester.enterText(find.widgetWithText(TextField, 'Час друку'), '1');
     await tester.tap(find.text('Готово'));
     await tester.pumpAndSettle();
-    expect(store.pendingPrintCount, before - 1);
-    // Through the outbox to the server, with the cost inputs.
+    // Through the outbox to the server.
     await tester.pump(const Duration(seconds: 1));
     final work = (store.api as DemoApi).works.firstWhere((w) => w['weight_g'] == 37.5);
     expect(work['printed'], isTrue);

@@ -85,6 +85,10 @@ class Lesson {
   String? get substituteOwnerId => raw['substitute_owner_id'] as String?;
   bool get completed => raw['completed'] == true;
 
+  /// "+ друк" on an online lesson (sql/0021): children marked "П" get their
+  /// print switched on.
+  bool get printDefault => raw['print_default'] == true;
+
   /// Sort key: date then time, lessons without a time first.
   String get sortKey => '$date${time ?? ''}';
 
