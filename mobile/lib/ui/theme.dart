@@ -231,14 +231,9 @@ ThemeData buildTheme(Brightness brightness) {
       side: WidgetStateBorderSide.resolveWith(
         (s) => BorderSide(color: s.contains(WidgetState.selected) ? c.brand : c.lineStrong),
       ),
-      labelStyle: WidgetStateTextStyle.resolveWith(
-        (s) => TextStyle(
-          fontFamily: 'Exo2',
-          color: s.contains(WidgetState.selected) ? Colors.white : c.ink,
-          fontWeight: FontWeight.w600,
-          fontSize: 13,
-        ),
-      ),
+      // Plain style: Android doesn't resolve a state-dependent one here, so
+      // selected/unselected label colours are set by PickChip instead.
+      labelStyle: TextStyle(fontFamily: 'Exo2', color: c.ink, fontWeight: FontWeight.w600, fontSize: 13),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       showCheckmark: false,
     ),

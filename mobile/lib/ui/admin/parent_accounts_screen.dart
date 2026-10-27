@@ -448,7 +448,7 @@ class _AccountDialogState extends State<_AccountDialog> {
                     runSpacing: 6,
                     children: [
                       for (final s in matches.take(40))
-                        FilterChip(
+                        PickChip(
                           label: Text(s.name),
                           avatar: CircleAvatar(
                             backgroundColor: _selected.contains(s.id) ? Colors.white24 : c.brandSoft,

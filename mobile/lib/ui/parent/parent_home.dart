@@ -1562,7 +1562,7 @@ class _LessonsPageState extends State<_LessonsPage> {
                 for (final (key, label) in _filters)
                   Padding(
                     padding: const EdgeInsets.only(right: 6),
-                    child: ChoiceChip(
+                    child: PickChip(
                       label: Text(label),
                       selected: _filter == key,
                       onSelected: (_) => setState(() => _filter = key),

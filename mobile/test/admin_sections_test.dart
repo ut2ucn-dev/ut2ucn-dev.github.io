@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:stemik/ui/widgets.dart';
 import 'package:stemik/data/models.dart';
 import 'package:stemik/demo/demo_api.dart';
 import 'package:stemik/desktop/desktop_shell.dart';
@@ -124,7 +125,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(find.widgetWithText(TextField, 'Телефон (логін)'), '063 555 44 33');
     await tester.enterText(find.widgetWithText(TextField, "Ім'я батьків"), 'Мороз Андрій');
-    await tester.tap(find.widgetWithText(FilterChip, store.data.students.first.name));
+    await tester.tap(find.widgetWithText(PickChip, store.data.students.first.name));
     await tester.pump();
     await tester.tap(find.text('Створити й отримати пароль'));
     await tester.pumpAndSettle();

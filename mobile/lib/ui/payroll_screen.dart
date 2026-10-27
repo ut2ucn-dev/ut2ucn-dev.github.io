@@ -95,8 +95,8 @@ class PayrollScreenState extends State<PayrollScreen> with ExportableScreen {
               spacing: 8,
               runSpacing: 8,
               children: [
-                ChoiceChip(label: const Text('Цей місяць'), selected: isThisMonth, onSelected: (_) => _preset(0)),
-                ChoiceChip(
+                PickChip(label: const Text('Цей місяць'), selected: isThisMonth, onSelected: (_) => _preset(0)),
+                PickChip(
                   label: Text(monthsNominative[prev.month - 1]),
                   selected: isLastMonth,
                   onSelected: (_) => _preset(1),

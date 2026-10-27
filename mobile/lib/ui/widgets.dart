@@ -757,3 +757,41 @@ TextSpan highlight(String text, List<String> tokens, TextStyle base, TextStyle h
   }
   return TextSpan(children: spans, style: base);
 }
+
+/// ChoiceChip with the label colour set explicitly for both states (white
+/// on the brand fill when selected, ink otherwise).
+class PickChip extends StatelessWidget {
+  const PickChip({
+    super.key,
+    required this.label,
+    required this.selected,
+    required this.onSelected,
+    this.avatar,
+    this.tooltip,
+  });
+  final Widget label;
+  final bool selected;
+  final ValueChanged<bool>? onSelected;
+  final Widget? avatar;
+  final String? tooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    return ChoiceChip(
+      label: DefaultTextStyle.merge(
+        style: TextStyle(
+          fontFamily: 'Exo2',
+          fontWeight: FontWeight.w600,
+          fontSize: 13,
+          color: selected ? Colors.white : c.ink,
+        ),
+        child: label,
+      ),
+      avatar: avatar,
+      tooltip: tooltip,
+      selected: selected,
+      onSelected: onSelected,
+    );
+  }
+}
