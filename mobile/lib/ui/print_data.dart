@@ -6,49 +6,37 @@ import '../util/domain.dart';
 import 'scope.dart';
 import 'theme.dart';
 
-/// Marks a model printed (asking for its weight, time, printer and
-/// filament first, as the web's PrintDataModal) or un-marks it at once.
-/// True when it ends up printed.
+/// Marks a model printed at once, or un-marks it. Weight, time, printer
+/// and filament are optional: they can be added afterwards from the
+/// "+ дані друку" chip ([editPrintData]). True when it ends up printed.
 Future<bool> togglePrinted(BuildContext context, Lesson lesson, Student student, Work? work) async {
   final store = context.storeRead;
-  if (work?.printed ?? false) {
-    await store.setPrinted(lesson, student, false);
-    return false;
-  }
-  final result = await showPrintDataDialog(context, work: work, title: '${student.name} · ${lesson.theme}');
-  if (result == null) return false;
+  final printed = !(work?.printed ?? false);
   HapticFeedback.selectionClick();
-  await store.setPrinted(lesson, student, true, printData: result.data);
-  return true;
+  await store.setPrinted(lesson, student, printed);
+  return printed;
 }
 
-/// Corrects what was entered for a printed model.
+/// Adds or corrects the print data of a printed model.
 Future<void> editPrintData(BuildContext context, Lesson lesson, Student student, Work? work) async {
   final store = context.storeRead;
-  final result = await showPrintDataDialog(context, work: work, title: student.name, marking: false);
-  if (result?.data != null) await store.setPrintData(lesson, student, result!.data!);
+  final data = await showPrintDataDialog(context, work: work, title: student.name);
+  if (data != null) await store.setPrintData(lesson, student, data);
 }
 
-/// What the dialog gave back: [data] is null when the teacher skipped it.
-class PrintDataResult {
-  const PrintDataResult(this.data);
-  final Map<String, Object?>? data;
-}
-
-/// Null when dismissed.
-Future<PrintDataResult?> showPrintDataDialog(BuildContext context, {Work? work, String? title, bool marking = true}) {
+/// The entered fields, or null when dismissed.
+Future<Map<String, Object?>?> showPrintDataDialog(BuildContext context, {Work? work, String? title}) {
   context.storeRead.loadPrintDirectory();
-  return showDialog<PrintDataResult>(
+  return showDialog<Map<String, Object?>>(
     context: context,
-    builder: (_) => _PrintDataDialog(work: work, title: title, marking: marking),
+    builder: (_) => _PrintDataDialog(work: work, title: title),
   );
 }
 
 class _PrintDataDialog extends StatefulWidget {
-  const _PrintDataDialog({this.work, this.title, required this.marking});
+  const _PrintDataDialog({this.work, this.title});
   final Work? work;
   final String? title;
-  final bool marking;
 
   @override
   State<_PrintDataDialog> createState() => _PrintDataDialogState();
@@ -92,15 +80,12 @@ class _PrintDataDialogState extends State<_PrintDataDialog> {
     if (weight <= 0) return setState(() => _error = 'Вкажіть вагу моделі в грамах');
     if (minutes <= 0) return setState(() => _error = 'Вкажіть час друку');
     SettingsScope.read(context).saveLastPrintChoice(_printerId, _filamentId);
-    Navigator.pop(
-      context,
-      PrintDataResult({
-        'weight_g': weight,
-        'print_minutes': minutes,
-        'printer_id': _printerId,
-        'filament_id': _filamentId,
-      }),
-    );
+    Navigator.pop(context, <String, Object?>{
+      'weight_g': weight,
+      'print_minutes': minutes,
+      'printer_id': _printerId,
+      'filament_id': _filamentId,
+    });
   }
 
   @override
@@ -133,7 +118,7 @@ class _PrintDataDialogState extends State<_PrintDataDialog> {
     final digits = [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))];
 
     return AlertDialog(
-      title: Text(widget.marking ? 'Надруковано' : 'Дані друку', style: const TextStyle(fontWeight: FontWeight.w800)),
+      title: const Text('Дані друку', style: TextStyle(fontWeight: FontWeight.w800)),
       content: SizedBox(
         width: 420,
         child: SingleChildScrollView(
@@ -217,13 +202,7 @@ class _PrintDataDialogState extends State<_PrintDataDialog> {
         ),
       ),
       actions: [
-        if (widget.marking)
-          TextButton(
-            onPressed: () => Navigator.pop(context, const PrintDataResult(null)),
-            child: const Text('Пропустити'),
-          )
-        else
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Скасувати')),
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Скасувати')),
         FilledButton(onPressed: _save, child: const Text('Готово')),
       ],
     );

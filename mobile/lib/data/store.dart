@@ -452,10 +452,9 @@ class AppStore extends ChangeNotifier {
     }),
   );
 
-  /// [printData] — weight_g, print_minutes, printer_id, filament_id
-  /// (sql/0019) — goes with marking printed; un-marking keeps whatever was
-  /// entered, as on the web.
-  Future<void> setPrinted(Lesson lesson, Student student, bool printed, {Map<String, Object?>? printData}) => _enqueue(
+  /// Un-marking keeps whatever print data was entered, as on the web; the
+  /// data itself is added separately with [setPrintData].
+  Future<void> setPrinted(Lesson lesson, Student student, bool printed) => _enqueue(
     PendingOp(OpType.setWork, {
       'lessonId': lesson.id,
       'studentId': student.id,
@@ -464,7 +463,6 @@ class AppStore extends ChangeNotifier {
         'printed': printed,
         'printed_by_name': printed ? me.fullName : null,
         'printed_at': printed ? DateTime.now().toUtc().toIso8601String() : null,
-        ...?printData,
       },
     }),
   );

@@ -490,7 +490,7 @@ class LessonTile extends StatelessWidget {
                             if (store.isAdmin && owner != null) Tag(owner.fullName, icon: Icons.person_rounded),
                             if (lesson.format != 'group')
                               Tag(
-                                formatLabel(lesson.format),
+                                lessonFormatLabel(lesson),
                                 color: isOnlineFormat(lesson.format) ? c.brandText : c.alertText,
                                 soft: isOnlineFormat(lesson.format) ? c.brandSoft : c.alertSoft,
                               ),

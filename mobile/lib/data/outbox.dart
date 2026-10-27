@@ -92,7 +92,7 @@ void applyOp(Snapshot s, PendingOp op, {bool pending = true}) {
     case OpType.markAttendance:
       final i = _indexWhere(s.attendance, sameAtt);
       final lesson = lessonRow();
-      final base = i >= 0
+      var base = i >= 0
           ? s.attendance[i]
           : <String, dynamic>{
               'lesson_id': op.lessonId,
@@ -102,6 +102,14 @@ void applyOp(Snapshot s, PendingOp op, {bool pending = true}) {
               'print_price': null,
             };
       final present = d['status'] == 'present';
+      // Newly "П" on a lesson with "+ друк": their print starts on (sql/0021).
+      final newlyPresent = present && base['status'] != 'present';
+      final lessonPrints =
+          lesson?['print_default'] == true &&
+          (lesson?['format'] == 'individual_online' || lesson?['format'] == 'group_online');
+      if (newlyPresent) {
+        base = {...base, 'print_enabled': lessonPrints, 'print_price': null};
+      }
       final row = {
         ...base,
         'status': d['status'],
