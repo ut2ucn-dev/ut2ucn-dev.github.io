@@ -564,7 +564,7 @@ class _AttendanceControlsState extends State<AttendanceControls> {
               runSpacing: 6,
               children: [
                 for (final pm in paymentMethods)
-                  ChoiceChip(
+                  PickChip(
                     label: Text(
                       pm.value == 'subscription' && sub != null
                           ? '${pm.label} ${sub.remainingLessons}/${sub.totalLessons}'
@@ -701,7 +701,7 @@ class _AttendanceControlsState extends State<AttendanceControls> {
                 spacing: 6,
                 children: [
                   for (final pm in subscriptionPaymentMethods)
-                    ChoiceChip(
+                    PickChip(
                       label: Text(pm.label),
                       selected: _purchaseMethod == pm.value,
                       onSelected: (_) => setState(() => _purchaseMethod = pm.value),

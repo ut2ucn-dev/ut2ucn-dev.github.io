@@ -174,7 +174,7 @@ class _LessonEditScreenState extends State<LessonEditScreen> {
             runSpacing: 8,
             children: [
               for (final f in formatOptions)
-                ChoiceChip(
+                PickChip(
                   label: Text(f.label),
                   selected: _format == f.value,
                   onSelected: (_) => setState(() => _format = f.value),
@@ -331,7 +331,7 @@ class _LessonEditScreenState extends State<LessonEditScreen> {
               runSpacing: 6,
               children: [
                 for (final s in shown)
-                  FilterChip(
+                  PickChip(
                     label: Text(s.name),
                     selected: _studentIds.contains(s.id),
                     onSelected: (v) => setState(() => v ? _studentIds.add(s.id) : _studentIds.remove(s.id)),

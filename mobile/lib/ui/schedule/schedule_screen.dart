@@ -161,7 +161,7 @@ class ScheduleScreenState extends State<ScheduleScreen> {
             runSpacing: 8,
             children: [
               for (final o in options)
-                FilterChip(
+                PickChip(
                   label: Text(label?.call(o) ?? o),
                   selected: selected.contains(o),
                   onSelected: (v) => update(() => v ? selected.add(o) : selected.remove(o)),

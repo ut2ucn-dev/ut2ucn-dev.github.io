@@ -45,7 +45,7 @@ class SettingsScreen extends StatelessWidget {
                           spacing: 8,
                           children: [
                             for (final m in const [5, 10, 15, 30, 60])
-                              ChoiceChip(
+                              PickChip(
                                 label: Text(m == 60 ? '1 год' : '$m хв'),
                                 selected: settings.reminderLead == m,
                                 onSelected: (_) => settings.reminderLead = m,

@@ -292,7 +292,7 @@ class _SubscriptionsTab extends StatelessWidget {
                             label: Text('Куплено ${formatDateDMY(s.purchaseDate)}'),
                           ),
                           for (final pm in subscriptionPaymentMethods)
-                            ChoiceChip(
+                            PickChip(
                               label: Text(pm.label),
                               selected: s.paymentMethod == pm.value,
                               onSelected: (_) =>
