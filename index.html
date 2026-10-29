@@ -7427,37 +7427,74 @@ function PrintCostSetup() {
       [field]: value
     } : r));
   }
-  async function saveRows(table, list, clean) {
+  // New rows get their database ids into state right after the insert, so
+  // pressing "Зберегти" again (e.g. after a later step failed) updates them
+  // instead of inserting duplicates.
+  async function saveRows(table, list, setList, clean) {
     const existing = list.filter(r => r.id).map(r => ({
       id: r.id,
       ...clean(r)
     }));
-    const added = list.filter(r => !r.id).map(clean);
+    const addedIdx = list.map((r, i) => r.id ? -1 : i).filter(i => i >= 0);
     if (existing.length) {
       const {
         error
       } = await sb.from(table).upsert(existing);
       if (error) throw error;
     }
-    if (added.length) {
+    if (addedIdx.length) {
       const {
+        data,
         error
-      } = await sb.from(table).insert(added);
+      } = await sb.from(table).insert(addedIdx.map(i => clean(list[i]))).select("id");
       if (error) throw error;
+      setList(curr => curr.map((r, i) => {
+        const k = addedIdx.indexOf(i);
+        return k >= 0 && data && data[k] ? {
+          ...r,
+          id: data[k].id
+        } : r;
+      }));
     }
+  }
+  // Deleting a printer / plastic already used on printed models keeps those
+  // models' frozen cost (work_costs) — only the name link is cleared.
+  async function deleteRow(table, setList, index, row, label, usageField) {
+    if (!row.id) {
+      setList(list => list.filter((r, i) => i !== index));
+      return;
+    }
+    const {
+      count
+    } = await sb.from("works").select("id", {
+      count: "exact",
+      head: true
+    }).eq(usageField, row.id);
+    const used = count ? ` Він указаний у ${pluralModels(count)} — їхня порахована собівартість збережеться, але в аналітиці там буде «не вказано». Щоб лише прибрати його з вибору у викладачів, натисніть «Приховати».` : "";
+    const ok = await confirmDialog(`Видалити «${label}» назавжди?${used}`, {
+      title: "Видалити",
+      confirmLabel: "Так, видалити"
+    });
+    if (!ok) return;
+    const {
+      error
+    } = await sb.from(table).delete().eq("id", row.id);
+    if (error) return showToast(error.message, "error");
+    setList(list => list.filter(r => r.id !== row.id));
+    showToast("Видалено");
   }
   async function saveAll() {
     if (printers.some(p => !String(p.name || "").trim())) return showToast("Вкажіть назву кожного принтера", "error");
     if (filaments.some(f => !String(f.material || "").trim())) return showToast("Вкажіть тип кожного пластику", "error");
     setSaving(true);
     try {
-      await saveRows("printers", printers, p => ({
+      await saveRows("printers", printers, setPrinters, p => ({
         name: p.name.trim(),
         power_watts: Math.max(0, Number(p.power_watts) || 0),
         depreciation_per_hour: Math.max(0, Number(p.depreciation_per_hour) || 0),
         active: p.active !== false
       }));
-      await saveRows("filaments", filaments, f => ({
+      await saveRows("filaments", filaments, setFilaments, f => ({
         material: f.material.trim(),
         color: String(f.color || "").trim() || null,
         price_per_kg: Math.max(0, Number(f.price_per_kg) || 0),
@@ -7504,15 +7541,50 @@ function PrintCostSetup() {
     placeholder: placeholder,
     onChange: e => onChange(e.target.value)
   });
-  const hideButton = (row, setList, index) => /*#__PURE__*/React.createElement("button", {
+  // "Приховати" only takes it out of the teachers' list in the "Надруковано"
+  // form; it stays here and in the history. Saved right away for rows that
+  // already exist.
+  async function toggleHidden(table, setList, index, row) {
+    const next = row.active === false;
+    if (row.id) {
+      const {
+        error
+      } = await sb.from(table).update({
+        active: next
+      }).eq("id", row.id);
+      if (error) return showToast(error.message, "error");
+    }
+    editRow(setList, index, "active", next);
+  }
+  const smallBtn = {
+    padding: "5px 10px",
+    fontSize: 12
+  };
+  const rowActions = (row, setList, index, table, label, usageField) => /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 6,
+      justifyContent: "flex-end"
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "studio-btn ghost",
+    style: smallBtn,
+    title: row.active === false ? "Знову показувати викладачам у формі «Надруковано»" : "Прибрати з вибору у формі «Надруковано» (історія лишається)",
+    onClick: () => toggleHidden(table, setList, index, row)
+  }, row.active === false ? "Показати" : "Приховати"), /*#__PURE__*/React.createElement("button", {
     type: "button",
     className: "studio-btn ghost",
     style: {
-      padding: "5px 10px",
-      fontSize: 12
+      ...smallBtn,
+      color: "var(--alert-text)"
     },
-    onClick: () => editRow(setList, index, "active", row.active === false)
-  }, row.active === false ? "Показати" : "Приховати");
+    title: "Видалити назавжди",
+    onClick: () => deleteRow(table, setList, index, row, label || "без назви", usageField)
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "trash",
+    size: 13
+  })));
   return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     className: "print-formula"
   }, /*#__PURE__*/React.createElement("div", {
@@ -7577,7 +7649,7 @@ function PrintCostSetup() {
     }
   }, /*#__PURE__*/React.createElement("td", null, textInput(p.name, v => editRow(setPrinters, i, "name", v), "Bambu Lab P1S")), /*#__PURE__*/React.createElement("td", null, numInput(p.power_watts, v => editRow(setPrinters, i, "power_watts", v))), /*#__PURE__*/React.createElement("td", {
     className: "students-sub"
-  }, formatMoney((Number(p.power_watts) || 0) / 1000 * tariffNum)), /*#__PURE__*/React.createElement("td", null, numInput(p.depreciation_per_hour, v => editRow(setPrinters, i, "depreciation_per_hour", v))), /*#__PURE__*/React.createElement("td", null, hideButton(p, setPrinters, i))))))), /*#__PURE__*/React.createElement("button", {
+  }, formatMoney((Number(p.power_watts) || 0) / 1000 * tariffNum)), /*#__PURE__*/React.createElement("td", null, numInput(p.depreciation_per_hour, v => editRow(setPrinters, i, "depreciation_per_hour", v))), /*#__PURE__*/React.createElement("td", null, rowActions(p, setPrinters, i, "printers", p.name, "printer_id"))))))), /*#__PURE__*/React.createElement("button", {
     type: "button",
     className: "studio-btn ghost",
     style: {
@@ -7614,7 +7686,7 @@ function PrintCostSetup() {
     style: {
       opacity: f.active === false ? 0.5 : 1
     }
-  }, /*#__PURE__*/React.createElement("td", null, textInput(f.material, v => editRow(setFilaments, i, "material", v), "PLA Matte")), /*#__PURE__*/React.createElement("td", null, textInput(f.color, v => editRow(setFilaments, i, "color", v), "Чорний")), /*#__PURE__*/React.createElement("td", null, numInput(f.price_per_kg, v => editRow(setFilaments, i, "price_per_kg", v))), /*#__PURE__*/React.createElement("td", null, hideButton(f, setFilaments, i))))))), /*#__PURE__*/React.createElement("button", {
+  }, /*#__PURE__*/React.createElement("td", null, textInput(f.material, v => editRow(setFilaments, i, "material", v), "PLA Matte")), /*#__PURE__*/React.createElement("td", null, textInput(f.color, v => editRow(setFilaments, i, "color", v), "Чорний")), /*#__PURE__*/React.createElement("td", null, numInput(f.price_per_kg, v => editRow(setFilaments, i, "price_per_kg", v))), /*#__PURE__*/React.createElement("td", null, rowActions(f, setFilaments, i, "filaments", filamentLabel(f), "filament_id"))))))), /*#__PURE__*/React.createElement("button", {
     type: "button",
     className: "studio-btn ghost",
     style: {
@@ -7640,7 +7712,7 @@ function PrintCostSetup() {
     style: {
       marginTop: 8
     }
-  }, "Прихований принтер чи пластик зникає з вибору у викладачів, але лишається в історії вже надрукованих моделей."));
+  }, "«Приховати» — прибрати з вибору у викладачів, коли вони позначають модель надрукованою (у списку тут і в історії лишається). «Видалити» — прибрати назавжди, з підтвердженням."));
 }
 
 // ---------------------------------------------------------------
