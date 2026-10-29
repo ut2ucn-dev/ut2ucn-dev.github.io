@@ -7412,7 +7412,11 @@ function PrintCostSetup() {
   const load = useCallback(async () => {
     setLoading(true);
     const [pr, fr, sr] = await Promise.all([sb.from("printers").select("*").order("created_at"), sb.from("filaments").select("*").order("created_at"), sb.from("studio_settings").select("electricity_tariff, filament_waste_percent").single()]);
-    setPrinters(pr.data || []);
+    // The database stores watts; the admin edits consumption in kW.
+    setPrinters((pr.data || []).map(p => ({
+      ...p,
+      power_kw: p.power_watts != null ? String(Number(p.power_watts) / 1000) : ""
+    })));
     setFilaments(fr.data || []);
     setTariff(sr.data ? String(sr.data.electricity_tariff) : "");
     setWaste(sr.data ? String(sr.data.filament_waste_percent) : "");
@@ -7490,7 +7494,7 @@ function PrintCostSetup() {
     try {
       await saveRows("printers", printers, setPrinters, p => ({
         name: p.name.trim(),
-        power_watts: Math.max(0, Number(p.power_watts) || 0),
+        power_watts: Math.round(Math.max(0, Number(String(p.power_kw).replace(",", ".")) || 0) * 1000 * 100) / 100,
         depreciation_per_hour: Math.max(0, Number(p.depreciation_per_hour) || 0),
         active: p.active !== false
       }));
@@ -7589,7 +7593,12 @@ function PrintCostSetup() {
     className: "print-formula"
   }, /*#__PURE__*/React.createElement("div", {
     className: "field-label"
-  }, "Як рахується собівартість моделі"), /*#__PURE__*/React.createElement("div", null, "Пластик = вага × (1 + відходи %) × ціна за кг / 1000"), /*#__PURE__*/React.createElement("div", null, "Електроенергія = години друку × потужність (Вт) / 1000 × тариф"), /*#__PURE__*/React.createElement("div", null, "Амортизація = години друку × ₴ за годину принтера"), /*#__PURE__*/React.createElement("div", {
+  }, "Як рахується собівартість моделі"), /*#__PURE__*/React.createElement("div", null, "(Вага моделі × Вартість філаменту)"), /*#__PURE__*/React.createElement("div", null, "+ (Час друку × Споживання принтера кВт/год × Тариф електроенергії)"), /*#__PURE__*/React.createElement("div", null, "+ (Амортизація ₴/год × Час друку)"), /*#__PURE__*/React.createElement("div", {
+    className: "hint",
+    style: {
+      marginTop: 6
+    }
+  }, "Вартість філаменту береться за грам (ціна за кг ÷ 1000). Якщо «Відходи пластику» більше 0 %, вони додаються до ваги моделі; при 0 % рахунок точно за формулою вище."), /*#__PURE__*/React.createElement("div", {
     className: "hint",
     style: {
       marginTop: 6
@@ -7626,7 +7635,7 @@ function PrintCostSetup() {
     style: {
       marginBottom: 18
     }
-  }, "Відходи — продувка, башта очищення, підтримки, браковані спроби: додаються до ваги кожної моделі."), /*#__PURE__*/React.createElement("div", {
+  }, "Необов'язково. Відходи — продувка, башта очищення, підтримки, браковані спроби: додаються до ваги кожної моделі. Залиште 0, щоб рахувати лише вагу моделі."), /*#__PURE__*/React.createElement("div", {
     className: "studio-page-title",
     style: {
       fontSize: 16,
@@ -7639,7 +7648,7 @@ function PrintCostSetup() {
     style: {
       minWidth: 620
     }
-  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null, "Назва"), /*#__PURE__*/React.createElement("th", null, "Потужність, Вт"), /*#__PURE__*/React.createElement("th", null, "Електрика, ₴/год"), /*#__PURE__*/React.createElement("th", null, "Амортизація, ₴/год"), /*#__PURE__*/React.createElement("th", null))), /*#__PURE__*/React.createElement("tbody", null, printers.length === 0 ? /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
+  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null, "Назва"), /*#__PURE__*/React.createElement("th", null, "Споживання, кВт/год"), /*#__PURE__*/React.createElement("th", null, "Електрика, ₴/год"), /*#__PURE__*/React.createElement("th", null, "Амортизація, ₴/год"), /*#__PURE__*/React.createElement("th", null))), /*#__PURE__*/React.createElement("tbody", null, printers.length === 0 ? /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
     colSpan: 5,
     className: "students-sub"
   }, "Ще немає жодного принтера.")) : printers.map((p, i) => /*#__PURE__*/React.createElement("tr", {
@@ -7647,9 +7656,9 @@ function PrintCostSetup() {
     style: {
       opacity: p.active === false ? 0.5 : 1
     }
-  }, /*#__PURE__*/React.createElement("td", null, textInput(p.name, v => editRow(setPrinters, i, "name", v), "Bambu Lab P1S")), /*#__PURE__*/React.createElement("td", null, numInput(p.power_watts, v => editRow(setPrinters, i, "power_watts", v))), /*#__PURE__*/React.createElement("td", {
+  }, /*#__PURE__*/React.createElement("td", null, textInput(p.name, v => editRow(setPrinters, i, "name", v), "Bambu Lab P1S")), /*#__PURE__*/React.createElement("td", null, numInput(p.power_kw, v => editRow(setPrinters, i, "power_kw", v), 90)), /*#__PURE__*/React.createElement("td", {
     className: "students-sub"
-  }, formatMoney((Number(p.power_watts) || 0) / 1000 * tariffNum)), /*#__PURE__*/React.createElement("td", null, numInput(p.depreciation_per_hour, v => editRow(setPrinters, i, "depreciation_per_hour", v))), /*#__PURE__*/React.createElement("td", null, rowActions(p, setPrinters, i, "printers", p.name, "printer_id"))))))), /*#__PURE__*/React.createElement("button", {
+  }, formatMoney((Number(p.power_kw) || 0) * tariffNum)), /*#__PURE__*/React.createElement("td", null, numInput(p.depreciation_per_hour, v => editRow(setPrinters, i, "depreciation_per_hour", v))), /*#__PURE__*/React.createElement("td", null, rowActions(p, setPrinters, i, "printers", p.name, "printer_id"))))))), /*#__PURE__*/React.createElement("button", {
     type: "button",
     className: "studio-btn ghost",
     style: {
@@ -7658,7 +7667,7 @@ function PrintCostSetup() {
     },
     onClick: () => setPrinters(list => [...list, {
       name: "",
-      power_watts: "",
+      power_kw: "",
       depreciation_per_hour: "",
       active: true
     }])
