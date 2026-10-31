@@ -963,10 +963,10 @@ function ConfirmHost() {
     className: "studio-btn",
     onClick: () => respond(false)
   }, "Скасувати"), state.opts.extraLabel && /*#__PURE__*/React.createElement("button", {
-    className: "studio-btn danger",
+    className: "studio-btn " + (state.opts.neutral ? "primary" : "danger"),
     onClick: () => respond("extra")
   }, state.opts.extraLabel), /*#__PURE__*/React.createElement("button", {
-    className: "studio-btn danger",
+    className: "studio-btn " + (state.opts.neutral ? "" : "danger"),
     onClick: () => respond(true)
   }, state.opts.confirmLabel || "Видалити")))), document.body);
 }
@@ -3041,6 +3041,7 @@ function LessonModal({
     // student_ids or extra_service change — never sent from here. That's
     // what lets a teacher create their own lesson with the right price on
     // it without ever being able to read that price.
+    let seriesUpdated = 0;
     if (lesson) {
       // Reuse the lesson's own series_id if it's already part of one (so
       // "repeat weekly" here just adds more occurrences to that same
@@ -3048,6 +3049,43 @@ function LessonModal({
       // fresh id only when repeat is requested on a lesson that wasn't
       // already in a series.
       const seriesId = repeatWeekly ? lesson.series_id || crypto.randomUUID() : lesson.series_id;
+      // A lesson in a weekly series: offer to carry this edit over to the
+      // series' later lessons too. Students are applied as a difference
+      // (add the added, drop the removed), so a later lesson that was
+      // already adjusted by hand keeps its own extra changes. Date, theme
+      // and substitute always stay per lesson.
+      const prevIds = lesson.student_ids || [];
+      const addedIds = studentIds.filter(id => !prevIds.includes(id));
+      const removedIds = prevIds.filter(id => !studentIds.includes(id));
+      const seriesPatch = {};
+      if ((time || null) !== (lesson.time || null)) seriesPatch.time = time || null;
+      if ((Number(duration) || 60) !== (lesson.duration_minutes || 60)) seriesPatch.duration_minutes = Number(duration) || 60;
+      if ((room || null) !== (lesson.room || null)) seriesPatch.room = room || null;
+      if (course !== lesson.course) seriesPatch.course = course;
+      if (format !== (lesson.format || "group")) seriesPatch.format = format;
+      if (extraService !== !!lesson.extra_service) seriesPatch.extra_service = extraService;
+      if (ownerId !== lesson.owner_id) seriesPatch.owner_id = ownerId;
+      if ("print_default" in printDefaultPatch && printDefaultPatch.print_default !== !!lesson.print_default) seriesPatch.print_default = printDefaultPatch.print_default;
+      let following = [];
+      if (lesson.series_id && (addedIds.length || removedIds.length || Object.keys(seriesPatch).length)) {
+        const {
+          data: later
+        } = await sb.from("lessons").select("id, student_ids").eq("series_id", lesson.series_id).gt("date", lesson.date);
+        if (later && later.length) {
+          const what = [addedIds.length || removedIds.length ? "учнів" + (addedIds.length ? ` +${addedIds.length}` : "") + (removedIds.length ? ` −${removedIds.length}` : "") : null, "time" in seriesPatch ? "час" : null, "duration_minutes" in seriesPatch ? "тривалість" : null, "room" in seriesPatch ? "кабінет" : null, "course" in seriesPatch ? "напрямок" : null, "format" in seriesPatch ? "формат" : null, "owner_id" in seriesPatch ? "викладача" : null, "extra_service" in seriesPatch ? "додаткову послугу" : null, "print_default" in seriesPatch ? "друк" : null].filter(Boolean).join(", ");
+          const choice = await confirmDialog(`Це заняття — частина щотижневої серії. Ви змінили: ${what}. Застосувати лише до цього заняття чи також до ${later.length} наступних занять серії? Дата й тема кожного заняття не зміняться.`, {
+            title: "Змінити серію",
+            confirmLabel: "Тільки це",
+            extraLabel: `Це і наступні (${later.length + 1})`,
+            neutral: true
+          });
+          if (choice === false) {
+            setSaving(false);
+            return;
+          }
+          if (choice === "extra") following = later;
+        }
+      }
       const {
         error
       } = await sb.from("lessons").update({
@@ -3086,6 +3124,37 @@ function LessonModal({
           setError(reassignError.message);
           return;
         }
+      }
+      if (following.length) {
+        const results = await Promise.all(following.map(l => {
+          const patch = {
+            ...seriesPatch
+          };
+          if (addedIds.length || removedIds.length) {
+            const ids = (l.student_ids || []).filter(id => !removedIds.includes(id));
+            addedIds.forEach(id => {
+              if (!ids.includes(id)) ids.push(id);
+            });
+            patch.student_ids = ids;
+          }
+          return sb.from("lessons").update(patch).eq("id", l.id);
+        }));
+        let seriesError = (results.find(r => r.error) || {}).error;
+        if (!seriesError && seriesPatch.owner_id) {
+          const laterIds = following.map(l => l.id);
+          const [wr, ar] = await Promise.all([sb.from("works").update({
+            owner_id: ownerId
+          }).in("lesson_id", laterIds), sb.from("lesson_attendance").update({
+            owner_id: ownerId
+          }).in("lesson_id", laterIds)]);
+          seriesError = wr.error || ar.error;
+        }
+        if (seriesError) {
+          setSaving(false);
+          setError(seriesError.message);
+          return;
+        }
+        seriesUpdated = following.length;
       }
       const addCount = repeatWeekly ? Math.max(1, Number(weeks) || 1) - 1 : 0;
       if (addCount > 0) {
@@ -3146,7 +3215,7 @@ function LessonModal({
         return;
       }
     }
-    showToast(lesson ? "Заняття оновлено" : "Заняття додано");
+    showToast(lesson ? seriesUpdated ? `Оновлено це і ще ${seriesUpdated} наступних занять серії` : "Заняття оновлено" : "Заняття додано");
     onSaved();
   }
   const amounts = computeAmounts(rateCard, format, studentIds.length, extraService);
