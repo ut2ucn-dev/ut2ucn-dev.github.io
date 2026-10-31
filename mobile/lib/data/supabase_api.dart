@@ -369,23 +369,43 @@ class SupabaseApi implements StemikApi {
   }
 
   @override
-  Future<void> savePrintSetup({
-    required List<DbRow> printers,
-    required List<DbRow> filaments,
-    required double tariff,
-    required double wastePercent,
-  }) => _guard(() async {
+  Future<List<String>> savePrintRows(String table, List<DbRow> rows) => _guard(() async {
     // Same as PrintCostSetup.saveRows() in index.html.
-    for (final (table, rows) in [('printers', printers), ('filaments', filaments)]) {
-      final existing = rows.where((r) => r['id'] != null).toList();
-      final added = [
-        for (final r in rows.where((r) => r['id'] == null)) {...r}..remove('id'),
-      ];
-      if (existing.isNotEmpty) await _sb.from(table).upsert(existing);
-      if (added.isNotEmpty) await _sb.from(table).insert(added);
+    final existing = rows.where((r) => r['id'] != null).toList();
+    final addedAt = [
+      for (var i = 0; i < rows.length; i++)
+        if (rows[i]['id'] == null) i,
+    ];
+    if (existing.isNotEmpty) await _sb.from(table).upsert(existing);
+    final ids = [for (final r in rows) r['id'] as String?];
+    if (addedAt.isNotEmpty) {
+      final inserted = await _sb
+          .from(table)
+          .insert([
+            for (final i in addedAt) {...rows[i]}..remove('id'),
+          ])
+          .select('id');
+      for (var k = 0; k < addedAt.length; k++) {
+        ids[addedAt[k]] = inserted[k]['id'] as String;
+      }
     }
-    await _sb.rpc('set_print_cost_settings', params: {'p_tariff': tariff, 'p_waste_percent': wastePercent});
+    return ids.cast<String>();
   });
+
+  @override
+  Future<void> savePrintCostSettings({required double tariff, required double wastePercent}) =>
+      _guard(() => _sb.rpc('set_print_cost_settings', params: {'p_tariff': tariff, 'p_waste_percent': wastePercent}));
+
+  @override
+  Future<void> setPrintRowActive(String table, String id, bool active) =>
+      _guard(() => _sb.from(table).update({'active': active}).eq('id', id));
+
+  @override
+  Future<void> deletePrintRow(String table, String id) => _guard(() => _sb.from(table).delete().eq('id', id));
+
+  @override
+  Future<int> countWorksUsing(String column, String id) =>
+      _guard(() async => (await _sb.from('works').select('id').eq(column, id).count(CountOption.exact)).count);
 
   // --- parents' portal accounts -------------------------------------------
 
