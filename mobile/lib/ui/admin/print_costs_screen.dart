@@ -351,7 +351,9 @@ class _PrintStatsState extends State<_PrintStats> {
 class _EditRow {
   _EditRow(this.id, Map<String, String> values, {this.active = true})
     : fields = {for (final e in values.entries) e.key: TextEditingController(text: e.value)};
-  final String? id;
+
+  /// Filled in as soon as a new row is saved, so saving again updates it.
+  String? id;
   final Map<String, TextEditingController> fields;
   bool active;
 
@@ -414,7 +416,8 @@ class _PrintSetupState extends State<_PrintSetup> {
           for (final p in (res[0] as List).cast<Map<String, dynamic>>().map(Printer.new))
             _EditRow(p.id, {
               'name': p.name,
-              'power_watts': _num(p.powerWatts),
+              // The database stores watts; the admin edits consumption in kW.
+              'power_kw': _num(p.powerWatts == null ? null : p.powerWatts! / 1000),
               'depreciation_per_hour': _num(p.depreciationPerHour),
             }, active: p.active),
         ]);
@@ -450,20 +453,26 @@ class _PrintSetupState extends State<_PrintSetup> {
     if (_filaments.any((f) => f.text('material').isEmpty)) return store.say('Вкажіть тип кожного пластику');
     double parse(TextEditingController c) => double.tryParse(c.text.trim().replaceAll(',', '.')) ?? 0;
     setState(() => _saving = true);
+    final printers = [..._printers];
+    final filaments = [..._filaments];
     final ok = await store.online(
-      () => store.api.savePrintSetup(
-        printers: [
-          for (final p in _printers)
+      () async {
+        // Each step keeps the new rows' ids right away (see _EditRow.id).
+        final printerIds = await store.api.savePrintRows('printers', [
+          for (final p in printers)
             {
               'id': p.id,
               'name': p.text('name'),
-              'power_watts': p.number('power_watts'),
+              'power_watts': (p.number('power_kw') * 1000 * 100).round() / 100,
               'depreciation_per_hour': p.number('depreciation_per_hour'),
               'active': p.active,
             },
-        ],
-        filaments: [
-          for (final f in _filaments)
+        ]);
+        for (var i = 0; i < printers.length; i++) {
+          printers[i].id = printerIds[i];
+        }
+        final filamentIds = await store.api.savePrintRows('filaments', [
+          for (final f in filaments)
             {
               'id': f.id,
               'material': f.text('material'),
@@ -471,10 +480,15 @@ class _PrintSetupState extends State<_PrintSetup> {
               'price_per_kg': f.number('price_per_kg'),
               'active': f.active,
             },
-        ],
-        tariff: parse(_tariff).clamp(0, double.infinity),
-        wastePercent: parse(_waste).clamp(0, 100),
-      ),
+        ]);
+        for (var i = 0; i < filaments.length; i++) {
+          filaments[i].id = filamentIds[i];
+        }
+        await store.api.savePrintCostSettings(
+          tariff: parse(_tariff).clamp(0, double.infinity),
+          wastePercent: parse(_waste).clamp(0, 100),
+        );
+      },
       done: 'Збережено. Нові ціни діятимуть для моделей, позначених надрукованими відтепер',
       reload: false,
     );
@@ -502,9 +516,68 @@ class _PrintSetupState extends State<_PrintSetup> {
       decoration: InputDecoration(hintText: hint),
     );
 
-    Widget hideButton(_EditRow r) => TextButton(
-      onPressed: () => setState(() => r.active = !r.active),
-      child: Text(r.active ? 'Приховати' : 'Показати'),
+    // "Приховати" only takes it out of the teachers' choice and is saved at
+    // once; "Видалити" (bin) removes it for good after a confirmation.
+    Future<void> toggleHidden(String table, _EditRow r) async {
+      final store = context.storeRead;
+      final id = r.id;
+      if (id != null && !await store.online(() => store.api.setPrintRowActive(table, id, !r.active), reload: false)) {
+        return;
+      }
+      if (!mounted) return;
+      setState(() => r.active = !r.active);
+      if (id != null) store.loadPrintDirectory();
+    }
+
+    Future<void> remove(String table, List<_EditRow> list, _EditRow r, String label) async {
+      final store = context.storeRead;
+      final id = r.id;
+      if (id == null) {
+        setState(() => list.remove(r));
+        r.dispose();
+        return;
+      }
+      final used = await store.fetch(
+        () => store.api.countWorksUsing(table == 'printers' ? 'printer_id' : 'filament_id', id),
+      );
+      if (!context.mounted || used == null) return;
+      final choice = await confirmDialog(
+        context,
+        'Видалити «${label.isEmpty ? 'без назви' : label}» назавжди?'
+        '${used > 0 ? ' Він указаний у ${pluralModels(used)} — їхня порахована собівартість збережеться, але в аналітиці там буде «не вказано». Щоб лише прибрати його з вибору у викладачів, натисніть «Приховати».' : ''}',
+        title: 'Видалити',
+        confirmLabel: 'Так, видалити',
+      );
+      if (choice != true || !context.mounted) return;
+      if (!await store.online(() => store.api.deletePrintRow(table, id), done: 'Видалено', reload: false)) return;
+      if (!mounted) return;
+      setState(() => list.remove(r));
+      r.dispose();
+      store.loadPrintDirectory();
+    }
+
+    Widget rowActions(String table, List<_EditRow> list, _EditRow r, String label) => Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        Flexible(
+          child: TextButton(
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              minimumSize: const Size(0, 36),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            onPressed: () => toggleHidden(table, r),
+            child: Text(r.active ? 'Приховати' : 'Показати', maxLines: 1, overflow: TextOverflow.ellipsis),
+          ),
+        ),
+        IconButton(
+          tooltip: 'Видалити назавжди',
+          visualDensity: VisualDensity.compact,
+          color: c.danger,
+          onPressed: () => remove(table, list, r, label),
+          icon: const Icon(Icons.delete_outline_rounded, size: 20),
+        ),
+      ],
     );
 
     Widget header(List<(String, int)> cols) => Padding(
@@ -519,7 +592,7 @@ class _PrintSetupState extends State<_PrintSetup> {
                 style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: c.inkSoft),
               ),
             ),
-          const SizedBox(width: 104),
+          const SizedBox(width: 150),
         ],
       ),
     );
@@ -535,9 +608,15 @@ class _PrintSetupState extends State<_PrintSetup> {
               children: [
                 const Text('Як рахується собівартість моделі', style: TextStyle(fontWeight: FontWeight.w800)),
                 const SizedBox(height: 6),
-                const Text('Пластик = вага × (1 + відходи %) × ціна за кг / 1000'),
-                const Text('Електроенергія = години друку × потужність (Вт) / 1000 × тариф'),
-                const Text('Амортизація = години друку × ₴ за годину принтера'),
+                const Text('(Вага моделі × Вартість філаменту)'),
+                const Text('+ (Час друку × Споживання принтера кВт/год × Тариф електроенергії)'),
+                const Text('+ (Амортизація ₴/год × Час друку)'),
+                const SizedBox(height: 6),
+                Text(
+                  'Вартість філаменту береться за грам (ціна за кг ÷ 1000). Якщо «Відходи пластику» більше 0 %, '
+                  'вони додаються до ваги моделі; при 0 % рахунок точно за формулою вище.',
+                  style: TextStyle(color: c.inkSoft, fontSize: 12.5),
+                ),
                 const SizedBox(height: 8),
                 Text(
                   'Вагу, час, принтер і пластик вказує викладач, коли позначає модель надрукованою. Сума '
@@ -578,7 +657,8 @@ class _PrintSetupState extends State<_PrintSetup> {
         Padding(
           padding: const EdgeInsets.fromLTRB(4, 6, 4, 0),
           child: Text(
-            'Відходи — продувка, башта очищення, підтримки, браковані спроби: додаються до ваги кожної моделі.',
+            "Необов'язково. Відходи — продувка, башта очищення, підтримки, браковані спроби: додаються до ваги "
+            'кожної моделі. Залиште 0, щоб рахувати лише вагу моделі.',
             style: TextStyle(color: c.inkSoft, fontSize: 12.5),
           ),
         ),
@@ -586,7 +666,7 @@ class _PrintSetupState extends State<_PrintSetup> {
         if (_printers.isEmpty)
           Text('Ще немає жодного принтера.', style: TextStyle(color: c.inkSoft))
         else ...[
-          header([('Назва', 4), ('Потужність, Вт', 2), ('Електрика, ₴/год', 2), ('Амортизація, ₴/год', 2)]),
+          header([('Назва', 4), ('Споживання, кВт/год', 2), ('Електрика, ₴/год', 2), ('Амортизація, ₴/год', 2)]),
           for (final p in _printers)
             Opacity(
               opacity: p.active ? 1 : 0.5,
@@ -598,20 +678,20 @@ class _PrintSetupState extends State<_PrintSetup> {
                     const SizedBox(width: 8),
                     Expanded(
                       flex: 2,
-                      child: cell(p.fields['power_watts']!, number: true, onChanged: () => setState(() {})),
+                      child: cell(p.fields['power_kw']!, number: true, onChanged: () => setState(() {})),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       flex: 2,
                       child: Text(
-                        formatMoney(p.number('power_watts') / 1000 * tariff),
+                        formatMoney(p.number('power_kw') * tariff),
                         textAlign: TextAlign.right,
                         style: TextStyle(color: c.inkSoft),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Expanded(flex: 2, child: cell(p.fields['depreciation_per_hour']!, number: true)),
-                    SizedBox(width: 104, child: hideButton(p)),
+                    SizedBox(width: 150, child: rowActions('printers', _printers, p, p.text('name'))),
                   ],
                 ),
               ),
@@ -621,7 +701,7 @@ class _PrintSetupState extends State<_PrintSetup> {
           alignment: Alignment.centerLeft,
           child: TextButton.icon(
             onPressed: () => setState(
-              () => _printers.add(_EditRow(null, {'name': '', 'power_watts': '', 'depreciation_per_hour': ''})),
+              () => _printers.add(_EditRow(null, {'name': '', 'power_kw': '', 'depreciation_per_hour': ''})),
             ),
             icon: const Icon(Icons.add_rounded),
             label: const Text('Додати принтер'),
@@ -644,7 +724,15 @@ class _PrintSetupState extends State<_PrintSetup> {
                     Expanded(flex: 3, child: cell(f.fields['color']!, hint: 'Чорний')),
                     const SizedBox(width: 8),
                     Expanded(flex: 2, child: cell(f.fields['price_per_kg']!, number: true)),
-                    SizedBox(width: 104, child: hideButton(f)),
+                    SizedBox(
+                      width: 150,
+                      child: rowActions(
+                        'filaments',
+                        _filaments,
+                        f,
+                        [f.text('material'), f.text('color')].where((x) => x.isNotEmpty).join(' · '),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -671,8 +759,8 @@ class _PrintSetupState extends State<_PrintSetup> {
         Padding(
           padding: const EdgeInsets.only(top: 8),
           child: Text(
-            'Прихований принтер чи пластик зникає з вибору у викладачів, але лишається в історії вже надрукованих '
-            'моделей.',
+            '«Приховати» — прибрати з вибору у викладачів, коли вони позначають модель надрукованою (у списку тут '
+            'і в історії лишається). «Видалити» — прибрати назавжди, з підтвердженням.',
             style: TextStyle(color: c.inkSoft, fontSize: 12.5),
           ),
         ),
