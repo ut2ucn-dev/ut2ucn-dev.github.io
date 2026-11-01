@@ -207,6 +207,9 @@
   .studio-hero::before{ content:''; position:absolute; left:0; top:0; bottom:0; width:5px; background:linear-gradient(180deg, var(--brand), var(--sand)); }
   .studio-hero-label{ font-family:var(--font-mono); font-size:10.5px; font-weight:700; color:var(--brand-text); letter-spacing:0.04em; margin-bottom:5px; text-transform:uppercase; }
   .studio-hero-theme{ font-family:var(--font-display); font-size:19px; font-weight:700; }
+  .studio-hero-row{ display:flex; align-items:baseline; gap:10px; margin-top:2px; }
+  .studio-hero-key{ flex:0 0 44px; font-size:11px; font-weight:600; color:var(--ink-soft); text-transform:uppercase; letter-spacing:0.04em; }
+  .studio-hero-course{ font-family:var(--font-display); font-size:15px; font-weight:600; color:var(--brand-text); }
   .studio-hero-date{ font-family:var(--font-body); font-size:13.5px; color:var(--ink-soft); margin-top:3px; }
 
   .stats-row{ display:flex; gap:12px; margin-bottom:20px; flex-wrap:wrap; }
@@ -4885,9 +4888,19 @@ function ScheduleTab({
     className: "datecard-weekday"
   }, dateCardParts(next.date).weekday))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "studio-hero-label"
-  }, nextIsOn ? "Зараз іде" : "Найближче заняття"), /*#__PURE__*/React.createElement("div", {
+  }, nextIsOn ? "Зараз іде" : "Найближче заняття"), next.course && /*#__PURE__*/React.createElement("div", {
+    className: "studio-hero-row"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "studio-hero-key"
+  }, "Курс"), /*#__PURE__*/React.createElement("span", {
+    className: "studio-hero-course"
+  }, next.course)), /*#__PURE__*/React.createElement("div", {
+    className: "studio-hero-row"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "studio-hero-key"
+  }, "Тема"), /*#__PURE__*/React.createElement("span", {
     className: "studio-hero-theme"
-  }, next.theme), /*#__PURE__*/React.createElement("div", {
+  }, next.theme || "без теми")), /*#__PURE__*/React.createElement("div", {
     className: "studio-hero-date"
   }, formatDateLong(next.date), next.time ? " · " + next.time : ""))), /*#__PURE__*/React.createElement("div", {
     className: "calendar-header"
