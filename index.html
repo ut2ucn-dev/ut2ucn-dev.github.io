@@ -4432,6 +4432,13 @@ function ScheduleTab({
   reloadStudents
 }) {
   const [lessons, setLessons] = useState([]);
+  // Ticks every minute so "Найближче заняття" moves on by itself once a
+  // lesson ends, without a page reload.
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNowMs(Date.now()), 60000);
+    return () => clearInterval(t);
+  }, []);
   const [works, setWorks] = useState([]);
   const [attendance, setAttendance] = useState([]);
   const [subscriptions, setSubscriptions] = useState([]);
@@ -4651,7 +4658,16 @@ function ScheduleTab({
     className: "loading-block"
   }, "Завантаження розкладу…");
   const sorted = [...lessons].sort((a, b) => (a.date + (a.time || "")).localeCompare(b.date + (b.time || "")));
-  const next = sorted.find(l => !isPast(l.date));
+  // A lesson stays "nearest" until it ends (start + duration), not until
+  // the end of its day: at 12:50 an 11:15 lesson is over, a 12:30 one is on.
+  const lessonStartMs = l => {
+    const [y, m, d] = l.date.split("-").map(Number);
+    const [hh, mm] = (l.time || "00:00").split(":").map(Number);
+    return new Date(y, m - 1, d, hh || 0, mm || 0).getTime();
+  };
+  const lessonEndMs = l => lessonStartMs(l) + (l.time ? (Number(l.duration_minutes) || 60) * 60000 : 24 * 3600000);
+  const next = sorted.find(l => lessonEndMs(l) > nowMs);
+  const nextIsOn = next && next.time && lessonStartMs(next) <= nowMs;
   const upcomingCount = sorted.filter(l => !isPast(l.date)).length;
   let pendingCount = 0;
   const pendingToday = todayStr();
@@ -4869,7 +4885,7 @@ function ScheduleTab({
     className: "datecard-weekday"
   }, dateCardParts(next.date).weekday))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "studio-hero-label"
-  }, "Найближче заняття"), /*#__PURE__*/React.createElement("div", {
+  }, nextIsOn ? "Зараз іде" : "Найближче заняття"), /*#__PURE__*/React.createElement("div", {
     className: "studio-hero-theme"
   }, next.theme), /*#__PURE__*/React.createElement("div", {
     className: "studio-hero-date"
