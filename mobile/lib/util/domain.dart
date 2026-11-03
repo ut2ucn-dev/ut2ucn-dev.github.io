@@ -211,3 +211,16 @@ String formatParentPhone(String? phone) {
 /// What to send a parent with a new password (ParentPasswordModal).
 String parentPasswordMessage(String phone, String password) =>
     'Кабінет батьків Stemik: $parentPortalUrl\nЛогін: ${formatParentPhone(phone)}\nПароль: $password';
+
+// --- weekly series ----------------------------------------------------------
+
+/// A later lesson's students after "Це і наступні": the edited lesson's
+/// removed students dropped, its added ones added. Students that lesson
+/// already had on its own (added there by hand) stay.
+List<String> seriesStudentIds(List<String> current, List<String> added, List<String> removed) {
+  final ids = current.where((id) => !removed.contains(id)).toList();
+  for (final id in added) {
+    if (!ids.contains(id)) ids.add(id);
+  }
+  return ids;
+}

@@ -131,13 +131,26 @@ abstract class StemikApi {
   /// first; admins only.
   Future<List<DbRow>> fetchPrintCosts(String from, String to);
 
-  /// Saves the directories (rows without an id are added) and the tariff.
-  Future<void> savePrintSetup({
-    required List<DbRow> printers,
-    required List<DbRow> filaments,
-    required double tariff,
-    required double wastePercent,
-  });
+  /// Saves one directory, 'printers' or 'filaments' (rows without an id are
+  /// added) and returns every row's id in the same order — so the screen
+  /// can keep them, and saving again after a later step failed updates the
+  /// new rows instead of adding them a second time.
+  Future<List<String>> savePrintRows(String table, List<DbRow> rows);
+
+  /// The electricity tariff and filament waste % (set_print_cost_settings).
+  Future<void> savePrintCostSettings({required double tariff, required double wastePercent});
+
+  /// "Приховати"/"Показати": only takes a printer or filament out of (or
+  /// back into) the teachers' choice; it stays in the directory and history.
+  Future<void> setPrintRowActive(String table, String id, bool active);
+
+  /// "Видалити": removes it for good. Models printed on it keep their
+  /// frozen cost; their link to it is cleared.
+  Future<void> deletePrintRow(String table, String id);
+
+  /// How many works use this printer or filament ('printer_id' or
+  /// 'filament_id'), for the delete confirmation.
+  Future<int> countWorksUsing(String column, String id);
 
   // --- parents' portal accounts (sql/0018), superadmin only ---------------
 

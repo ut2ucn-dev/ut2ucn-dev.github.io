@@ -63,13 +63,65 @@ class _LessonEditScreenState extends State<LessonEditScreen> {
     if (_ownerId == null) return setState(() => _error = 'Оберіть викладача');
     if (_course == null) return setState(() => _error = 'Оберіть напрямок');
     if (_theme.text.trim().isEmpty) return setState(() => _error = 'Вкажіть тему заняття');
+    final duration = int.tryParse(_duration.text) ?? 60;
+    final weeks = (int.tryParse(_weeks.text) ?? 1).clamp(1, 52);
+    final printDefault = _printDefault && isOnlineFormat(_format);
+
+    // A lesson in a weekly series: offer to carry this edit over to the
+    // series' later lessons too (as the web version does). Students go as
+    // a difference; other fields only if they were changed here. Date,
+    // theme and substitute always stay per lesson.
+    var following = <Lesson>[];
+    final added = <String>[];
+    final removed = <String>[];
+    final seriesPatch = <String, dynamic>{};
+    final edited = l;
+    if (edited != null && edited.seriesId != null) {
+      added.addAll(_studentIds.where((id) => !edited.studentIds.contains(id)));
+      removed.addAll(edited.studentIds.where((id) => !_studentIds.contains(id)));
+      if (_time != edited.time) seriesPatch['time'] = _time;
+      if (duration != edited.durationMinutes) seriesPatch['duration_minutes'] = duration;
+      if (_room != edited.room) seriesPatch['room'] = _room;
+      if (_course != edited.course) seriesPatch['course'] = _course;
+      if (_format != edited.format) seriesPatch['format'] = _format;
+      if (_extra != edited.extraService) seriesPatch['extra_service'] = _extra;
+      if (_ownerId != edited.ownerId) seriesPatch['owner_id'] = _ownerId;
+      if (printDefault != edited.printDefault) seriesPatch['print_default'] = printDefault;
+      if (added.isNotEmpty || removed.isNotEmpty || seriesPatch.isNotEmpty) {
+        final later = context.storeRead.data.lessons
+            .where((x) => x.seriesId == edited.seriesId && x.date.compareTo(edited.date) > 0)
+            .toList();
+        if (later.isNotEmpty) {
+          final what = [
+            if (added.isNotEmpty || removed.isNotEmpty)
+              'учнів${added.isNotEmpty ? ' +${added.length}' : ''}${removed.isNotEmpty ? ' −${removed.length}' : ''}',
+            if (seriesPatch.containsKey('time')) 'час',
+            if (seriesPatch.containsKey('duration_minutes')) 'тривалість',
+            if (seriesPatch.containsKey('room')) 'кабінет',
+            if (seriesPatch.containsKey('course')) 'напрямок',
+            if (seriesPatch.containsKey('format')) 'формат',
+            if (seriesPatch.containsKey('owner_id')) 'викладача',
+            if (seriesPatch.containsKey('extra_service')) 'додаткову послугу',
+            if (seriesPatch.containsKey('print_default')) 'друк',
+          ].join(', ');
+          final choice = await confirmDialog(
+            context,
+            'Це заняття — частина щотижневої серії. Ви змінили: $what. Застосувати лише до цього заняття чи також до ${later.length} наступних занять серії? Дата й тема кожного заняття не зміняться.',
+            title: 'Змінити серію',
+            confirmLabel: 'Тільки це',
+            extraLabel: 'Це і наступні (${later.length + 1})',
+            destructive: false,
+          );
+          if (!mounted || choice == false) return;
+          if (choice == 'extra') following = later;
+        }
+      }
+    }
+
     setState(() {
       _saving = true;
       _error = null;
     });
-    final duration = int.tryParse(_duration.text) ?? 60;
-    final weeks = (int.tryParse(_weeks.text) ?? 1).clamp(1, 52);
-    final printDefault = _printDefault && isOnlineFormat(_format);
     DbRow fields(String date) => {
       'owner_id': _ownerId,
       'date': date,
@@ -85,29 +137,44 @@ class _LessonEditScreenState extends State<LessonEditScreen> {
       if (printDefault || (l?.printDefault ?? false)) 'print_default': printDefault,
     };
 
-    final ok = await store.online(() async {
-      final lesson = l;
-      if (lesson == null) {
-        final seriesId = _repeat ? const Uuid().v4() : null;
-        await store.api.insertLessons([
-          for (var i = 0; i < (_repeat ? weeks : 1); i++) {...fields(addDays(_date, i * 7)), 'series_id': seriesId},
-        ]);
-        return;
-      }
-      // Repeating an existing lesson extends its own series (see index.html).
-      final seriesId = _repeat ? (lesson.seriesId ?? const Uuid().v4()) : lesson.seriesId;
-      await store.api.updateLesson(lesson.id, {
-        ...fields(_date),
-        'substitute_owner_id': _substituteId,
-        'series_id': seriesId,
-      });
-      if (_ownerId != lesson.ownerId) await store.api.reassignLessonOwner(lesson.id, _ownerId!);
-      if (_repeat && weeks > 1) {
-        await store.api.insertLessons([
-          for (var i = 1; i < weeks; i++) {...fields(addDays(_date, i * 7)), 'series_id': seriesId},
-        ]);
-      }
-    }, done: l == null ? 'Заняття додано' : 'Заняття оновлено');
+    final ok = await store.online(
+      () async {
+        final lesson = l;
+        if (lesson == null) {
+          final seriesId = _repeat ? const Uuid().v4() : null;
+          await store.api.insertLessons([
+            for (var i = 0; i < (_repeat ? weeks : 1); i++) {...fields(addDays(_date, i * 7)), 'series_id': seriesId},
+          ]);
+          return;
+        }
+        // Repeating an existing lesson extends its own series (see index.html).
+        final seriesId = _repeat ? (lesson.seriesId ?? const Uuid().v4()) : lesson.seriesId;
+        await store.api.updateLesson(lesson.id, {
+          ...fields(_date),
+          'substitute_owner_id': _substituteId,
+          'series_id': seriesId,
+        });
+        if (_ownerId != lesson.ownerId) await store.api.reassignLessonOwner(lesson.id, _ownerId!);
+        for (final later in following) {
+          await store.api.updateLesson(later.id, {
+            ...seriesPatch,
+            if (added.isNotEmpty || removed.isNotEmpty)
+              'student_ids': seriesStudentIds(later.studentIds, added, removed),
+          });
+          if (seriesPatch.containsKey('owner_id')) await store.api.reassignLessonOwner(later.id, _ownerId!);
+        }
+        if (_repeat && weeks > 1) {
+          await store.api.insertLessons([
+            for (var i = 1; i < weeks; i++) {...fields(addDays(_date, i * 7)), 'series_id': seriesId},
+          ]);
+        }
+      },
+      done: l == null
+          ? 'Заняття додано'
+          : following.isEmpty
+          ? 'Заняття оновлено'
+          : 'Оновлено це і ще ${following.length} наступних занять серії',
+    );
     if (!mounted) return;
     setState(() => _saving = false);
     if (ok) Navigator.pop(context);

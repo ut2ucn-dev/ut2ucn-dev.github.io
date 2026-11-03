@@ -207,6 +207,9 @@
   .studio-hero::before{ content:''; position:absolute; left:0; top:0; bottom:0; width:5px; background:linear-gradient(180deg, var(--brand), var(--sand)); }
   .studio-hero-label{ font-family:var(--font-mono); font-size:10.5px; font-weight:700; color:var(--brand-text); letter-spacing:0.04em; margin-bottom:5px; text-transform:uppercase; }
   .studio-hero-theme{ font-family:var(--font-display); font-size:19px; font-weight:700; }
+  .studio-hero-row{ display:flex; align-items:baseline; gap:10px; margin-top:2px; }
+  .studio-hero-key{ flex:0 0 44px; font-size:11px; font-weight:600; color:var(--ink-soft); text-transform:uppercase; letter-spacing:0.04em; }
+  .studio-hero-course{ font-family:var(--font-display); font-size:15px; font-weight:600; color:var(--brand-text); }
   .studio-hero-date{ font-family:var(--font-body); font-size:13.5px; color:var(--ink-soft); margin-top:3px; }
 
   .stats-row{ display:flex; gap:12px; margin-bottom:20px; flex-wrap:wrap; }
@@ -963,10 +966,10 @@ function ConfirmHost() {
     className: "studio-btn",
     onClick: () => respond(false)
   }, "Скасувати"), state.opts.extraLabel && /*#__PURE__*/React.createElement("button", {
-    className: "studio-btn danger",
+    className: "studio-btn " + (state.opts.neutral ? "primary" : "danger"),
     onClick: () => respond("extra")
   }, state.opts.extraLabel), /*#__PURE__*/React.createElement("button", {
-    className: "studio-btn danger",
+    className: "studio-btn " + (state.opts.neutral ? "" : "danger"),
     onClick: () => respond(true)
   }, state.opts.confirmLabel || "Видалити")))), document.body);
 }
@@ -3041,6 +3044,7 @@ function LessonModal({
     // student_ids or extra_service change — never sent from here. That's
     // what lets a teacher create their own lesson with the right price on
     // it without ever being able to read that price.
+    let seriesUpdated = 0;
     if (lesson) {
       // Reuse the lesson's own series_id if it's already part of one (so
       // "repeat weekly" here just adds more occurrences to that same
@@ -3048,6 +3052,43 @@ function LessonModal({
       // fresh id only when repeat is requested on a lesson that wasn't
       // already in a series.
       const seriesId = repeatWeekly ? lesson.series_id || crypto.randomUUID() : lesson.series_id;
+      // A lesson in a weekly series: offer to carry this edit over to the
+      // series' later lessons too. Students are applied as a difference
+      // (add the added, drop the removed), so a later lesson that was
+      // already adjusted by hand keeps its own extra changes. Date, theme
+      // and substitute always stay per lesson.
+      const prevIds = lesson.student_ids || [];
+      const addedIds = studentIds.filter(id => !prevIds.includes(id));
+      const removedIds = prevIds.filter(id => !studentIds.includes(id));
+      const seriesPatch = {};
+      if ((time || null) !== (lesson.time || null)) seriesPatch.time = time || null;
+      if ((Number(duration) || 60) !== (lesson.duration_minutes || 60)) seriesPatch.duration_minutes = Number(duration) || 60;
+      if ((room || null) !== (lesson.room || null)) seriesPatch.room = room || null;
+      if (course !== lesson.course) seriesPatch.course = course;
+      if (format !== (lesson.format || "group")) seriesPatch.format = format;
+      if (extraService !== !!lesson.extra_service) seriesPatch.extra_service = extraService;
+      if (ownerId !== lesson.owner_id) seriesPatch.owner_id = ownerId;
+      if ("print_default" in printDefaultPatch && printDefaultPatch.print_default !== !!lesson.print_default) seriesPatch.print_default = printDefaultPatch.print_default;
+      let following = [];
+      if (lesson.series_id && (addedIds.length || removedIds.length || Object.keys(seriesPatch).length)) {
+        const {
+          data: later
+        } = await sb.from("lessons").select("id, student_ids").eq("series_id", lesson.series_id).gt("date", lesson.date);
+        if (later && later.length) {
+          const what = [addedIds.length || removedIds.length ? "учнів" + (addedIds.length ? ` +${addedIds.length}` : "") + (removedIds.length ? ` −${removedIds.length}` : "") : null, "time" in seriesPatch ? "час" : null, "duration_minutes" in seriesPatch ? "тривалість" : null, "room" in seriesPatch ? "кабінет" : null, "course" in seriesPatch ? "напрямок" : null, "format" in seriesPatch ? "формат" : null, "owner_id" in seriesPatch ? "викладача" : null, "extra_service" in seriesPatch ? "додаткову послугу" : null, "print_default" in seriesPatch ? "друк" : null].filter(Boolean).join(", ");
+          const choice = await confirmDialog(`Це заняття — частина щотижневої серії. Ви змінили: ${what}. Застосувати лише до цього заняття чи також до ${later.length} наступних занять серії? Дата й тема кожного заняття не зміняться.`, {
+            title: "Змінити серію",
+            confirmLabel: "Тільки це",
+            extraLabel: `Це і наступні (${later.length + 1})`,
+            neutral: true
+          });
+          if (choice === false) {
+            setSaving(false);
+            return;
+          }
+          if (choice === "extra") following = later;
+        }
+      }
       const {
         error
       } = await sb.from("lessons").update({
@@ -3086,6 +3127,37 @@ function LessonModal({
           setError(reassignError.message);
           return;
         }
+      }
+      if (following.length) {
+        const results = await Promise.all(following.map(l => {
+          const patch = {
+            ...seriesPatch
+          };
+          if (addedIds.length || removedIds.length) {
+            const ids = (l.student_ids || []).filter(id => !removedIds.includes(id));
+            addedIds.forEach(id => {
+              if (!ids.includes(id)) ids.push(id);
+            });
+            patch.student_ids = ids;
+          }
+          return sb.from("lessons").update(patch).eq("id", l.id);
+        }));
+        let seriesError = (results.find(r => r.error) || {}).error;
+        if (!seriesError && seriesPatch.owner_id) {
+          const laterIds = following.map(l => l.id);
+          const [wr, ar] = await Promise.all([sb.from("works").update({
+            owner_id: ownerId
+          }).in("lesson_id", laterIds), sb.from("lesson_attendance").update({
+            owner_id: ownerId
+          }).in("lesson_id", laterIds)]);
+          seriesError = wr.error || ar.error;
+        }
+        if (seriesError) {
+          setSaving(false);
+          setError(seriesError.message);
+          return;
+        }
+        seriesUpdated = following.length;
       }
       const addCount = repeatWeekly ? Math.max(1, Number(weeks) || 1) - 1 : 0;
       if (addCount > 0) {
@@ -3146,7 +3218,7 @@ function LessonModal({
         return;
       }
     }
-    showToast(lesson ? "Заняття оновлено" : "Заняття додано");
+    showToast(lesson ? seriesUpdated ? `Оновлено це і ще ${seriesUpdated} наступних занять серії` : "Заняття оновлено" : "Заняття додано");
     onSaved();
   }
   const amounts = computeAmounts(rateCard, format, studentIds.length, extraService);
@@ -4363,6 +4435,13 @@ function ScheduleTab({
   reloadStudents
 }) {
   const [lessons, setLessons] = useState([]);
+  // Ticks every minute so "Найближче заняття" moves on by itself once a
+  // lesson ends, without a page reload.
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNowMs(Date.now()), 60000);
+    return () => clearInterval(t);
+  }, []);
   const [works, setWorks] = useState([]);
   const [attendance, setAttendance] = useState([]);
   const [subscriptions, setSubscriptions] = useState([]);
@@ -4582,7 +4661,16 @@ function ScheduleTab({
     className: "loading-block"
   }, "Завантаження розкладу…");
   const sorted = [...lessons].sort((a, b) => (a.date + (a.time || "")).localeCompare(b.date + (b.time || "")));
-  const next = sorted.find(l => !isPast(l.date));
+  // A lesson stays "nearest" until it ends (start + duration), not until
+  // the end of its day: at 12:50 an 11:15 lesson is over, a 12:30 one is on.
+  const lessonStartMs = l => {
+    const [y, m, d] = l.date.split("-").map(Number);
+    const [hh, mm] = (l.time || "00:00").split(":").map(Number);
+    return new Date(y, m - 1, d, hh || 0, mm || 0).getTime();
+  };
+  const lessonEndMs = l => lessonStartMs(l) + (l.time ? (Number(l.duration_minutes) || 60) * 60000 : 24 * 3600000);
+  const next = sorted.find(l => lessonEndMs(l) > nowMs);
+  const nextIsOn = next && next.time && lessonStartMs(next) <= nowMs;
   const upcomingCount = sorted.filter(l => !isPast(l.date)).length;
   let pendingCount = 0;
   const pendingToday = todayStr();
@@ -4800,9 +4888,19 @@ function ScheduleTab({
     className: "datecard-weekday"
   }, dateCardParts(next.date).weekday))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "studio-hero-label"
-  }, "Найближче заняття"), /*#__PURE__*/React.createElement("div", {
+  }, nextIsOn ? "Зараз іде" : "Найближче заняття"), next.course && /*#__PURE__*/React.createElement("div", {
+    className: "studio-hero-row"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "studio-hero-key"
+  }, "Курс"), /*#__PURE__*/React.createElement("span", {
+    className: "studio-hero-course"
+  }, next.course)), /*#__PURE__*/React.createElement("div", {
+    className: "studio-hero-row"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "studio-hero-key"
+  }, "Тема"), /*#__PURE__*/React.createElement("span", {
     className: "studio-hero-theme"
-  }, next.theme), /*#__PURE__*/React.createElement("div", {
+  }, next.theme || "без теми")), /*#__PURE__*/React.createElement("div", {
     className: "studio-hero-date"
   }, formatDateLong(next.date), next.time ? " · " + next.time : ""))), /*#__PURE__*/React.createElement("div", {
     className: "calendar-header"
@@ -7412,7 +7510,11 @@ function PrintCostSetup() {
   const load = useCallback(async () => {
     setLoading(true);
     const [pr, fr, sr] = await Promise.all([sb.from("printers").select("*").order("created_at"), sb.from("filaments").select("*").order("created_at"), sb.from("studio_settings").select("electricity_tariff, filament_waste_percent").single()]);
-    setPrinters(pr.data || []);
+    // The database stores watts; the admin edits consumption in kW.
+    setPrinters((pr.data || []).map(p => ({
+      ...p,
+      power_kw: p.power_watts != null ? String(Number(p.power_watts) / 1000) : ""
+    })));
     setFilaments(fr.data || []);
     setTariff(sr.data ? String(sr.data.electricity_tariff) : "");
     setWaste(sr.data ? String(sr.data.filament_waste_percent) : "");
@@ -7427,37 +7529,74 @@ function PrintCostSetup() {
       [field]: value
     } : r));
   }
-  async function saveRows(table, list, clean) {
+  // New rows get their database ids into state right after the insert, so
+  // pressing "Зберегти" again (e.g. after a later step failed) updates them
+  // instead of inserting duplicates.
+  async function saveRows(table, list, setList, clean) {
     const existing = list.filter(r => r.id).map(r => ({
       id: r.id,
       ...clean(r)
     }));
-    const added = list.filter(r => !r.id).map(clean);
+    const addedIdx = list.map((r, i) => r.id ? -1 : i).filter(i => i >= 0);
     if (existing.length) {
       const {
         error
       } = await sb.from(table).upsert(existing);
       if (error) throw error;
     }
-    if (added.length) {
+    if (addedIdx.length) {
       const {
+        data,
         error
-      } = await sb.from(table).insert(added);
+      } = await sb.from(table).insert(addedIdx.map(i => clean(list[i]))).select("id");
       if (error) throw error;
+      setList(curr => curr.map((r, i) => {
+        const k = addedIdx.indexOf(i);
+        return k >= 0 && data && data[k] ? {
+          ...r,
+          id: data[k].id
+        } : r;
+      }));
     }
+  }
+  // Deleting a printer / plastic already used on printed models keeps those
+  // models' frozen cost (work_costs) — only the name link is cleared.
+  async function deleteRow(table, setList, index, row, label, usageField) {
+    if (!row.id) {
+      setList(list => list.filter((r, i) => i !== index));
+      return;
+    }
+    const {
+      count
+    } = await sb.from("works").select("id", {
+      count: "exact",
+      head: true
+    }).eq(usageField, row.id);
+    const used = count ? ` Він указаний у ${pluralModels(count)} — їхня порахована собівартість збережеться, але в аналітиці там буде «не вказано». Щоб лише прибрати його з вибору у викладачів, натисніть «Приховати».` : "";
+    const ok = await confirmDialog(`Видалити «${label}» назавжди?${used}`, {
+      title: "Видалити",
+      confirmLabel: "Так, видалити"
+    });
+    if (!ok) return;
+    const {
+      error
+    } = await sb.from(table).delete().eq("id", row.id);
+    if (error) return showToast(error.message, "error");
+    setList(list => list.filter(r => r.id !== row.id));
+    showToast("Видалено");
   }
   async function saveAll() {
     if (printers.some(p => !String(p.name || "").trim())) return showToast("Вкажіть назву кожного принтера", "error");
     if (filaments.some(f => !String(f.material || "").trim())) return showToast("Вкажіть тип кожного пластику", "error");
     setSaving(true);
     try {
-      await saveRows("printers", printers, p => ({
+      await saveRows("printers", printers, setPrinters, p => ({
         name: p.name.trim(),
-        power_watts: Math.max(0, Number(p.power_watts) || 0),
+        power_watts: Math.round(Math.max(0, Number(String(p.power_kw).replace(",", ".")) || 0) * 1000 * 100) / 100,
         depreciation_per_hour: Math.max(0, Number(p.depreciation_per_hour) || 0),
         active: p.active !== false
       }));
-      await saveRows("filaments", filaments, f => ({
+      await saveRows("filaments", filaments, setFilaments, f => ({
         material: f.material.trim(),
         color: String(f.color || "").trim() || null,
         price_per_kg: Math.max(0, Number(f.price_per_kg) || 0),
@@ -7504,20 +7643,60 @@ function PrintCostSetup() {
     placeholder: placeholder,
     onChange: e => onChange(e.target.value)
   });
-  const hideButton = (row, setList, index) => /*#__PURE__*/React.createElement("button", {
+  // "Приховати" only takes it out of the teachers' list in the "Надруковано"
+  // form; it stays here and in the history. Saved right away for rows that
+  // already exist.
+  async function toggleHidden(table, setList, index, row) {
+    const next = row.active === false;
+    if (row.id) {
+      const {
+        error
+      } = await sb.from(table).update({
+        active: next
+      }).eq("id", row.id);
+      if (error) return showToast(error.message, "error");
+    }
+    editRow(setList, index, "active", next);
+  }
+  const smallBtn = {
+    padding: "5px 10px",
+    fontSize: 12
+  };
+  const rowActions = (row, setList, index, table, label, usageField) => /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 6,
+      justifyContent: "flex-end"
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "studio-btn ghost",
+    style: smallBtn,
+    title: row.active === false ? "Знову показувати викладачам у формі «Надруковано»" : "Прибрати з вибору у формі «Надруковано» (історія лишається)",
+    onClick: () => toggleHidden(table, setList, index, row)
+  }, row.active === false ? "Показати" : "Приховати"), /*#__PURE__*/React.createElement("button", {
     type: "button",
     className: "studio-btn ghost",
     style: {
-      padding: "5px 10px",
-      fontSize: 12
+      ...smallBtn,
+      color: "var(--alert-text)"
     },
-    onClick: () => editRow(setList, index, "active", row.active === false)
-  }, row.active === false ? "Показати" : "Приховати");
+    title: "Видалити назавжди",
+    onClick: () => deleteRow(table, setList, index, row, label || "без назви", usageField)
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "trash",
+    size: 13
+  })));
   return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     className: "print-formula"
   }, /*#__PURE__*/React.createElement("div", {
     className: "field-label"
-  }, "Як рахується собівартість моделі"), /*#__PURE__*/React.createElement("div", null, "Пластик = вага × (1 + відходи %) × ціна за кг / 1000"), /*#__PURE__*/React.createElement("div", null, "Електроенергія = години друку × потужність (Вт) / 1000 × тариф"), /*#__PURE__*/React.createElement("div", null, "Амортизація = години друку × ₴ за годину принтера"), /*#__PURE__*/React.createElement("div", {
+  }, "Як рахується собівартість моделі"), /*#__PURE__*/React.createElement("div", null, "(Вага моделі × Вартість філаменту)"), /*#__PURE__*/React.createElement("div", null, "+ (Час друку × Споживання принтера кВт/год × Тариф електроенергії)"), /*#__PURE__*/React.createElement("div", null, "+ (Амортизація ₴/год × Час друку)"), /*#__PURE__*/React.createElement("div", {
+    className: "hint",
+    style: {
+      marginTop: 6
+    }
+  }, "Вартість філаменту береться за грам (ціна за кг ÷ 1000). Якщо «Відходи пластику» більше 0 %, вони додаються до ваги моделі; при 0 % рахунок точно за формулою вище."), /*#__PURE__*/React.createElement("div", {
     className: "hint",
     style: {
       marginTop: 6
@@ -7554,7 +7733,7 @@ function PrintCostSetup() {
     style: {
       marginBottom: 18
     }
-  }, "Відходи — продувка, башта очищення, підтримки, браковані спроби: додаються до ваги кожної моделі."), /*#__PURE__*/React.createElement("div", {
+  }, "Необов'язково. Відходи — продувка, башта очищення, підтримки, браковані спроби: додаються до ваги кожної моделі. Залиште 0, щоб рахувати лише вагу моделі."), /*#__PURE__*/React.createElement("div", {
     className: "studio-page-title",
     style: {
       fontSize: 16,
@@ -7567,7 +7746,7 @@ function PrintCostSetup() {
     style: {
       minWidth: 620
     }
-  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null, "Назва"), /*#__PURE__*/React.createElement("th", null, "Потужність, Вт"), /*#__PURE__*/React.createElement("th", null, "Електрика, ₴/год"), /*#__PURE__*/React.createElement("th", null, "Амортизація, ₴/год"), /*#__PURE__*/React.createElement("th", null))), /*#__PURE__*/React.createElement("tbody", null, printers.length === 0 ? /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
+  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null, "Назва"), /*#__PURE__*/React.createElement("th", null, "Споживання, кВт/год"), /*#__PURE__*/React.createElement("th", null, "Електрика, ₴/год"), /*#__PURE__*/React.createElement("th", null, "Амортизація, ₴/год"), /*#__PURE__*/React.createElement("th", null))), /*#__PURE__*/React.createElement("tbody", null, printers.length === 0 ? /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("td", {
     colSpan: 5,
     className: "students-sub"
   }, "Ще немає жодного принтера.")) : printers.map((p, i) => /*#__PURE__*/React.createElement("tr", {
@@ -7575,9 +7754,9 @@ function PrintCostSetup() {
     style: {
       opacity: p.active === false ? 0.5 : 1
     }
-  }, /*#__PURE__*/React.createElement("td", null, textInput(p.name, v => editRow(setPrinters, i, "name", v), "Bambu Lab P1S")), /*#__PURE__*/React.createElement("td", null, numInput(p.power_watts, v => editRow(setPrinters, i, "power_watts", v))), /*#__PURE__*/React.createElement("td", {
+  }, /*#__PURE__*/React.createElement("td", null, textInput(p.name, v => editRow(setPrinters, i, "name", v), "Bambu Lab P1S")), /*#__PURE__*/React.createElement("td", null, numInput(p.power_kw, v => editRow(setPrinters, i, "power_kw", v), 90)), /*#__PURE__*/React.createElement("td", {
     className: "students-sub"
-  }, formatMoney((Number(p.power_watts) || 0) / 1000 * tariffNum)), /*#__PURE__*/React.createElement("td", null, numInput(p.depreciation_per_hour, v => editRow(setPrinters, i, "depreciation_per_hour", v))), /*#__PURE__*/React.createElement("td", null, hideButton(p, setPrinters, i))))))), /*#__PURE__*/React.createElement("button", {
+  }, formatMoney((Number(p.power_kw) || 0) * tariffNum)), /*#__PURE__*/React.createElement("td", null, numInput(p.depreciation_per_hour, v => editRow(setPrinters, i, "depreciation_per_hour", v))), /*#__PURE__*/React.createElement("td", null, rowActions(p, setPrinters, i, "printers", p.name, "printer_id"))))))), /*#__PURE__*/React.createElement("button", {
     type: "button",
     className: "studio-btn ghost",
     style: {
@@ -7586,7 +7765,7 @@ function PrintCostSetup() {
     },
     onClick: () => setPrinters(list => [...list, {
       name: "",
-      power_watts: "",
+      power_kw: "",
       depreciation_per_hour: "",
       active: true
     }])
@@ -7614,7 +7793,7 @@ function PrintCostSetup() {
     style: {
       opacity: f.active === false ? 0.5 : 1
     }
-  }, /*#__PURE__*/React.createElement("td", null, textInput(f.material, v => editRow(setFilaments, i, "material", v), "PLA Matte")), /*#__PURE__*/React.createElement("td", null, textInput(f.color, v => editRow(setFilaments, i, "color", v), "Чорний")), /*#__PURE__*/React.createElement("td", null, numInput(f.price_per_kg, v => editRow(setFilaments, i, "price_per_kg", v))), /*#__PURE__*/React.createElement("td", null, hideButton(f, setFilaments, i))))))), /*#__PURE__*/React.createElement("button", {
+  }, /*#__PURE__*/React.createElement("td", null, textInput(f.material, v => editRow(setFilaments, i, "material", v), "PLA Matte")), /*#__PURE__*/React.createElement("td", null, textInput(f.color, v => editRow(setFilaments, i, "color", v), "Чорний")), /*#__PURE__*/React.createElement("td", null, numInput(f.price_per_kg, v => editRow(setFilaments, i, "price_per_kg", v))), /*#__PURE__*/React.createElement("td", null, rowActions(f, setFilaments, i, "filaments", filamentLabel(f), "filament_id"))))))), /*#__PURE__*/React.createElement("button", {
     type: "button",
     className: "studio-btn ghost",
     style: {
@@ -7640,7 +7819,7 @@ function PrintCostSetup() {
     style: {
       marginTop: 8
     }
-  }, "Прихований принтер чи пластик зникає з вибору у викладачів, але лишається в історії вже надрукованих моделей."));
+  }, "«Приховати» — прибрати з вибору у викладачів, коли вони позначають модель надрукованою (у списку тут і в історії лишається). «Видалити» — прибрати назавжди, з підтвердженням."));
 }
 
 // ---------------------------------------------------------------

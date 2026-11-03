@@ -703,26 +703,50 @@ class DemoApi implements StemikApi {
     return out;
   });
 
+  List<DbRow> _printTable(String table) => table == 'printers' ? printers : filaments;
+
   @override
-  Future<void> savePrintSetup({
-    required List<DbRow> printers,
-    required List<DbRow> filaments,
-    required double tariff,
-    required double wastePercent,
-  }) => _io(() {
-    for (final (list, rows) in [(this.printers, printers), (this.filaments, filaments)]) {
-      for (final r in rows) {
-        final existing = list.where((x) => x['id'] == r['id'] && r['id'] != null).firstOrNull;
-        if (existing != null) {
-          existing.addAll(r);
-        } else {
-          list.add({...r, 'id': _uuid.v4(), 'created_at': DateTime.now().toUtc().toIso8601String()});
-        }
-      }
-    }
+  Future<List<String>> savePrintRows(String table, List<DbRow> rows) => _io(() {
+    final list = _printTable(table);
+    return [
+      for (final r in rows)
+        () {
+          final existing = list.where((x) => x['id'] == r['id'] && r['id'] != null).firstOrNull;
+          if (existing != null) {
+            existing.addAll(r);
+            return existing['id'] as String;
+          }
+          final id = _uuid.v4();
+          list.add({...r, 'id': id, 'created_at': DateTime.now().toUtc().toIso8601String()});
+          return id;
+        }(),
+    ];
+  });
+
+  @override
+  Future<void> savePrintCostSettings({required double tariff, required double wastePercent}) => _io(() {
     electricityTariff = tariff;
     this.wastePercent = wastePercent;
   });
+
+  @override
+  Future<void> setPrintRowActive(String table, String id, bool active) => _io(() {
+    for (final r in _printTable(table).where((x) => x['id'] == id)) {
+      r['active'] = active;
+    }
+  });
+
+  @override
+  Future<void> deletePrintRow(String table, String id) => _io(() {
+    _printTable(table).removeWhere((x) => x['id'] == id);
+    final column = table == 'printers' ? 'printer_id' : 'filament_id';
+    for (final w in works.where((w) => w[column] == id)) {
+      w[column] = null;
+    }
+  });
+
+  @override
+  Future<int> countWorksUsing(String column, String id) => _io(() => works.where((w) => w[column] == id).length);
 
   // --- parents' portal accounts -------------------------------------------
 

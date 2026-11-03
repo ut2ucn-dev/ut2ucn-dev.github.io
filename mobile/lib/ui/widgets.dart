@@ -659,7 +659,7 @@ Future<Object> confirmDialog(
         TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Скасувати')),
         if (extraLabel != null)
           TextButton(
-            style: TextButton.styleFrom(foregroundColor: c.danger),
+            style: destructive ? TextButton.styleFrom(foregroundColor: c.danger) : null,
             onPressed: () => Navigator.pop(ctx, 'extra'),
             child: Text(extraLabel),
           ),
