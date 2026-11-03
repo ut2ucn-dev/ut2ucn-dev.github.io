@@ -17,6 +17,8 @@ flowchart TB
   PRN[3D-ПРИНТЕР]:::ent
   FIL[ФІЛАМЕНТ]:::ent
   COM[КОМЕНТАР]:::ent
+  SES[СЕСІЯ ВХОДУ]:::ent
+  WC[СОБІВАРТІСТЬ ДРУКУ]:::ent
 
   R1{веде}:::rel
   R2{заміняє}:::rel
@@ -33,6 +35,8 @@ flowchart TB
   R13{друкує}:::rel
   R14{матеріал}:::rel
   R15{про учня}:::rel
+  R16{входить}:::rel
+  R17{розрахунок}:::rel
 
   EMP ---|1| R1 ===|N| LES
   EMP ---|1| R2 ---|N| LES
@@ -50,3 +54,5 @@ flowchart TB
   PRN ---|1| R13 ---|N| WRK
   FIL ---|1| R14 ---|N| WRK
   STU ---|1| R15 ===|N| COM
+  PAR ---|1| R16 ===|N| SES
+  WRK ---|1| R17 ===|0..1| WC

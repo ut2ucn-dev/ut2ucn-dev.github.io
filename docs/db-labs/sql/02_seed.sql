@@ -41,6 +41,14 @@ INSERT INTO parent_credential (parent_id, password_hash)
 SELECT parent_id, '$2a$10$demo.hash.only.for.lab.' || left(parent_id::text, 8)
 FROM parent WHERE last_login_at IS NOT NULL;
 
+-- Активні сесії кабінету батьків (зберігається лише SHA-256 токена)
+INSERT INTO parent_session (token_hash, parent_id, client, created_at, last_seen_at, expires_at)
+SELECT encode(sha256(convert_to('demo-token-' || p.phone, 'UTF8')), 'hex'), p.parent_id, v.client,
+       p.last_login_at, p.last_login_at + interval '1 hour', p.last_login_at + interval '30 days'
+FROM parent p
+JOIN (VALUES ('380501112233', 'android'), ('380931002030', 'web')) AS v(phone, client)
+  ON v.phone = p.phone;
+
 INSERT INTO student (last_name, first_name, birthday, phone, notes, created_by) VALUES
   ('Литвиненко', 'Максим',   '2015-03-14', '+380501112233', 'Любить роботів',
      (SELECT employee_id FROM employee WHERE role = 'admin')),
@@ -176,6 +184,20 @@ FROM (VALUES
 ) AS v(first_name, email, body)
 JOIN student s  ON s.first_name = v.first_name
 JOIN employee e ON e.email = v.email;
+
+-- Собівартість друку: знімок цін на момент друку
+-- матеріал = вага × (1 + відходи) × ціна/кг; електроенергія = кВт × год × тариф;
+-- амортизація = год × ставка
+INSERT INTO work_cost (work_id, price_per_kg, waste_percent, power_watts, electricity_tariff,
+                       depreciation_per_hour, material_cost, electricity_cost, depreciation_cost)
+SELECT w.work_id, f.price_per_kg, 10, pr.power_watts, 4.32, pr.depreciation_per_hour,
+       round(w.weight_g / 1000 * 1.10 * f.price_per_kg, 2),
+       round(pr.power_watts / 1000 * w.print_minutes / 60 * 4.32, 2),
+       round(w.print_minutes / 60.0 * pr.depreciation_per_hour, 2)
+FROM work w
+JOIN printer  pr ON pr.printer_id = w.printer_id
+JOIN filament f  ON f.filament_id = w.filament_id
+WHERE w.printed;
 
 INSERT INTO studio_settings (calc_start_date, electricity_tariff, filament_waste_percent, updated_by)
 VALUES ('2026-09-01', 4.32, 10, (SELECT employee_id FROM employee WHERE role = 'superadmin'));

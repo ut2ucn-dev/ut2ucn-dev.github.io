@@ -85,6 +85,18 @@ CREATE TABLE parent_credential (
     locked_until    TIMESTAMPTZ
 );
 
+-- 4b. Сесії входу батьків (parent_sessions) — 1:N з parent
+CREATE TABLE parent_session (
+    token_hash    CHAR(64)    PRIMARY KEY,   -- SHA-256 токена у hex
+    parent_id     UUID        NOT NULL REFERENCES parent(parent_id)
+                  ON DELETE CASCADE ON UPDATE CASCADE,
+    client        VARCHAR(20) CHECK (client IN ('web', 'android', 'ios', 'macos')),
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    last_seen_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    expires_at    TIMESTAMPTZ NOT NULL,
+    CONSTRAINT parent_session_expiry_chk CHECK (expires_at > created_at)
+);
+
 -- ---------------------------------------------------------------------
 -- 5. Учень (students)
 -- ---------------------------------------------------------------------
@@ -253,6 +265,24 @@ CREATE TABLE work (
     CONSTRAINT work_printed_by_chk CHECK (printed OR (printed_by IS NULL AND printed_at IS NULL))
 );
 
+-- 10a. Собівартість друку роботи (work_costs) — 1:1 з work.
+--      Зберігає ціни й тарифи на момент друку, щоб зміна цін
+--      пластику чи електроенергії не переписувала історію.
+CREATE TABLE work_cost (
+    work_id               UUID          PRIMARY KEY REFERENCES work(work_id)
+                          ON DELETE CASCADE ON UPDATE CASCADE,
+    price_per_kg          NUMERIC(8,2)  CHECK (price_per_kg >= 0),
+    waste_percent         NUMERIC(5,2)  NOT NULL DEFAULT 0
+                          CHECK (waste_percent BETWEEN 0 AND 100),
+    power_watts           NUMERIC(6,1)  CHECK (power_watts >= 0),
+    electricity_tariff    NUMERIC(6,2)  CHECK (electricity_tariff >= 0),
+    depreciation_per_hour NUMERIC(8,2)  CHECK (depreciation_per_hour >= 0),
+    material_cost         NUMERIC(10,2) NOT NULL DEFAULT 0 CHECK (material_cost >= 0),
+    electricity_cost      NUMERIC(10,2) NOT NULL DEFAULT 0 CHECK (electricity_cost >= 0),
+    depreciation_cost     NUMERIC(10,2) NOT NULL DEFAULT 0 CHECK (depreciation_cost >= 0),
+    computed_at           TIMESTAMPTZ   NOT NULL DEFAULT now()
+);
+
 -- ---------------------------------------------------------------------
 -- 11. Коментар до учня (student_comments)
 -- ---------------------------------------------------------------------
@@ -290,6 +320,7 @@ CREATE INDEX idx_lesson_student_student ON lesson_student(student_id);
 CREATE INDEX idx_subscription_student   ON subscription(student_id, course_id);
 CREATE INDEX idx_parent_student_student ON parent_student(student_id);
 CREATE INDEX idx_comment_student        ON student_comment(student_id);
+CREATE INDEX idx_parent_session_parent  ON parent_session(parent_id);
 
 -- ---------------------------------------------------------------------
 -- Коментарі до таблиць (відображаються у psql \dt+ та в pgAdmin)
@@ -299,6 +330,7 @@ COMMENT ON TABLE course            IS 'Курси (напрямки навчан
 COMMENT ON TABLE tariff            IS 'Тарифи: ЗП викладача та ціна для клієнта за курсом і форматом';
 COMMENT ON TABLE parent            IS 'Батьки — власники батьківського кабінету';
 COMMENT ON TABLE parent_credential IS 'Пароль і блокування входу до кабінету батьків (1:1)';
+COMMENT ON TABLE parent_session    IS 'Сесії входу до кабінету батьків (хеш токена)';
 COMMENT ON TABLE student           IS 'Учні студії';
 COMMENT ON TABLE parent_student    IS 'Зв''язок M:N батьки — діти';
 COMMENT ON TABLE subscription      IS 'Абонементи на пакет занять';
@@ -308,5 +340,6 @@ COMMENT ON TABLE attendance        IS 'Відвідування (П/Н/ВПП) �
 COMMENT ON TABLE printer           IS '3D-принтери';
 COMMENT ON TABLE filament          IS 'Пластик (філамент) для 3D-друку';
 COMMENT ON TABLE work              IS 'Роботи (моделі) учнів та їх друк';
+COMMENT ON TABLE work_cost         IS 'Собівартість друку роботи на момент друку (1:1)';
 COMMENT ON TABLE student_comment   IS 'Коментарі викладачів про учня';
 COMMENT ON TABLE studio_settings   IS 'Глобальні налаштування студії (один рядок)';

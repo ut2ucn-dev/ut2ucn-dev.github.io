@@ -3,11 +3,12 @@ erDiagram
   lesson_student ||--o| attendance : "lesson_id,student_id"
   subscription |o--o{ attendance : "subscription_id"
   course ||--o{ lesson : "course_id"
-  employee ||--o{ lesson : "teacher_id"
   employee |o--o{ lesson : "substitute_id"
+  employee ||--o{ lesson : "teacher_id"
   lesson ||--o{ lesson_student : "lesson_id"
   student ||--o{ lesson_student : "student_id"
   parent ||--o| parent_credential : "parent_id"
+  parent ||--o{ parent_session : "parent_id"
   parent ||--o{ parent_student : "parent_id"
   student ||--o{ parent_student : "student_id"
   employee |o--o{ student : "created_by"
@@ -22,6 +23,7 @@ erDiagram
   filament |o--o{ work : "filament_id"
   lesson_student ||--o| work : "lesson_id,student_id"
   printer |o--o{ work : "printer_id"
+  work ||--o| work_cost : "work_id"
   attendance {
     uuid attendance_id PK "NOT NULL"
     uuid lesson_id FK,UK "NOT NULL"
@@ -100,6 +102,14 @@ erDiagram
     smallint failed_attempts "NOT NULL"
     timestamptz locked_until ""
   }
+  parent_session {
+    character(64) token_hash PK "NOT NULL"
+    uuid parent_id FK "NOT NULL"
+    varchar(20) client ""
+    timestamptz created_at "NOT NULL"
+    timestamptz last_seen_at "NOT NULL"
+    timestamptz expires_at "NOT NULL"
+  }
   parent_student {
     uuid parent_id PK,FK "NOT NULL"
     uuid student_id PK,FK "NOT NULL"
@@ -173,4 +183,16 @@ erDiagram
     smallint filament_id FK ""
     numeric(7_1) weight_g ""
     smallint print_minutes ""
+  }
+  work_cost {
+    uuid work_id PK,FK "NOT NULL"
+    numeric(8_2) price_per_kg ""
+    numeric(5_2) waste_percent "NOT NULL"
+    numeric(6_1) power_watts ""
+    numeric(6_2) electricity_tariff ""
+    numeric(8_2) depreciation_per_hour ""
+    numeric(10_2) material_cost "NOT NULL"
+    numeric(10_2) electricity_cost "NOT NULL"
+    numeric(10_2) depreciation_cost "NOT NULL"
+    timestamptz computed_at "NOT NULL"
   }

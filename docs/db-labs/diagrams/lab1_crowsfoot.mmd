@@ -15,6 +15,8 @@ erDiagram
   "БАТЬКИ" ||--|{ "БАТЬКИ_УЧЕНЬ" : "є"
   "УЧЕНЬ" ||--o{ "БАТЬКИ_УЧЕНЬ" : "має"
   "БАТЬКИ" ||--o| "ОБЛІКОВІ_ДАНІ" : "вхід"
+  "БАТЬКИ" ||--o{ "СЕСІЯ_ВХОДУ" : "входить"
+  "РОБОТА_УЧНЯ" ||--o| "СОБІВАРТІСТЬ_ДРУКУ" : "розрахунок"
   "УЧЕНЬ" ||--o{ "КОМЕНТАР" : "про учня"
   "СПІВРОБІТНИК" |o--o{ "КОМЕНТАР" : "пише"
 
@@ -128,6 +130,24 @@ erDiagram
     date password_set_at "пароль задано"
     int failed_attempts "невдалі спроби"
     date locked_until "заблоковано до"
+  }
+  "СЕСІЯ_ВХОДУ" {
+    text token_hash PK "хеш токена"
+    id parent_id FK "батьки"
+    text client "клієнт"
+    date created_at "створено"
+    date last_seen_at "остання активність"
+    date expires_at "діє до"
+  }
+  "СОБІВАРТІСТЬ_ДРУКУ" {
+    id work_id PK,FK "робота"
+    money price_per_kg "ціна пластику, кг"
+    percent waste_percent "відходи, %"
+    int power_watts "потужність, Вт"
+    money electricity_tariff "тариф, кВт·год"
+    money material_cost "матеріал"
+    money electricity_cost "електроенергія"
+    money depreciation_cost "амортизація"
   }
   "КОМЕНТАР" {
     id comment_id PK "коментар"
