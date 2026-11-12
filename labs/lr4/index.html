@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Стемік · ЛР4 · Запити</title>
+<link rel="stylesheet" href="../assets/lab.css">
+<script>window.LAB_STAGE = 4;</script>
+<script src="../config.js"></script>
+<script src="../stages.js"></script>
+<script src="../assets/lab.js"></script>
+<style>
+  .sec-nav { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 4px; }
+  .sec-nav a { padding: 6px 14px; border: 1px solid var(--line); border-radius: 999px; text-decoration: none; color: inherit; background: var(--paper); font-size: 14px; }
+  details.q { border: 1px solid var(--line); border-radius: 12px; background: var(--paper); margin: 10px 0; }
+  details.q > summary { cursor: pointer; padding: 14px 18px; list-style: none; display: flex; gap: 12px; align-items: baseline; }
+  details.q > summary::-webkit-details-marker { display: none; }
+  details.q > summary .qid { font-family: 'JetBrains Mono', Consolas, monospace; color: var(--accent, #e07a2e); font-weight: 700; min-width: 3.2em; }
+  details.q > summary .qt { font-weight: 600; }
+  details.q[open] > summary { border-bottom: 1px solid var(--line); }
+  .qbody { padding: 14px 18px 18px; }
+  .task { font-size: 16px; margin: 0 0 12px; }
+  .task b { color: var(--navy); }
+  pre.sql { background: #1e1e1e; color: #e6e6e6; padding: 12px 14px; border-radius: 8px; overflow-x: auto; font: 13px/1.4 'JetBrains Mono', Consolas, monospace; font-variant-ligatures: none; margin: 0 0 12px; }
+  .scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; }
+  .scroll table.data { border: none; border-radius: 0; font-size: 14px; white-space: nowrap; margin: 0; }
+  .note { margin: 12px 0 0; color: var(--muted); font-size: 15px; }
+  .meta { font-size: 14px; color: var(--muted); margin: 0 0 8px; }
+  .null { color: var(--muted); }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <section class="hero">
+    <div class="eyebrow">Лабораторна робота № 4</div>
+    <h1>Запити: від бізнес-задачі до SELECT</h1>
+    <p class="lead">Кожен запит починається з питання працівника студії — адміністратора, бухгалтера, засновника — і лише потім перекладається на SQL. Усі запити виконуються на реальних даних, перенесених у модель у ЛР3.</p>
+  </section>
+
+  <div id="live" class="status">Завантаження даних з бази…</div>
+
+  <div id="catalog"></div>
+
+  <h2>Матеріали етапу</h2>
+  <p class="files">
+    <a href="../../docs/db-labs/Звіт_ЛР4_Розробка_БД.pdf">Протокол ЛР4 (PDF)</a>
+    <a href="../../docs/db-labs/Звіт_ЛР4_Розробка_БД.docx">Протокол ЛР4 (Word)</a>
+    <a href="../../docs/db-labs/Презентація_ЛР4.pptx">Презентація ЛР4</a>
+    <a href="../../docs/db-labs/stages/lr4/">SQL етапу ЛР4</a>
+  </p>
+</main>
+<footer>Стемік · навчальна версія сайту для лабораторних робіт з дисципліни «Розробка баз даних» · Левченко, Гвоздецька, Ігнатенко</footer>
+<script>
+Lab.header(4);
+const e = Lab.esc;
+const md = (s) => e(s).replace(/`([^`]+)`/g, '<code>$1</code>');
+const td = (v) => typeof v === 'number' ? `<td class="n">${v}</td>`
+  : v === null ? '<td><span class="null">NULL</span></td>' : `<td>${e(v)}</td>`;
+
+async function run(q, box) {
+  Lab.status(box);
+  try {
+    const r = await Lab.rpc('lab_lr4_run', { p_id: q.id });
+    const cols = r.rows.length ? Object.keys(r.rows[0]) : [];
+    box.className = 'res';
+    box.innerHTML = `<p class="meta">Результат: ${r.count} ${r.count === 1 ? 'рядок' : r.count < 5 && r.count > 1 ? 'рядки' : 'рядків'} · ${r.ms} мс</p>
+      <div class="scroll"><table class="data"><tr>${cols.map((c) => `<th${r.rows.every((x) => typeof x[c] === 'number' || x[c] === null) ? ' style="text-align:right"' : ''}>${e(c)}</th>`).join('')}</tr>
+      ${r.rows.map((row) => `<tr>${cols.map((c) => td(row[c])).join('')}</tr>`).join('')}</table></div>`;
+  } catch (err) { Lab.status(box, err); }
+}
+
+(async () => {
+  const box = document.getElementById('live');
+  try {
+    const [ov, cat] = await Promise.all([Lab.rpc('lab_lr4_overview'), Lab.rpc('lab_lr4_catalog')]);
+    const b = ov.by_section;
+    box.className = '';
+    box.innerHTML = `<div class="grid">
+      <div class="card"><div class="num">${ov.queries}</div><div>запити з бізнес-задачами</div></div>
+      <div class="card"><div class="num">${b.join}</div><div>з’єднань трьох і більше таблиць</div></div>
+      <div class="card"><div class="num">${b.group} · ${b.sub}</div><div>з групуванням · з підзапитами</div></div>
+      <div class="card"><div class="num">${ov.views.length} · ${b.window}</div><div>представлення · віконні функції</div></div>
+    </div>
+    <p class="meta" style="margin-top:12px">Дані: ${ov.rows.lesson} занять, ${ov.rows.lesson_student} записів учнів, ${ov.rows.attendance} відміток, ${ov.rows.student} учні. «Сьогодні» в запитах — 12.11.2026.</p>`;
+
+    const sections = [];
+    cat.forEach((q) => {
+      let s = sections.find((x) => x.key === q.section);
+      if (!s) sections.push(s = { key: q.section, title: q.section_title, items: [] });
+      s.items.push(q);
+    });
+    const root = document.getElementById('catalog');
+    root.innerHTML = `<nav class="sec-nav">${sections.map((s) => `<a href="#s-${s.key}">${e(s.title)}</a>`).join('')}</nav>` +
+      sections.map((s) => `<h2 id="s-${s.key}">${e(s.title)}</h2>` + s.items.map((q) => `
+        <details class="q" data-id="${e(q.id)}">
+          <summary><span class="qid">${e(q.id)}</span><span class="qt">${e(q.title)}</span></summary>
+          <div class="qbody">
+            <p class="task"><b>Бізнес-задача.</b> ${e(q.task)}</p>
+            <pre class="sql">${e(q.sql)}</pre>
+            <div class="res"></div>
+            <p class="note">${md(q.note)}</p>
+          </div>
+        </details>`).join('')).join('');
+    root.querySelectorAll('details.q').forEach((d) => {
+      d.addEventListener('toggle', () => {
+        if (d.open && !d.dataset.done) {
+          d.dataset.done = 1;
+          run(cat.find((q) => q.id === d.dataset.id), d.querySelector('.res'));
+        }
+      });
+    });
+    const h = decodeURIComponent(location.hash.slice(1));
+    const d = h && root.querySelector(`details[data-id="${CSS.escape(h)}"]`);
+    if (d) { d.open = true; d.scrollIntoView(); }
+  } catch (err) {
+    Lab.status(box, err);
+  }
+})();
+</script>
+</body>
+</html>

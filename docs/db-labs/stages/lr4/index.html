@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="uk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Стемік · SQL етапу ЛР4</title><link rel="stylesheet" href="../../../../labs/assets/lab.css"></head>
+<body><main class="wrap"><section class="hero"><div class="eyebrow">Етап ЛР4</div><h1>SQL для навчального проєкту Supabase</h1>
+<p class="lead">Виконується після етапу ЛР3. Структура й дані моделі не змінюються: додаються два представлення і каталог із 24 запитів, які сайт виконує за номером.</p></section>
+<table class="data"><tr><th>Файл</th><th>Що робить</th></tr>
+<tr><td><a href="db/lr4_01_views.sql">lr4_01_views.sql</a></td><td>Представлення <code>v_schedule</code> (розклад) і <code>v_subscription_status</code> (стан абонементів з телефонами батьків).</td></tr>
+<tr><td><a href="db/lr4_02_site_api.sql">lr4_02_site_api.sql</a></td><td>Таблиця <code>lab_query</code> з 24 запитами й бізнес-задачами; функції <code>lab_lr4_catalog()</code>, <code>lab_lr4_run(id)</code>, <code>lab_lr4_overview()</code>. Сайт передає лише номер запиту — довільний SQL виконати не можна.</td></tr>
+</table>
+<p>Ті самі запити для <code>psql</code>, згруповані за завданнями методичних вказівок, — у скриптах <code>docs/db-labs/lab4/sql/01_simple.sql … 06_window.sql</code>, описаних у протоколі ЛР4.</p>
+<p><a href="../../../../labs/lr4/">← Версія сайту ЛР4</a> · <a href="../lr3/">Етап ЛР3</a></p></main></body></html>
