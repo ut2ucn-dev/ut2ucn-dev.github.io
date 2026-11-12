@@ -3,6 +3,7 @@
 -- Виконується на вже заповнених таблицях, щоб показати вплив на дані.
 -- Команди, що мають завершитися помилкою, позначено «очікується помилка».
 -- =====================================================================
+SET search_path TO stemik;
 \set ON_ERROR_STOP off
 \set VERBOSITY terse
 
@@ -31,11 +32,12 @@ WHERE (table_name, column_name) IN (('student', 'phone'), ('lesson', 'duration_m
                                     ('student', 'school'), ('employee', 'hire_date'))
 ORDER BY 1;
 
-\echo '--- 7. ADD CONSTRAINT: формат телефону учня +380XXXXXXXXX'
-ALTER TABLE student ADD CONSTRAINT chk_student_phone_format CHECK (phone ~ '^\+380[0-9]{9}$');
+\echo '--- 7. ADD CONSTRAINT: телефон учня починається з +380 (цифри й пробіли)'
+ALTER TABLE student ADD CONSTRAINT chk_student_phone_format CHECK (phone ~ '^\+380[0-9 ]{9,13}$');
 
 \echo '--- 8. Перевірка нового обмеження (очікується помилка)'
-UPDATE student SET phone = '067 123 45 67' WHERE first_name = 'Максим';
+UPDATE student SET phone = '067 123 45 67'
+WHERE student_id = (SELECT student_id FROM student ORDER BY last_name, first_name LIMIT 1);
 
 \echo '--- 9. Обмеження, яке порушують наявні дані, не додається (очікується помилка)'
 ALTER TABLE student ADD CONSTRAINT chk_student_has_notes CHECK (notes IS NOT NULL);

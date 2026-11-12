@@ -168,8 +168,11 @@ begin
 
     -- 9: SET NULL — видалення принтера залишає роботи без принтера -----------
     no := 9; test := 'ON DELETE SET NULL: видалення принтера'; expected := 'роботи лишились, printer_id = NULL';
-    select printer_id into v_printer from stemik.work where printer_id is not null limit 1;
+    select min(printer_id) into v_printer from stemik.printer;
     begin
+        -- щоб тест не залежав від даних: призначаємо принтер кільком роботам (теж буде відкочено)
+        update stemik.work set printer_id = v_printer
+         where work_id in (select work_id from stemik.work order by work_id limit 3);
         select count(*) into b1 from stemik.work where printer_id = v_printer;
         select count(*) into b2 from stemik.work;
         delete from stemik.printer where printer_id = v_printer;

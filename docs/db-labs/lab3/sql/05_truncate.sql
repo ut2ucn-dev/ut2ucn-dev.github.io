@@ -3,6 +3,7 @@
 -- Усі руйнівні команди — у транзакціях з ROLLBACK: у PostgreSQL
 -- TRUNCATE транзакційний і його можна відкотити.
 -- =====================================================================
+SET search_path TO stemik;
 \set ON_ERROR_STOP off
 \set VERBOSITY terse
 
@@ -33,6 +34,8 @@ TRUNCATE TABLE printer;
 
 \echo '--- 5. DELETE тієї самої таблиці працює: FK перевіряється для кожного рядка (SET NULL)'
 BEGIN;
+UPDATE work SET printer_id = (SELECT min(printer_id) FROM printer) WHERE printed;   -- принтер для надрукованих
+SELECT count(*) AS works, count(printer_id) AS works_with_printer FROM work;
 DELETE FROM printer;
 SELECT count(*) AS works, count(printer_id) AS works_with_printer FROM work;
 ROLLBACK;

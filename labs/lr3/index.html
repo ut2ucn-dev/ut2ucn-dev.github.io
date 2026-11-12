@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Стемік · ЛР3 · Таблиці й дані</title>
+<link rel="stylesheet" href="../assets/lab.css">
+<script>window.LAB_STAGE = 3;</script>
+<script src="../config.js"></script>
+<script src="../stages.js"></script>
+<script src="../assets/lab.js"></script>
+<style>
+  .scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); }
+  .scroll table.data { border: none; border-radius: 0; font-size: 14px; white-space: nowrap; }
+  select, button.run { font: inherit; }
+  select { padding: 8px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--paper); }
+  button.run { background: var(--navy); color: var(--light); border: 0; border-radius: 999px; padding: 10px 22px; cursor: pointer; }
+  button.run:disabled { opacity: .6; cursor: wait; }
+  .cat { font-family: 'JetBrains Mono', Consolas, monospace; font-size: 13px; }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <section class="hero">
+    <div class="eyebrow">Лабораторна робота № 3</div>
+    <h1>Знайомство з мовою SQL: таблиці й дані</h1>
+    <p class="lead">Модель створено засобами <code>CREATE TABLE</code> з іменованими обмеженнями, а дані перенесено з копії робочої бази студії операторами <code>INSERT … SELECT</code> — з очищенням усього, що ЛР1 виявила в поточній схемі.</p>
+  </section>
+
+  <div id="live" class="status">Завантаження даних з бази…</div>
+
+  <h2>Дані таблиць моделі</h2>
+  <p>Оберіть таблицю — сайт покаже перші 20 рядків (паролі й сесії батьків не показуються).</p>
+  <p><select id="tbl"></select></p>
+  <div id="browse"></div>
+
+  <h2>ALTER, UPDATE, DELETE, TRUNCATE, DROP</h2>
+  <p>Функція <code>lab_lr3_demos()</code> виконує 14 демонстрацій з методичних вказівок. Кожна — у власному підблоці з відкатом: після виклику дані й структура не змінюються.</p>
+  <p><button class="run" id="run">Виконати демонстрації</button></p>
+  <div id="demos"></div>
+
+  <h2>Матеріали етапу</h2>
+  <p class="files">
+    <a href="../../docs/db-labs/Звіт_ЛР3_Розробка_БД.pdf">Протокол ЛР3 (PDF)</a>
+    <a href="../../docs/db-labs/Звіт_ЛР3_Розробка_БД.docx">Протокол ЛР3 (Word)</a>
+    <a href="../../docs/db-labs/Презентація_ЛР3.pptx">Презентація ЛР3</a>
+    <a href="../../docs/db-labs/stages/lr3/">SQL етапу ЛР3</a>
+  </p>
+</main>
+<footer>Стемік · навчальна версія сайту для лабораторних робіт з дисципліни «Розробка баз даних» · Левченко, Гвоздецька, Ігнатенко</footer>
+<script>
+Lab.header(3);
+const e = Lab.esc;
+const fmt = (v) => v === null ? '<span style="color:var(--muted)">NULL</span>'
+  : typeof v === 'object' ? e(JSON.stringify(v)) : e(String(v).length > 40 ? String(v).slice(0, 38) + '…' : v);
+
+async function browse(t) {
+  const out = document.getElementById('browse');
+  Lab.status(out);
+  try {
+    const d = await Lab.rpc('lab_lr3_browse', { p_table: t, p_limit: 20 });
+    const cols = d.rows.length ? Object.keys(d.rows[0]) : [];
+    out.className = '';
+    out.innerHTML = `<p><span class="tag">${e(d.table)}</span> показано ${d.rows.length} з ${d.total} рядків</p>
+      <div class="scroll"><table class="data"><tr>${cols.map((c) => `<th>${e(c)}</th>`).join('')}</tr>
+      ${d.rows.map((r) => `<tr>${cols.map((c) => `<td>${fmt(r[c])}</td>`).join('')}</tr>`).join('')}</table></div>`;
+  } catch (err) { Lab.status(out, err); }
+}
+
+(async () => {
+  const box = document.getElementById('live');
+  try {
+    const d = await Lab.rpc('lab_lr3_overview');
+    const c = d.constraints, k = d.cleaning;
+    const total = d.migration.reduce((s, m) => s + (m.target.includes('/') ? 0 : m.dst), 0);
+    box.className = '';
+    box.innerHTML = `
+      <div class="grid">
+        <div class="card"><div class="num">${c.named}</div><div>обмежень з явними назвами (${c.pk} PK, ${c.fk} FK, ${c.unique} UK, ${c.check} CHECK)</div></div>
+        <div class="card"><div class="num">${d.migration.find((m) => m.target === 'lesson').dst}</div><div>занять перенесено з робочої бази</div></div>
+        <div class="card"><div class="num">${d.migration.find((m) => m.target === 'attendance').dst}</div><div>відміток відвідування</div></div>
+        <div class="card"><div class="num">${d.migration.find((m) => m.target === 'lesson_student').dst}</div><div>записів учнів на заняття</div></div>
+      </div>
+      <h2>Перенесення даних: поточна схема → модель</h2>
+      <table class="data"><tr><th>Поточна схема</th><th style="text-align:right">Рядків</th><th>Модель</th><th style="text-align:right">Рядків</th><th>Примітка</th></tr>
+        ${d.migration.map((m) => `<tr><td><code>${e(m.source)}</code></td><td class="n">${m.src}</td><td><code>${e(m.target)}</code></td><td class="n">${m.dst}</td><td>${e(m.note)}</td></tr>`).join('')}
+      </table>
+      <h3 style="margin-top:20px">Що очищено під час перенесення</h3>
+      <div class="grid">
+        <div class="card"><div class="num" style="color:var(--bad)">${k.orphan_ids}</div><div>ідентифікаторів неіснуючих учнів у масивах занять — відкинуто</div></div>
+        <div class="card"><div class="num" style="color:var(--bad)">${k.course_spellings} → 9</div><div>написань курсів зведено до довідника</div></div>
+        <div class="card"><div class="num" style="color:var(--bad)">${k.subscriptions_capped}</div><div>абонементи із залишком, більшим за пакет, — обрізано</div></div>
+        <div class="card"><div class="num" style="color:var(--bad)">${k.work_duplicates}</div><div>дублікати робіт учня на одному занятті — об’єднано</div></div>
+        <div class="card"><div class="num">${k.parents_from_cards}</div><div>записів батьків отримано з карток учнів</div></div>
+      </div>`;
+    const sel = document.getElementById('tbl');
+    sel.innerHTML = d.tables.map((t) => `<option ${t === 'lesson' ? 'selected' : ''}>${e(t)}</option>`).join('');
+    sel.addEventListener('change', () => browse(sel.value));
+    browse(sel.value);
+  } catch (err) {
+    Lab.status(box, err);
+  }
+})();
+
+document.getElementById('run').addEventListener('click', async (ev) => {
+  const btn = ev.target, out = document.getElementById('demos');
+  btn.disabled = true; Lab.status(out);
+  try {
+    const rows = await Lab.rpc('lab_lr3_demos');
+    rows.sort((a, b) => a.no - b.no);
+    const ok = rows.filter((r) => r.ok).length;
+    out.className = '';
+    out.innerHTML = `<p><span class="tag ${ok === rows.length ? 'ok' : 'bad'}">${ok} з ${rows.length} демонстрацій дали очікуваний результат</span></p>
+      <table class="data"><tr><th>№</th><th>Оператор</th><th>Що робимо</th><th>Результат</th></tr>
+      ${rows.map((r) => `<tr><td>${r.no}</td><td class="cat">${e(r.category)}</td><td>${e(r.step)}</td><td><span class="tag ${r.ok ? 'ok' : 'bad'}">${r.ok ? 'так' : 'ні'}</span> ${e(r.result)}</td></tr>`).join('')}
+      </table>`;
+  } catch (err) { Lab.status(out, err); } finally { btn.disabled = false; }
+});
+</script>
+</body>
+</html>

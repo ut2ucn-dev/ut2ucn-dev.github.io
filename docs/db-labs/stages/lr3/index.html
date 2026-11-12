@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="uk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Стемік · SQL етапу ЛР3</title><link rel="stylesheet" href="../../../../labs/assets/lab.css"></head>
+<body><main class="wrap"><section class="hero"><div class="eyebrow">Етап ЛР3</div><h1>SQL для навчального проєкту Supabase</h1>
+<p class="lead">Виконується після етапів ЛР1 і ЛР2. Схема <code>stemik</code> створюється заново — з іменованими обмеженнями — і наповнюється даними з копії робочої бази (схема <code>public</code>).</p></section>
+<table class="data"><tr><th>Файл</th><th>Що робить</th></tr>
+<tr><td><a href="db/lr3_01_create_tables.sql">lr3_01_create_tables.sql</a></td><td>CREATE SCHEMA і 18 таблиць CREATE TABLE у порядку залежностей, 86 іменованих обмежень.</td></tr>
+<tr><td><a href="db/lr3_02_migrate.sql">lr3_02_migrate.sql</a></td><td>INSERT … SELECT з копії робочої бази в модель з очищенням (2480 рядків) і звіт перенесення.</td></tr>
+<tr><td><a href="db/lr3_03_site_api.sql">lr3_03_site_api.sql</a></td><td>Функції для сайту: звіт перенесення, перегляд даних таблиць, 14 демонстрацій ALTER/UPDATE/DELETE/TRUNCATE/DROP з відкатом.</td></tr>
+<tr><td><a href="db/lr3_04_alter.sql">lr3_04_alter.sql</a></td><td>Три зміни структури, що лишаються для ЛР4 (hire_date, тип телефону й тривалості).</td></tr>
+</table>
+<p>Повна демонстрація в <code>psql</code> (CREATE DATABASE, \timing тощо) — скрипти <a href="../../lab3/sql/">lab3/sql/00…07</a>, описані в протоколі ЛР3.</p>
+<p><a href="../../../../labs/lr3/">← Версія сайту ЛР3</a> · <a href="../lr2/">Етап ЛР2</a></p></main></body></html>

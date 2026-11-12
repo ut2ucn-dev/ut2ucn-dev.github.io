@@ -7,6 +7,7 @@
 --   ORDER BY NEWID()          → random(); розподіл — залишок від ділення %
 -- Усе виконується в транзакції з ROLLBACK: база лишається з даними кроку 3.
 -- =====================================================================
+SET search_path TO stemik;
 \set ON_ERROR_STOP off
 \set VERBOSITY terse
 
@@ -47,13 +48,15 @@ WITH RECURSIVE week (n, d) AS (
 series AS (SELECT gen_random_uuid() AS id)
 INSERT INTO lesson (course_id, teacher_id, series_id, lesson_date, start_time, format, room, theme)
 SELECT c.course_id, e.employee_id, series.id, week.d, TIME '16:00', 'group', 'Клас 3D',
-       'Тема ' || week.n
+       'Згенерована серія: тема ' || week.n
 FROM week, series,
      course   AS c,
      employee AS e
-WHERE c.name = '3D Tinkercad FIRST (9-12)' AND e.email = 'shevchuk@stemik.test';
+WHERE c.name = '3D Tinkercad FIRST (9-12)'
+  AND e.employee_id = (SELECT employee_id FROM employee WHERE role = 'teacher' AND active
+                       ORDER BY last_name, first_name LIMIT 1);
 SELECT count(*) AS lessons_in_series, min(lesson_date), max(lesson_date)
-FROM lesson WHERE theme LIKE 'Тема %';
+FROM lesson WHERE theme LIKE 'Згенерована серія%';
 
 \echo '--- 4. Випадковий вибір і залишок від ділення: розклад на 200 занять'
 INSERT INTO lesson (course_id, teacher_id, lesson_date, start_time, format, room, theme)

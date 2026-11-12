@@ -1,6 +1,9 @@
 -- =====================================================================
 -- Лабораторна робота №3. Крок 2: створення таблиць (CREATE TABLE)
--- База: stemik_lab3 (PostgreSQL 16). Модель — з лабораторної роботи №2.
+-- Модель з лабораторної роботи №2 у схемі stemik. Та сама база містить у
+-- схемі public знеособлену копію робочої бази (джерело даних для кроку 3).
+-- Локально: база stemik_lab3; у навчальному проєкті Supabase — його база.
+-- Повторний запуск видаляє схему stemik разом з усіма даними моделі.
 --
 -- Усі обмеження названо явно, щоб їх можна було змінити чи видалити
 -- через ALTER TABLE ... DROP CONSTRAINT <назва>:
@@ -18,6 +21,11 @@
 --   рівень 4: work_cost
 -- Рівень таблиці = 1 + найбільший рівень таблиць, на які вона посилається.
 -- =====================================================================
+
+DROP SCHEMA IF EXISTS stemik CASCADE;
+CREATE SCHEMA stemik;
+COMMENT ON SCHEMA stemik IS 'Нормалізована модель STEM-студії «Стемік» (ЛР2–ЛР3)';
+SET search_path TO stemik;
 
 -- ---------------------------------------------------------------------
 -- Рівень 0: незалежні таблиці (без зовнішніх ключів)
@@ -356,3 +364,25 @@ CREATE TABLE work_cost (
     CONSTRAINT chk_work_cost_money CHECK (material_cost >= 0 AND electricity_cost >= 0
                                           AND depreciation_cost >= 0)
 );
+
+-- ---------------------------------------------------------------------
+-- Коментарі до таблиць (показуються в psql \dt+, pgAdmin і на сайті)
+-- ---------------------------------------------------------------------
+COMMENT ON TABLE employee          IS 'Співробітники студії: викладачі та адміністратори';
+COMMENT ON TABLE course            IS 'Курси (напрямки навчання)';
+COMMENT ON TABLE tariff            IS 'Тарифи: ЗП викладача та ціна для клієнта за курсом і форматом';
+COMMENT ON TABLE parent            IS 'Батьки — власники батьківського кабінету';
+COMMENT ON TABLE parent_credential IS 'Пароль і блокування входу до кабінету батьків (1:1)';
+COMMENT ON TABLE parent_session    IS 'Сесії входу до кабінету батьків (хеш токена)';
+COMMENT ON TABLE student           IS 'Учні студії';
+COMMENT ON TABLE parent_student    IS 'Зв''язок M:N батьки — діти';
+COMMENT ON TABLE subscription      IS 'Абонементи на пакет занять';
+COMMENT ON TABLE lesson            IS 'Заняття за розкладом';
+COMMENT ON TABLE lesson_student    IS 'Запис учня на заняття (M:N)';
+COMMENT ON TABLE attendance        IS 'Відвідування (П/Н/ВПП) та оплата заняття';
+COMMENT ON TABLE printer           IS '3D-принтери';
+COMMENT ON TABLE filament          IS 'Пластик (філамент) для 3D-друку';
+COMMENT ON TABLE work              IS 'Роботи (моделі) учнів та їх друк';
+COMMENT ON TABLE work_cost         IS 'Собівартість друку роботи на момент друку (1:1)';
+COMMENT ON TABLE student_comment   IS 'Коментарі викладачів про учня';
+COMMENT ON TABLE studio_settings   IS 'Глобальні налаштування студії (один рядок)';

@@ -3,6 +3,7 @@
 -- DDL у PostgreSQL транзакційний, тому кожен сценарій виконано в
 -- транзакції та відкочено — база лишається цілою для ЛР №4.
 -- =====================================================================
+SET search_path TO stemik;
 \set ON_ERROR_STOP off
 \set VERBOSITY default
 
@@ -23,13 +24,13 @@ DROP TABLE attendance, work;
 DROP TABLE lesson_student;
 DROP TABLE tariff, subscription, lesson;
 DROP TABLE course;
-SELECT count(*) AS tables_left FROM pg_tables WHERE schemaname = 'public';
+SELECT count(*) AS tables_left FROM pg_tables WHERE schemaname = 'stemik';
 ROLLBACK;
 
 \echo '--- 4. DROP ... CASCADE видаляє не дочірні таблиці, а їхні FK'
 BEGIN;
 DROP TABLE course CASCADE;
-SELECT count(*) AS tables_left FROM pg_tables WHERE schemaname = 'public';
+SELECT count(*) AS tables_left FROM pg_tables WHERE schemaname = 'stemik';
 SELECT count(*) AS lessons_still_here FROM lesson;
 SELECT count(*) AS fk_to_course FROM pg_constraint WHERE conname LIKE 'fk_%_course';
 ROLLBACK;
@@ -39,4 +40,4 @@ BEGIN;
 DROP TABLE student_comment;
 DROP TABLE IF EXISTS student_comment;
 ROLLBACK;
-SELECT count(*) AS tables_after_rollback FROM pg_tables WHERE schemaname = 'public';
+SELECT count(*) AS tables_after_rollback FROM pg_tables WHERE schemaname = 'stemik';
