@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Стемік · етапи лабораторних робіт</title>
+<link rel="stylesheet" href="assets/lab.css">
+</head>
+<body>
+<header class="top"><div class="wrap"><span class="brand">Стемік<small>навчальні версії сайту й бази даних</small></span></div></header>
+<main class="wrap">
+  <section class="hero">
+    <div class="eyebrow">Розробка баз даних · Левченко, Гвоздецька, Ігнатенко</div>
+    <h1>Покрокове створення бази й сайту STEM-студії</h1>
+    <p class="lead">Кожна лабораторна робота — окремий етап: своя версія сайту, своя частина бази даних, протокол і презентація. Наступний етап доповнює попередній: на захисті до навчального проєкту Supabase дозавантажується лише SQL нового етапу.</p>
+  </section>
+  <div class="grid" id="stages"></div>
+
+  <h2>Модульна контрольна робота № 1</h2>
+  <div class="card">
+    <h3>Пошукові запити й нормалізована модель</h3>
+    <p class="files">
+      <a href="../docs/db-labs/mkr1/МКР1_Пошукові_запити.pdf">Пошукові запити (PDF)</a>
+      <a href="../docs/db-labs/mkr1/mkr1_queries.sql">SQL запитів</a>
+      <a href="../docs/db-labs/mkr1/МКР1_Нормалізована_модель.pdf">Нормалізована модель (PDF)</a>
+      <a href="../docs/db-labs/mkr1/МКР1_Нормалізована_модель.xlsx">Модель (Excel)</a>
+      <a href="../docs/db-labs/mkr1/МКР1_Презентація.pptx">Презентація</a>
+    </p>
+  </div>
+
+  <h2>Як розгорнути етап</h2>
+  <ol>
+    <li>Створіть окремий <b>навчальний</b> проєкт Supabase (не робочий).</li>
+    <li>SQL Editor → по черзі виконайте файли з папки етапу <code>docs/db-labs/stages/lrN/db/</code>, починаючи з ЛР1.</li>
+    <li>Project Settings → API: впишіть Project URL і ключ anon у <code>labs/config.js</code>.</li>
+    <li>Відкрийте версію сайту потрібного етапу.</li>
+  </ol>
+</main>
+<footer>Навчальні матеріали; робочий сайт студії — на головній сторінці.</footer>
+<script>
+const S = [
+  { n: 1, title: 'Аналіз предметної області. Проєктування моделі даних', ready: true, report: 'Звіт_ЛР1_Розробка_БД' },
+  { n: 2, title: 'Створення моделі даних в середовищі СУБД', ready: false, report: 'Звіт_ЛР2_Розробка_БД' },
+  { n: 3, title: 'Знайомство з мовою SQL. Створення таблиць і даних', ready: false, report: 'Звіт_ЛР3_Розробка_БД' },
+  { n: 4, title: 'Створення запитів', ready: false },
+  { n: 5, title: 'Форми для кінцевого користувача і дашборд Tableau', ready: false },
+  { n: 6, title: 'Збережені процедури, тригери, індекси, транзакції', ready: false },
+];
+document.getElementById('stages').innerHTML = S.map((s) => `
+  <div class="card accent stage-card">
+    <span class="tag state ${s.ready ? 'ok' : ''}">${s.ready ? 'готово' : 'готується'}</span>
+    <div class="eyebrow">ЛР ${s.n}</div>
+    <h3 style="margin-top:6px;padding-right:90px">${s.title}</h3>
+    <p class="files">${s.ready ? `<a href="lr${s.n}/">Версія сайту</a>
+      <a href="../docs/db-labs/${s.report}.pdf">Протокол</a>
+      <a href="../docs/db-labs/Презентація_ЛР${s.n}.pptx">Презентація</a>
+      <a href="../docs/db-labs/stages/lr${s.n}/">SQL етапу</a>` : '<span style="color:var(--muted)">з’явиться після захисту попереднього етапу</span>'}</p>
+  </div>`).join('');
+</script>
+</body>
+</html>

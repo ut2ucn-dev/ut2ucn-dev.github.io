@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Стемік · ЛР1 · Аналіз предметної області</title>
+<link rel="stylesheet" href="../assets/lab.css">
+<script>window.LAB_STAGE = 1;</script>
+<script src="../config.js"></script>
+<script src="../assets/lab.js"></script>
+</head>
+<body>
+<main class="wrap">
+  <section class="hero">
+    <div class="eyebrow">Лабораторна робота № 1</div>
+    <h1>Аналіз предметної області. Проєктування моделі даних</h1>
+    <p class="lead">STEM-студія «Стемік» проводить для дітей 6–14 років заняття з 3D-моделювання, віртуальної реальності та робототехніки. Ця версія сайту показує, з чого починається база даних: що відбувається в студії, як дані зберігаються зараз і яку модель ми з цього отримали.</p>
+  </section>
+
+  <h2>Бізнес-процеси студії</h2>
+  <div class="grid">
+    <div class="card accent"><h3>Розклад</h3><p>Разові й щотижневі серії занять у 4 кабінетах або онлайн, заміна викладача.</p></div>
+    <div class="card accent"><h3>Учні й батьки</h3><p>Картки учнів, батьківські кабінети з входом за телефоном.</p></div>
+    <div class="card accent"><h3>Відвідування</h3><p>П / Н / ВПП і оплата: картка, готівка, сертифікат або абонемент.</p></div>
+    <div class="card accent"><h3>Абонементи</h3><p>Пакет із 4 занять курсу; при ВПП заняття повертається.</p></div>
+    <div class="card accent"><h3>3D-друк</h3><p>Роботи учнів, принтери, пластик і собівартість друку.</p></div>
+    <div class="card accent"><h3>ЗП і звіти</h3><p>Тарифи «ЗП / ціна», оплачено, борг, невикористані абонементи.</p></div>
+  </div>
+
+  <h2>Поточна схема бази даних — наживо</h2>
+  <p>Дані нижче повертає функція <code>lab_lr1_overview()</code> навчального проєкту Supabase. Вона рахує лише агрегати, без самих рядків.</p>
+  <div id="live" class="status">Завантаження даних з бази…</div>
+
+  <h2>Сутності нормалізованої моделі</h2>
+  <p>15 сутностей і 2 асоціативні (сині) — результат аналізу. Атрибути кожної — у протоколі ЛР1.</p>
+  <div id="entities"></div>
+
+  <h2>ER-діаграми</h2>
+  <figure><img src="../../docs/db-labs/img/fig1_1_chen.png" alt="Концептуальна ER-діаграма в нотації Чена" loading="lazy"><figcaption>Концептуальна модель у нотації Чена: сутності, зв’язки, кардинальність, обов’язковість участі.</figcaption></figure>
+  <figure><img src="../../docs/db-labs/img/fig1_2_crowsfoot.png" alt="Логічна ER-діаграма в нотації Crow’s Foot" loading="lazy"><figcaption>Логічна модель у нотації Crow’s Foot з первинними й зовнішніми ключами.</figcaption></figure>
+
+  <h2>Нормалізація: що змінюємо</h2>
+  <table class="data">
+    <tr><th>Поточна схема</th><th>Проблема</th><th>НФ</th><th>Рішення в моделі</th></tr>
+    <tr><td><code>lessons.student_ids</code></td><td>масив у полі, немає зовнішнього ключа</td><td>1НФ</td><td>таблиця <code>lesson_student</code></td></tr>
+    <tr><td><code>rate_cards</code></td><td>повторювана група «формат → ЗП, ціна» у стовпцях</td><td>1НФ</td><td>таблиця <code>tariff</code></td></tr>
+    <tr><td><code>students.name</code></td><td>прізвище й ім’я в одному полі</td><td>1НФ</td><td><code>last_name</code> + <code>first_name</code></td></tr>
+    <tr><td>курс текстом</td><td>різні написання одного курсу</td><td>3НФ</td><td>довідник <code>course</code></td></tr>
+    <tr><td><code>owner_id</code> у відвідуваннях і роботах</td><td>транзитивна залежність через заняття</td><td>3НФ</td><td>лише в <code>lesson</code></td></tr>
+    <tr><td>імена батьків у картці учня, <code>printed_by_name</code></td><td>дублювання даних інших сутностей</td><td>3НФ</td><td><code>parent</code> + <code>parent_student</code>, FK <code>printed_by</code></td></tr>
+  </table>
+
+  <h2>Матеріали етапу</h2>
+  <p class="files">
+    <a href="../../docs/db-labs/Звіт_ЛР1_Розробка_БД.pdf">Протокол ЛР1 (PDF)</a>
+    <a href="../../docs/db-labs/Звіт_ЛР1_Розробка_БД.docx">Протокол ЛР1 (Word)</a>
+    <a href="../../docs/db-labs/Презентація_ЛР1.pptx">Презентація ЛР1</a>
+    <a href="../../docs/db-labs/stages/lr1/">SQL етапу ЛР1</a>
+  </p>
+</main>
+<footer>Стемік · навчальна версія сайту для лабораторних робіт з дисципліни «Розробка баз даних» · Левченко, Гвоздецька, Ігнатенко</footer>
+<script>
+Lab.header(1);
+
+const ENTITIES = ['Співробітник', 'Курс', 'Тариф', 'Учень', 'Батьки', 'Облікові дані', 'Сесія входу', 'Заняття',
+  'Відвідування', 'Абонемент', 'Робота учня', 'Собівартість друку', '3D-принтер', 'Філамент', 'Коментар'];
+document.getElementById('entities').innerHTML =
+  ENTITIES.map((e) => `<span class="tag">${e}</span>`).join('') +
+  '<span class="tag m">Запис на заняття (M:N)</span><span class="tag m">Батьки–Учень (M:N)</span>';
+
+(async () => {
+  const box = document.getElementById('live');
+  try {
+    const d = await Lab.rpc('lab_lr1_overview');
+    const a = d.anomalies, o = d.objects, e = Lab.esc;
+    const spell = a.course_spellings.map((c) => `<span class="tag">${e(c.course)} · ${c.rows}</span>`).join('');
+    box.className = '';
+    box.innerHTML = `
+      <div class="grid">
+        <div class="card"><div class="num">${o.tables}</div><div>таблиць</div></div>
+        <div class="card"><div class="num">${o.views}</div><div>представлень</div></div>
+        <div class="card"><div class="num">${o.functions}</div><div>функцій</div></div>
+        <div class="card"><div class="num">${o.triggers}</div><div>тригерів</div></div>
+        <div class="card"><div class="num">${d.foreign_keys.length}</div><div>зовнішніх ключів</div></div>
+      </div>
+      <h3 style="margin-top:24px">Таблиці</h3>
+      <table class="data"><tr><th>Таблиця</th><th style="text-align:right">Рядків</th><th style="text-align:right">Стовпців</th><th style="text-align:right">FK</th></tr>
+        ${d.tables.map((t) => `<tr><td><code>${e(t.name)}</code></td><td class="n">${t.rows}</td><td class="n">${t.columns}</td><td class="n">${t.fks}</td></tr>`).join('')}
+      </table>
+      <h3 style="margin-top:24px">Аномалії, які виявив аналіз</h3>
+      <div class="grid">
+        <div class="card"><div class="num" style="color:var(--bad)">${a.student_ids_orphan}</div><div>з ${a.student_ids_total} ідентифікаторів учнів у масивах <code>lessons.student_ids</code> посилаються на неіснуючих учнів — зовнішнього ключа немає</div></div>
+        <div class="card"><div class="num" style="color:var(--bad)">${a.attendance_not_in_lesson}</div><div>відмітки відвідування учнів, яких немає в масиві учнів заняття</div></div>
+        <div class="card"><div class="num" style="color:var(--bad)">${a.course_spellings.length}</div><div>написань назв курсів у заняттях і абонементах при ${a.courses_in_rate_cards} курсах у тарифах</div></div>
+        <div class="card"><div class="num">${a.rate_cards_columns}</div><div>стовпців у <code>rate_cards</code> — повторювана група «формат → ЗП / ціна»</div></div>
+        <div class="card"><div class="num">${a.students_with_parent_names}</div><div>карток учнів з іменами батьків, що дублюють дані батьківських кабінетів</div></div>
+        <div class="card"><div class="num">${a.works_with_printed_by_name}</div><div>робіт з іменем «хто надрукував», записаним текстом</div></div>
+      </div>
+      <div class="callout"><b>Назви курсів у даних:</b><br>${spell}</div>
+      <p style="color:var(--muted);font-size:14px">Оновлено: ${new Date(d.generated_at).toLocaleString('uk-UA')}</p>`;
+  } catch (err) {
+    Lab.status(box, err);
+  }
+})();
+</script>
+</body>
+</html>

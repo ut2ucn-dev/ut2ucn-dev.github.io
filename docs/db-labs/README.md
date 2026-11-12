@@ -41,3 +41,13 @@ psql -d postgres -f 00_create_database.sql
 for f in 01_create_tables.sql 02_insert.sql 03_alter.sql 04_update_delete.sql \
          05_truncate.sql 06_drop.sql 07_generate.sql; do psql -d stemik_lab3 -f "$f"; done
 ```
+
+## Поетапна розробка (етапи ЛР) і МКР № 1
+
+| Шлях | Зміст |
+|---|---|
+| `/labs/` (сайт) | Хаб етапів: версії сайту, протоколи, презентації, SQL |
+| `/labs/lrN/` | Версія навчального сайту етапу ЛР N (працює з навчальним проєктом Supabase, `labs/config.js`) |
+| `stages/lrN/db/` | SQL етапу для навчального проєкту Supabase; виконується по черзі, кожен етап доповнює попередній |
+| `Презентація_ЛРN.pptx` / `.pdf` | Презентація етапу |
+| `mkr1/` | МКР № 1: пошукові запити (`mkr1_queries.sql`, PDF/Word), нормалізована модель (PDF/Word/Excel, PNG у високій роздільній здатності), презентація |
