@@ -35,8 +35,9 @@
 
   function header(current) {
     const stage = window.LAB_STAGE || 0;
+    const published = Math.max(stage, window.LAB_PUBLISHED || 0);
     const nav = STAGES.map((s) => {
-      const cls = s.n === current ? 'on' : s.n > stage ? 'off' : '';
+      const cls = s.n === current ? 'on' : s.n > published ? 'off' : '';
       return `<a class="${cls}" href="../${s.path}/">${esc(s.title)}</a>`;
     }).join('');
     const el = document.createElement('header');

@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Стемік · ЛР2 · Модель даних у СУБД</title>
+<link rel="stylesheet" href="../assets/lab.css">
+<script>window.LAB_STAGE = 2;</script>
+<script src="../config.js"></script>
+<script src="../stages.js"></script>
+<script src="../assets/lab.js"></script>
+<style>
+  details.tbl { background: var(--paper); border: 1px solid var(--line); border-radius: 10px; margin: 8px 0; }
+  details.tbl summary { cursor: pointer; padding: 10px 14px; display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+  details.tbl summary b { font-family: 'JetBrains Mono', Consolas, monospace; }
+  details.tbl summary span { color: var(--muted); font-size: 14px; }
+  details.tbl table.data { border: none; border-radius: 0; }
+  .rule { font-family: 'JetBrains Mono', Consolas, monospace; font-size: 13px; padding: 2px 8px; border-radius: 6px; }
+  .rule.CASCADE { background: #DCE7F5; color: var(--blue); }
+  .rule.RESTRICT { background: #FBE4DE; color: var(--bad); }
+  .rule.SET.NULL, .rule.SETNULL { background: #EEE9DD; color: var(--ink); }
+  button.run { background: var(--navy); color: var(--light); border: 0; border-radius: 999px; padding: 10px 22px; font-size: 16px; cursor: pointer; }
+  button.run:disabled { opacity: .6; cursor: wait; }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <section class="hero">
+    <div class="eyebrow">Лабораторна робота № 2</div>
+    <h1>Створення моделі даних в середовищі СУБД</h1>
+    <p class="lead">Логічна модель з ЛР1 стала фізичною схемою <code>stemik</code> у навчальному проєкті Supabase (PostgreSQL): таблиці з типами даних, первинні й зовнішні ключі, обмеження цілісності та каскадні дії. Усе нижче сайт отримує з системного каталогу бази.</p>
+  </section>
+
+  <div id="live" class="status">Завантаження даних з бази…</div>
+
+  <h2>Фізична схема</h2>
+  <figure><img src="../../docs/db-labs/img/fig2_1_physical.png" alt="Фізична схема бази даних stemik" loading="lazy"><figcaption>Фізична схема stemik: 18 таблиць, типи стовпців, PK / FK / UK, зв’язки (підписи — стовпці зовнішніх ключів). Згенеровано з каталогу PostgreSQL.</figcaption></figure>
+
+  <h2>Перевірка обмежень цілісності</h2>
+  <p>Функція <code>lab_lr2_constraint_tests()</code> виконує 10 операцій, що порушують правила або запускають каскадні дії. Кожна виконується у власному підблоці, і всі зміни відкочуються — дані не змінюються.</p>
+  <p><button class="run" id="run">Запустити перевірку</button></p>
+  <div id="tests"></div>
+
+  <h2>Матеріали етапу</h2>
+  <p class="files">
+    <a href="../../docs/db-labs/Звіт_ЛР2_Розробка_БД.pdf">Протокол ЛР2 (PDF)</a>
+    <a href="../../docs/db-labs/Звіт_ЛР2_Розробка_БД.docx">Протокол ЛР2 (Word)</a>
+    <a href="../../docs/db-labs/Презентація_ЛР2.pptx">Презентація ЛР2</a>
+    <a href="../../docs/db-labs/stages/lr2/">SQL етапу ЛР2</a>
+  </p>
+</main>
+<footer>Стемік · навчальна версія сайту для лабораторних робіт з дисципліни «Розробка баз даних» · Левченко, Гвоздецька, Ігнатенко</footer>
+<script>
+Lab.header(2);
+const e = Lab.esc;
+
+(async () => {
+  const box = document.getElementById('live');
+  try {
+    const d = await Lab.rpc('lab_lr2_model');
+    const c = d.counts;
+    const rule = (r) => `<span class="rule ${r.replace(' ', '')}">${r}</span>`;
+    const tables = d.tables.map((t) => `
+      <details class="tbl"><summary><b>${e(t.name)}</b><span>${e(t.comment || '')}</span><span>· ${t.columns.length} стовпців · ${t.rows} рядків</span></summary>
+        <table class="data"><tr><th>Стовпець</th><th>Тип</th><th>NOT NULL</th><th>За замовчуванням</th><th>Ключ</th></tr>
+        ${t.columns.map((col) => `<tr><td><code>${e(col.name)}</code></td><td><code>${e(col.type)}</code></td><td>${col.not_null ? 'так' : ''}</td><td><code>${e(col.default || '')}</code></td><td><b style="color:var(--orange)">${e(col.keys || '')}</b></td></tr>`).join('')}
+        </table></details>`).join('');
+    const checksBy = {};
+    d.checks.forEach((k) => (checksBy[k.table] = checksBy[k.table] || []).push(k));
+    const checks = Object.entries(checksBy).map(([t, list]) => `
+      <details class="tbl"><summary><b>${e(t)}</b><span>${list.length} CHECK</span></summary>
+        <table class="data">${list.map((k) => `<tr><td><code>${e(k.name)}</code></td><td><code>${e(k.definition)}</code></td></tr>`).join('')}</table>
+      </details>`).join('');
+    box.className = '';
+    box.innerHTML = `
+      <h2 style="margin-top:8px">Фізична модель — наживо</h2>
+      <div class="grid">
+        <div class="card"><div class="num">${c.tables}</div><div>таблиць у схемі <code>stemik</code></div></div>
+        <div class="card"><div class="num">${c.fk}</div><div>зовнішніх ключів</div></div>
+        <div class="card"><div class="num">${c.check}</div><div>CHECK-обмежень</div></div>
+        <div class="card"><div class="num">${c.pk} / ${c.unique}</div><div>первинних / унікальних ключів</div></div>
+        <div class="card"><div class="num">${c.rows}</div><div>рядків тестових даних</div></div>
+      </div>
+      <h2>Таблиці, типи й ключі</h2>
+      <p>Натисніть на таблицю, щоб побачити її стовпці.</p>
+      ${tables}
+      <h2>Зовнішні ключі й каскадні дії</h2>
+      <table class="data"><tr><th>Дочірня таблиця</th><th>Стовпці</th><th>Посилається на</th><th>ON DELETE</th><th>ON UPDATE</th></tr>
+        ${d.foreign_keys.map((f) => `<tr><td><code>${e(f.child)}</code></td><td><code>${e(f.columns)}</code></td><td><code>${e(f.parent)}</code></td><td>${rule(f.on_delete)}</td><td>${rule(f.on_update)}</td></tr>`).join('')}
+      </table>
+      <h2>CHECK-обмеження</h2>
+      ${checks}
+      <h2>Поточна схема → модель</h2>
+      <table class="data"><tr><th>Поточна схема (Supabase)</th><th>Модель (stemik)</th><th>Що змінено</th></tr>
+        ${d.mapping.map((m) => `<tr><td><code>${e(m.current)}</code></td><td><code>${e(m.model)}</code></td><td>${e(m.change)}</td></tr>`).join('')}
+      </table>`;
+  } catch (err) {
+    Lab.status(box, err);
+  }
+})();
+
+document.getElementById('run').addEventListener('click', async (ev) => {
+  const btn = ev.target, out = document.getElementById('tests');
+  btn.disabled = true; Lab.status(out);
+  try {
+    const rows = await Lab.rpc('lab_lr2_constraint_tests');
+    const passed = rows.filter((r) => r.ok).length;
+    out.className = '';
+    out.innerHTML = `<p><span class="tag ${passed === rows.length ? 'ok' : 'bad'}">${passed} з ${rows.length} перевірок дали очікуваний результат</span></p>
+      <table class="data"><tr><th>№</th><th>Перевірка</th><th>Очікується</th><th>Результат</th></tr>
+      ${rows.map((r) => `<tr><td>${r.no}</td><td>${e(r.test)}</td><td>${e(r.expected)}</td><td><span class="tag ${r.ok ? 'ok' : 'bad'}">${r.ok ? 'так' : 'ні'}</span> <code>${e(r.result)}</code></td></tr>`).join('')}
+      </table>`;
+  } catch (err) {
+    Lab.status(out, err);
+  } finally {
+    btn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>
