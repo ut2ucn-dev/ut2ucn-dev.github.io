@@ -353,6 +353,8 @@
   .discount-percent-sign{ font-family:var(--font-mono); font-size:12px; font-weight:700; color:var(--ink-soft); }
   .sub-purchase{ display:flex; flex-direction:column; gap:8px; margin-top:4px; padding:11px 12px; border:1.5px dashed var(--brand); border-radius:12px; background:var(--brand-soft); }
   .sub-edit-row{ display:flex; align-items:center; flex-wrap:wrap; gap:6px 8px; margin-top:7px; }
+  .link-btn{ background:none; border:none; padding:2px 0; color:var(--brand-text); font-family:var(--font-body); font-weight:600; font-size:12.5px; cursor:pointer; text-decoration:underline; text-underline-offset:3px; }
+  .link-btn:hover{ color:var(--brand); }
   .sub-purchase-title{ font-family:var(--font-display); font-weight:700; font-size:13px; color:var(--brand-text); }
   .print-option{ display:inline-flex; align-items:center; gap:7px; font-weight:700; font-size:13px; cursor:pointer; }
   .print-option input{ width:16px; height:16px; accent-color:var(--brand); }
@@ -3906,8 +3908,16 @@ function useWorkActions(ownerId, works, setWorks, me, lessonById) {
 function findAttendance(attendance, lessonId, studentId) {
   return attendance.find(a => a.lesson_id === lessonId && a.student_id === studentId) || null;
 }
-function findActiveSubscription(subscriptions, studentId, course) {
-  return subscriptions.find(s => s.student_id === studentId && s.course === course && s.status === "active" && s.remaining_lessons > 0) || null;
+// The subscriptions a lesson on `lessonDate` would be paid from, in the
+// order mark_attendance() (sql/0023) uses them: those bought by that date
+// first, oldest first; one bought in advance only after them.
+function activeSubscriptionsFor(subscriptions, studentId, course, lessonDate) {
+  const day = s => (s.purchased_at || "").slice(0, 10);
+  const due = s => lessonDate && day(s) > lessonDate ? 1 : 0;
+  return subscriptions.filter(s => s.student_id === studentId && s.course === course && s.status === "active" && s.remaining_lessons > 0).sort((a, b) => due(a) - due(b) || day(a).localeCompare(day(b)) || (a.purchased_at || "").localeCompare(b.purchased_at || ""));
+}
+function findActiveSubscription(subscriptions, studentId, course, lessonDate) {
+  return activeSubscriptionsFor(subscriptions, studentId, course, lessonDate)[0] || null;
 }
 const ATTENDANCE_STATUSES = [{
   value: "present",
@@ -3948,6 +3958,8 @@ function AttendanceControls({
   student,
   record,
   subscription,
+  usedSubscription,
+  spareSubscriptions,
   printDefault,
   onMark,
   onUnmark,
@@ -4002,12 +4014,17 @@ function AttendanceControls({
     setBuying(false);
     onMark(lesson.id, student.id, "present", method, currentDiscount);
   }
+  // With a subscription still running this records the NEXT one, bought in
+  // advance: it starts from its purchase date, once the current one is used
+  // up; this lesson stays on the current one.
+  const buyingNext = !!subscription;
   function confirmPurchase() {
     if (!purchaseMethod || !purchaseDate) return;
     setBuying(false);
     onMark(lesson.id, student.id, "present", "subscription", currentDiscount, {
       date: purchaseDate,
-      method: purchaseMethod
+      method: purchaseMethod,
+      next: buyingNext
     });
   }
   useEffect(() => {
@@ -4084,17 +4101,27 @@ function AttendanceControls({
     type: "button",
     className: "chip payment-chip" + (record.payment_method === pm.value || buying && pm.value === "subscription" ? " selected" : ""),
     onClick: () => choosePayment(pm.value)
-  }, pm.label, pm.value === "subscription" && subscription && /*#__PURE__*/React.createElement("span", {
+  }, pm.label, pm.value === "subscription" && (record.payment_method === "subscription" && usedSubscription || subscription) && /*#__PURE__*/React.createElement("span", {
     className: "sub-hint"
-  }, " ", subscription.remaining_lessons, "/", subscription.total_lessons)))), record.payment_method && !buying && /*#__PURE__*/React.createElement("span", {
+  }, " ", (record.payment_method === "subscription" && usedSubscription || subscription).remaining_lessons, "/", (record.payment_method === "subscription" && usedSubscription || subscription).total_lessons, spareSubscriptions > 0 ? ` +${spareSubscriptions}` : "")))), record.payment_method && !buying && /*#__PURE__*/React.createElement("span", {
     className: "payment-amount"
   }, currentDiscount > 0 && lesson.price_amount != null && /*#__PURE__*/React.createElement("span", {
     className: "discount-original-price"
-  }, formatMoney(Number(lesson.price_amount) + (record.payment_method === "subscription" ? 0 : printExtra))), formatMoney(record.amount))), status === "present" && buying && /*#__PURE__*/React.createElement("div", {
+  }, formatMoney(Number(lesson.price_amount) + (record.payment_method === "subscription" ? 0 : printExtra))), formatMoney(record.amount))), status === "present" && subscription && !buying && /*#__PURE__*/React.createElement("div", {
+    className: "attend-line"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "attend-line-label"
+  }), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    className: "link-btn",
+    onClick: () => setBuying(true)
+  }, "+ Купити наступний абонемент")), status === "present" && buying && /*#__PURE__*/React.createElement("div", {
     className: "sub-purchase"
   }, /*#__PURE__*/React.createElement("div", {
     className: "sub-purchase-title"
-  }, "Новий абонемент (4 заняття)"), /*#__PURE__*/React.createElement("div", {
+  }, buyingNext ? "Наступний абонемент (4 заняття), куплений наперед" : "Новий абонемент (4 заняття)"), buyingNext && /*#__PURE__*/React.createElement("div", {
+    className: "students-sub"
+  }, "Почне списуватися з дати купівлі — після того, як закінчиться поточний (залишок ", subscription.remaining_lessons, "/", subscription.total_lessons, "). Це заняття — з поточного."), /*#__PURE__*/React.createElement("div", {
     className: "attend-line"
   }, /*#__PURE__*/React.createElement("span", {
     className: "attend-line-label"
@@ -4410,7 +4437,9 @@ function LessonCardModal({
       lesson: lesson,
       student: s,
       record: att,
-      subscription: findActiveSubscription(subscriptions, s.id, lesson.course),
+      subscription: findActiveSubscription(subscriptions, s.id, lesson.course, lesson.date),
+      usedSubscription: att && att.subscription_id ? subscriptions.find(x => x.id === att.subscription_id) || null : null,
+      spareSubscriptions: Math.max(0, activeSubscriptionsFor(subscriptions, s.id, lesson.course, lesson.date).length - 1),
       printDefault: printDefault,
       onMark: markAttendance,
       onUnmark: unmarkAttendance,
@@ -4529,8 +4558,9 @@ function ScheduleTab({
   useEffect(() => {
     load();
   }, [load]);
-  // `purchase` ({date, method}) is only passed when this mark starts a new
-  // subscription; otherwise the database ignores both fields.
+  // `purchase` ({date, method, next}) is only passed when this mark records
+  // a new subscription (`next`: bought in advance while one still runs);
+  // otherwise the database ignores these fields.
   async function markAttendance(lessonId, studentId, status, paymentMethod, discountPercent, purchase) {
     const {
       error
@@ -4541,7 +4571,8 @@ function ScheduleTab({
       p_payment_method: paymentMethod,
       p_discount_percent: discountPercent || 0,
       p_purchase_date: purchase ? purchase.date : null,
-      p_purchase_method: purchase ? purchase.method : null
+      p_purchase_method: purchase ? purchase.method : null,
+      p_new_subscription: !!(purchase && purchase.next)
     });
     if (error) {
       showToast(error.message, "error");
