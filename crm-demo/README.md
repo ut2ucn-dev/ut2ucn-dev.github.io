@@ -31,7 +31,7 @@ stemik-crm-demo/
 ├── README.md            ця інструкція
 └── sql/
     ├── 01_schema.sql          18 таблиць, 86 іменованих обмежень (CREATE TABLE)
-    ├── 02_data.sql            2480 рядків знеособлених даних студії (INSERT)
+    ├── 02_data_1.sql … 02_data_6.sql  2480 рядків знеособлених даних студії (INSERT), 6 частин
     ├── 03_views.sql           представлення v_schedule, v_subscription_status
     ├── 04_crm_api.sql         функції crm_* для сайту і права доступу
     └── 05_search_queries.sql  три пошукові запити для живого показу в SQL Editor
@@ -56,9 +56,15 @@ stemik-crm-demo/
 | № | Файл | Очікуваний результат |
 |---|---|---|
 | 1 | `01_schema.sql` | `Success. No rows returned` |
-| 2 | `02_data.sql` | результат `setval` (кілька чисел) — дані завантажено |
-| 3 | `03_views.sql` | `Success` |
-| 4 | `04_crm_api.sql` | `Success` |
+| 2–7 | `02_data_1.sql` … `02_data_6.sql` — **суворо по черзі** | `Success`; остання частина показує результат `setval` |
+| 8 | `03_views.sql` | `Success` |
+| 9 | `04_crm_api.sql` | `Success` |
+
+Дані розбито на 6 частин по ≈ 50–70 КБ, бо SQL Editor не приймає надто великі запити
+(помилка `request entity too large`). Кожну частину відкривайте в **новій вкладці запиту**.
+Якщо Supabase запитує про RLS — обирайте **Run and enable RLS**: сайт працює через функції,
+на які RLS не впливає. Попередження про «destructive operations» стосується `DROP SCHEMA stemik`
+у першому файлі — це нормально для навчального проєкту.
 
 Перевірка — виконайте в SQL Editor:
 
@@ -68,9 +74,10 @@ select public.crm_ping();
 
 Має повернутися JSON з `"tables": 18`, `"students": 52`, `"lessons": 496`.
 
-> Файл `02_data.sql` великий (≈ 650 КБ). Якщо редактор не приймає його цілком,
-> виконайте через `psql` (рядок підключення: **Connect → Connection string → URI**):
-> `psql "postgresql://postgres:ПАРОЛЬ@db.XXXX.supabase.co:5432/postgres" -f sql/02_data.sql`
+> Якщо частина даних виконалася з помилкою (наприклад, запустили не по черзі), почніть
+> спочатку з `01_schema.sql` — він очищає схему, — і далі знову по порядку.
+> Альтернатива SQL Editor — `psql` (рядок підключення: **Connect → Connection string → URI**):
+> `psql "postgresql://postgres:ПАРОЛЬ@db.XXXX.supabase.co:5432/postgres" -f sql/02_data_1.sql` і т. д.
 
 ## Крок 3. Створити користувача-адміністратора
 
@@ -144,7 +151,7 @@ window.CRM_CONFIG = {
 
 ## Як повернути дані до початкового стану
 
-Повторно виконати `01_schema.sql`, `02_data.sql`, `03_views.sql`, `04_crm_api.sql`
+Повторно виконати `01_schema.sql`, `02_data_1.sql` … `02_data_6.sql`, `03_views.sql`, `04_crm_api.sql`
 (і, за потреби, `insert into stemik.employee …` з кроку 3).
 
 ---
