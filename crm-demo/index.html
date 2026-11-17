@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Стемік CRM</title>
+<link rel="stylesheet" href="app.css">
+<script src="config.js"></script>
+<script src="search_sql.js"></script>
+</head>
+<body>
+
+<!-- ============ Вхід ============ -->
+<section id="login" class="login">
+  <div class="login-box">
+    <div class="brand">Стемік CRM</div>
+    <div class="sub">Робоче місце адміністратора STEM-студії · демоверсія</div>
+
+    <div class="panel">
+      <h3>Підключення до бази даних</h3>
+      <div class="ping"><span class="dot" id="pingDot"></span>
+        <div id="pingText">Перевіряю підключення…</div></div>
+      <p style="margin:12px 0 0"><button class="btn ghost sm" id="pingBtn" type="button">Перевірити ще раз</button></p>
+    </div>
+
+    <form class="panel" id="loginForm">
+      <h3>Вхід для працівника</h3>
+      <label for="email">E-mail</label>
+      <input id="email" type="email" autocomplete="username" required>
+      <label for="password">Пароль</label>
+      <input id="password" type="password" autocomplete="current-password" required>
+      <p style="margin:14px 0 0"><button class="btn" type="submit">Увійти</button></p>
+      <div id="loginErr" class="err" hidden></div>
+    </form>
+  </div>
+</section>
+
+<!-- ============ Застосунок ============ -->
+<div id="app" hidden>
+  <header class="top"><div class="in">
+    <div class="brand">Стемік <small>CRM · адміністратор</small></div>
+    <nav id="nav">
+      <button data-view="home">Огляд дня</button>
+      <button data-view="students">Учні</button>
+      <button data-view="schedule">Розклад</button>
+      <button data-view="subs">Абонементи</button>
+      <button data-view="debtors">Боржники</button>
+    </nav>
+    <div class="me"><span id="me"></span><button class="btn sm" id="logout" type="button">Вийти</button></div>
+  </div></header>
+  <main id="view"></main>
+</div>
+
+<div id="overlay" class="overlay" hidden><div class="drawer" id="drawer"></div></div>
+<div id="toast" class="toast" hidden></div>
+
+<script src="app.js"></script>
+</body>
+</html>
