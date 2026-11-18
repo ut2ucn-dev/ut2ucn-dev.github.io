@@ -16,9 +16,9 @@ SET search_path TO stemik;
 WITH params AS (
     SELECT '010' AS q                                  -- що шукаємо
 )
-SELECT s.last_name || ' ' || s.first_name AS учень,
-       string_agg(DISTINCT concat_ws(' ', p.last_name, p.first_name) || ' · ' || p.phone, '; ') AS батьки,
-       string_agg(DISTINCT c.name || ': ' || sb.remaining_lessons || ' з ' || sb.total_lessons, '; ') AS абонементи
+SELECT concat_ws(' ', s.last_name, s.first_name) AS учень,
+       string_agg(DISTINCT concat(concat_ws(' ', p.last_name, p.first_name), ' · ', p.phone), '; ') AS батьки,
+       string_agg(DISTINCT concat(c.name, ': ', sb.remaining_lessons, ' з ', sb.total_lessons), '; ') AS абонементи
 FROM student s
 CROSS JOIN params
 LEFT JOIN parent_student ps ON ps.student_id = s.student_id
@@ -26,10 +26,10 @@ LEFT JOIN parent p          ON p.parent_id = ps.parent_id
 LEFT JOIN subscription sb   ON sb.student_id = s.student_id AND sb.status = 'active'
 LEFT JOIN course c          ON c.course_id = sb.course_id
 WHERE s.active
-  AND (s.last_name || ' ' || s.first_name ILIKE '%' || params.q || '%'
-       OR regexp_replace(coalesce(s.phone, ''), '\D', '', 'g') LIKE '%' || params.q || '%'
-       OR concat_ws(' ', p.last_name, p.first_name) ILIKE '%' || params.q || '%'
-       OR p.phone LIKE '%' || params.q || '%')
+  AND (concat_ws(' ', s.last_name, s.first_name) ILIKE concat('%', params.q, '%')
+       OR regexp_replace(coalesce(s.phone, ''), '\D', '', 'g') LIKE concat('%', params.q, '%')
+       OR concat_ws(' ', p.last_name, p.first_name) ILIKE concat('%', params.q, '%')
+       OR p.phone LIKE concat('%', params.q, '%'))
 GROUP BY s.student_id, s.last_name, s.first_name
 ORDER BY учень;
 
@@ -46,8 +46,9 @@ WITH params AS (
 SELECT l.lesson_date AS дата,
        to_char(l.start_time, 'HH24:MI') AS час,
        c.name AS курс,
-       coalesce(sub.first_name || ' ' || sub.last_name || ' (заміна)',
-                t.first_name || ' ' || t.last_name) AS викладач,
+       CASE WHEN sub.employee_id IS NOT NULL
+            THEN concat(sub.first_name, ' ', sub.last_name, ' (заміна)')
+            ELSE concat(t.first_name, ' ', t.last_name) END AS викладач,
        count(ls.student_id) AS записано,
        count(a.attendance_id) AS відмічено,
        CASE WHEN l.completed THEN 'так' ELSE 'ні' END AS проведено
@@ -60,7 +61,7 @@ LEFT JOIN lesson_student ls ON ls.lesson_id = l.lesson_id
 LEFT JOIN attendance a      ON a.lesson_id = ls.lesson_id AND a.student_id = ls.student_id
 WHERE l.lesson_date BETWEEN params.date_from AND params.date_to
   AND c.name ILIKE params.course_pattern
-GROUP BY l.lesson_id, c.name, t.first_name, t.last_name, sub.first_name, sub.last_name
+GROUP BY l.lesson_id, c.name, t.first_name, t.last_name, sub.employee_id, sub.first_name, sub.last_name
 ORDER BY дата, час;
 
 -- #3 ------------------------------------------------------------------
@@ -70,7 +71,7 @@ SET search_path TO stemik;
 WITH params AS (
     SELECT 2 AS min_visits
 )
-SELECT s.last_name || ' ' || s.first_name AS учень,
+SELECT concat_ws(' ', s.last_name, s.first_name) AS учень,
        count(*) AS неоплачених,
        sum(a.amount) AS борг,
        min(l.lesson_date) AS з,

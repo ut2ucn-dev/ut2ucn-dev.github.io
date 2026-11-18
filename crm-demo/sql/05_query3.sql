@@ -5,7 +5,7 @@ SET search_path TO stemik;
 WITH params AS (
     SELECT 2 AS min_visits
 )
-SELECT s.last_name || ' ' || s.first_name AS учень,
+SELECT concat_ws(' ', s.last_name, s.first_name) AS учень,
        count(*) AS неоплачених,
        sum(a.amount) AS борг,
        min(l.lesson_date) AS з,
