@@ -21,7 +21,9 @@
     }
     const res = await fetch(cfg.url.replace(/\/$/, '') + '/rest/v1/rpc/' + name, {
       method: 'POST',
-      headers: { apikey: cfg.anonKey, Authorization: 'Bearer ' + cfg.anonKey, 'Content-Type': 'application/json' },
+      // ключ формату sb_publishable_… — не JWT, його передають лише в apikey
+      headers: Object.assign({ apikey: cfg.anonKey, 'Content-Type': 'application/json' },
+        /^eyJ/.test(cfg.anonKey) ? { Authorization: 'Bearer ' + cfg.anonKey } : {}),
       body: JSON.stringify(args || {}),
     });
     const text = await res.text();
