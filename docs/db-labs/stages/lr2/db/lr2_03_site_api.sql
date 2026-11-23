@@ -22,6 +22,7 @@ set search_path = stemik, public
 as $$
 select json_build_object(
   'generated_at', now(),
+  'schema', 'stemik',
   'counts', json_build_object(
       'tables', (select count(*) from pg_class where relnamespace = 'stemik'::regnamespace and relkind = 'r'),
       'pk',     (select count(*) from pg_constraint where connamespace = 'stemik'::regnamespace and contype = 'p'),

@@ -28,7 +28,7 @@
   <section class="hero">
     <div class="eyebrow">Лабораторна робота № 2</div>
     <h1>Створення моделі даних в середовищі СУБД</h1>
-    <p class="lead">Логічна модель з ЛР1 стала фізичною схемою <code>stemik</code> у навчальному проєкті Supabase (PostgreSQL): таблиці з типами даних, первинні й зовнішні ключі, обмеження цілісності та каскадні дії. Усе нижче сайт отримує з системного каталогу бази.</p>
+    <p class="lead">Логічна модель з ЛР1 стала фізичною схемою <code id="schemaName">stemik</code> у навчальному проєкті Supabase (PostgreSQL): таблиці з типами даних, первинні й зовнішні ключі, обмеження цілісності та каскадні дії. Усе нижче сайт отримує з системного каталогу бази.</p>
   </section>
 
   <div id="live" class="status">Завантаження даних з бази…</div>
@@ -71,11 +71,12 @@ const e = Lab.esc;
       <details class="tbl"><summary><b>${e(t)}</b><span>${list.length} CHECK</span></summary>
         <table class="data">${list.map((k) => `<tr><td><code>${e(k.name)}</code></td><td><code>${e(k.definition)}</code></td></tr>`).join('')}</table>
       </details>`).join('');
+    if (d.schema) document.getElementById('schemaName').textContent = d.schema;
     box.className = '';
     box.innerHTML = `
       <h2 style="margin-top:8px">Фізична модель — наживо</h2>
       <div class="grid">
-        <div class="card"><div class="num">${c.tables}</div><div>таблиць у схемі <code>stemik</code></div></div>
+        <div class="card"><div class="num">${c.tables}</div><div>таблиць у схемі <code>${e(d.schema || 'stemik')}</code></div></div>
         <div class="card"><div class="num">${c.fk}</div><div>зовнішніх ключів</div></div>
         <div class="card"><div class="num">${c.check}</div><div>CHECK-обмежень</div></div>
         <div class="card"><div class="num">${c.pk} / ${c.unique}</div><div>первинних / унікальних ключів</div></div>
@@ -91,7 +92,7 @@ const e = Lab.esc;
       <h2>CHECK-обмеження</h2>
       ${checks}
       <h2>Поточна схема → модель</h2>
-      <table class="data"><tr><th>Поточна схема (Supabase)</th><th>Модель (stemik)</th><th>Що змінено</th></tr>
+      <table class="data"><tr><th>Поточна схема (Supabase)</th><th>Модель (${e(d.schema || 'stemik')})</th><th>Що змінено</th></tr>
         ${d.mapping.map((m) => `<tr><td><code>${e(m.current)}</code></td><td><code>${e(m.model)}</code></td><td>${e(m.change)}</td></tr>`).join('')}
       </table>`;
   } catch (err) {
