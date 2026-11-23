@@ -1,12 +1,12 @@
 -- ВАРІАНТ ДЛЯ ОДНОГО ПРОЄКТУ SUPABASE (разом із CRM): модель ЛР2 створюється
--- в окремій схемі stemik_lr2, щоб не зачепити схему stemik, на якій працює CRM.
+-- в окремій схемі stemik_model, щоб не зачепити схему stemik, на якій працює CRM.
 -- =====================================================================
 -- Етап ЛР № 2. API для версії сайту «Модель даних у СУБД»
 --
 -- Виконується в навчальному проєкті Supabase ПІСЛЯ lr2_01_schema.sql і
 -- lr2_02_seed.sql. Повторний запуск безпечний.
 --
--- lab_lr2_model()            — каталог фізичної моделі (схема stemik_lr2):
+-- lab_lr2_model()            — каталог фізичної моделі (схема stemik_model):
 --                              таблиці, стовпці, ключі, FK з каскадними
 --                              діями, CHECK-обмеження, відповідність
 --                              поточній схемі.
@@ -20,25 +20,25 @@ returns json
 language sql
 stable
 security definer
-set search_path = stemik_lr2, public
+set search_path = stemik_model, public
 as $$
 select json_build_object(
   'generated_at', now(),
-  'schema', 'stemik_lr2',
+  'schema', 'stemik_model',
   'counts', json_build_object(
-      'tables', (select count(*) from pg_class where relnamespace = 'stemik_lr2'::regnamespace and relkind = 'r'),
-      'pk',     (select count(*) from pg_constraint where connamespace = 'stemik_lr2'::regnamespace and contype = 'p'),
-      'fk',     (select count(*) from pg_constraint where connamespace = 'stemik_lr2'::regnamespace and contype = 'f'),
-      'unique', (select count(*) from pg_constraint where connamespace = 'stemik_lr2'::regnamespace and contype = 'u'),
-      'check',  (select count(*) from pg_constraint where connamespace = 'stemik_lr2'::regnamespace and contype = 'c'),
-      'rows',   (select sum((xpath('/row/n/text()', query_to_xml(format('select count(*) as n from stemik_lr2.%I', relname),
+      'tables', (select count(*) from pg_class where relnamespace = 'stemik_model'::regnamespace and relkind = 'r'),
+      'pk',     (select count(*) from pg_constraint where connamespace = 'stemik_model'::regnamespace and contype = 'p'),
+      'fk',     (select count(*) from pg_constraint where connamespace = 'stemik_model'::regnamespace and contype = 'f'),
+      'unique', (select count(*) from pg_constraint where connamespace = 'stemik_model'::regnamespace and contype = 'u'),
+      'check',  (select count(*) from pg_constraint where connamespace = 'stemik_model'::regnamespace and contype = 'c'),
+      'rows',   (select sum((xpath('/row/n/text()', query_to_xml(format('select count(*) as n from stemik_model.%I', relname),
                                                              false, true, '')))[1]::text::int)
-                   from pg_class where relnamespace = 'stemik_lr2'::regnamespace and relkind = 'r')),
+                   from pg_class where relnamespace = 'stemik_model'::regnamespace and relkind = 'r')),
   'tables', (
     select json_agg(json_build_object(
              'name', c.relname,
              'comment', obj_description(c.oid, 'pg_class'),
-             'rows', (xpath('/row/n/text()', query_to_xml(format('select count(*) as n from stemik_lr2.%I', c.relname),
+             'rows', (xpath('/row/n/text()', query_to_xml(format('select count(*) as n from stemik_model.%I', c.relname),
                                                          false, true, '')))[1]::text::int,
              'columns', (select json_agg(json_build_object(
                                   'name', a.attname,
@@ -56,7 +56,7 @@ select json_build_object(
                           where a.attrelid = c.oid and a.attnum > 0 and not a.attisdropped))
            order by c.relname)
     from pg_class c
-    where c.relnamespace = 'stemik_lr2'::regnamespace and c.relkind = 'r'),
+    where c.relnamespace = 'stemik_model'::regnamespace and c.relkind = 'r'),
   'foreign_keys', (
     select json_agg(json_build_object(
              'name', k.conname, 'child', c.relname, 'parent', p.relname,
@@ -69,15 +69,15 @@ select json_build_object(
     from pg_constraint k
     join pg_class c on c.oid = k.conrelid
     join pg_class p on p.oid = k.confrelid
-    where k.connamespace = 'stemik_lr2'::regnamespace and k.contype = 'f'),
+    where k.connamespace = 'stemik_model'::regnamespace and k.contype = 'f'),
   'checks', (
     select json_agg(json_build_object('table', c.relname, 'name', k.conname,
                                       'definition', regexp_replace(pg_get_constraintdef(k.oid),
                                                     '::(character varying|text|numeric)(\[\])?', '', 'g'))
            order by c.relname, k.conname)
     from pg_constraint k join pg_class c on c.oid = k.conrelid
-    where k.connamespace = 'stemik_lr2'::regnamespace and k.contype = 'c'),
-  -- Відповідність таблиць поточної схеми (Supabase) і моделі (схема stemik_lr2)
+    where k.connamespace = 'stemik_model'::regnamespace and k.contype = 'c'),
+  -- Відповідність таблиць поточної схеми (Supabase) і моделі (схема stemik_model)
   'mapping', '[
     {"current":"profiles","model":"employee","change":"email NOT NULL UNIQUE, CHECK на role"},
     {"current":"— (текст course)","model":"course","change":"новий довідник замість 11 написань курсу"},
@@ -105,7 +105,7 @@ returns table (no int, test text, expected text, result text, ok boolean)
 language plpgsql
 volatile
 security definer
-set search_path = stemik_lr2, public
+set search_path = stemik_model, public
 as $$
 declare
     v_con text;
@@ -121,19 +121,19 @@ begin
     for no, test, expected, v_msg in
         select * from (values
           (1, 'CHECK: від’ємна ціна в тарифі', 'відхилено',
-              'update stemik_lr2.tariff set lesson_price = -100 where tariff_id = (select min(tariff_id) from stemik_lr2.tariff)'),
+              'update stemik_model.tariff set lesson_price = -100 where tariff_id = (select min(tariff_id) from stemik_model.tariff)'),
           (2, 'CHECK: недопустимий формат заняття', 'відхилено',
-              'update stemik_lr2.lesson set format = ''webinar'' where lesson_id = (select lesson_id from stemik_lr2.lesson limit 1)'),
+              'update stemik_model.lesson set format = ''webinar'' where lesson_id = (select lesson_id from stemik_model.lesson limit 1)'),
           (3, 'UNIQUE: другий кабінет батьків з тим самим телефоном', 'відхилено',
-              'insert into stemik_lr2.parent (phone) select phone from stemik_lr2.parent limit 1'),
+              'insert into stemik_model.parent (phone) select phone from stemik_model.parent limit 1'),
           (4, 'CHECK: оплата за відсутнього учня', 'відхилено',
-              'update stemik_lr2.attendance set payment_method = ''cash'', amount = 400 where attendance_id = (select attendance_id from stemik_lr2.attendance where status <> ''present'' limit 1)'),
+              'update stemik_model.attendance set payment_method = ''cash'', amount = 400 where attendance_id = (select attendance_id from stemik_model.attendance where status <> ''present'' limit 1)'),
           (5, 'FK: відмітка учня, не записаного на заняття', 'відхилено',
-              'insert into stemik_lr2.attendance (lesson_id, student_id, status) select l.lesson_id, s.student_id, ''present'' from stemik_lr2.lesson l cross join stemik_lr2.student s where not exists (select 1 from stemik_lr2.lesson_student ls where ls.lesson_id = l.lesson_id and ls.student_id = s.student_id) limit 1'),
+              'insert into stemik_model.attendance (lesson_id, student_id, status) select l.lesson_id, s.student_id, ''present'' from stemik_model.lesson l cross join stemik_model.student s where not exists (select 1 from stemik_model.lesson_student ls where ls.lesson_id = l.lesson_id and ls.student_id = s.student_id) limit 1'),
           (6, 'RESTRICT: видалення курсу, за яким є заняття', 'відхилено',
-              'delete from stemik_lr2.course where course_id = (select course_id from stemik_lr2.lesson limit 1)'),
+              'delete from stemik_model.course where course_id = (select course_id from stemik_model.lesson limit 1)'),
           (7, 'RESTRICT: видалення учня з історією занять', 'відхилено',
-              'delete from stemik_lr2.student where student_id = (select student_id from stemik_lr2.lesson_student limit 1)')
+              'delete from stemik_model.student where student_id = (select student_id from stemik_model.lesson_student limit 1)')
         ) t (no, test, expected, sql)
     loop
         begin
@@ -152,15 +152,15 @@ begin
 
     -- 8: CASCADE — видалення заняття забирає записи, відмітки й роботи -------
     no := 8; test := 'ON DELETE CASCADE: видалення заняття'; expected := 'залежні рядки видалено';
-    select w.lesson_id into v_lesson from stemik_lr2.work w group by w.lesson_id order by count(*) desc limit 1;
+    select w.lesson_id into v_lesson from stemik_model.work w group by w.lesson_id order by count(*) desc limit 1;
     begin
-        select count(*) into b1 from stemik_lr2.lesson_student where lesson_id = v_lesson;
-        select count(*) into b2 from stemik_lr2.attendance where lesson_id = v_lesson;
-        select count(*) into b3 from stemik_lr2.work where lesson_id = v_lesson;
-        delete from stemik_lr2.lesson where lesson_id = v_lesson;
-        select count(*) into a1 from stemik_lr2.lesson_student where lesson_id = v_lesson;
-        select count(*) into a2 from stemik_lr2.attendance where lesson_id = v_lesson;
-        select count(*) into a3 from stemik_lr2.work where lesson_id = v_lesson;
+        select count(*) into b1 from stemik_model.lesson_student where lesson_id = v_lesson;
+        select count(*) into b2 from stemik_model.attendance where lesson_id = v_lesson;
+        select count(*) into b3 from stemik_model.work where lesson_id = v_lesson;
+        delete from stemik_model.lesson where lesson_id = v_lesson;
+        select count(*) into a1 from stemik_model.lesson_student where lesson_id = v_lesson;
+        select count(*) into a2 from stemik_model.attendance where lesson_id = v_lesson;
+        select count(*) into a3 from stemik_model.work where lesson_id = v_lesson;
         raise exception 'LAB_ROLLBACK';
     exception when others then
         null;
@@ -171,16 +171,16 @@ begin
 
     -- 9: SET NULL — видалення принтера залишає роботи без принтера -----------
     no := 9; test := 'ON DELETE SET NULL: видалення принтера'; expected := 'роботи лишились, printer_id = NULL';
-    select min(printer_id) into v_printer from stemik_lr2.printer;
+    select min(printer_id) into v_printer from stemik_model.printer;
     begin
         -- щоб тест не залежав від даних: призначаємо принтер кільком роботам (теж буде відкочено)
-        update stemik_lr2.work set printer_id = v_printer
-         where work_id in (select work_id from stemik_lr2.work order by work_id limit 3);
-        select count(*) into b1 from stemik_lr2.work where printer_id = v_printer;
-        select count(*) into b2 from stemik_lr2.work;
-        delete from stemik_lr2.printer where printer_id = v_printer;
-        select count(*) into a1 from stemik_lr2.work where printer_id = v_printer;
-        select count(*) into a2 from stemik_lr2.work;
+        update stemik_model.work set printer_id = v_printer
+         where work_id in (select work_id from stemik_model.work order by work_id limit 3);
+        select count(*) into b1 from stemik_model.work where printer_id = v_printer;
+        select count(*) into b2 from stemik_model.work;
+        delete from stemik_model.printer where printer_id = v_printer;
+        select count(*) into a1 from stemik_model.work where printer_id = v_printer;
+        select count(*) into a2 from stemik_model.work;
         raise exception 'LAB_ROLLBACK';
     exception when others then
         null;
@@ -192,7 +192,7 @@ begin
     -- 10: DEFAULT — новий учень отримує active і дату створення -------------
     no := 10; test := 'DEFAULT: новий учень без active і created_at'; expected := 'active = true, дата — сьогодні';
     begin
-        insert into stemik_lr2.student (last_name, first_name) values ('Тестовий', 'Учень')
+        insert into stemik_model.student (last_name, first_name) values ('Тестовий', 'Учень')
         returning active, created_at::date into v_active, v_created;
         raise exception 'LAB_ROLLBACK';
     exception when others then
@@ -208,7 +208,7 @@ revoke all on function public.lab_lr2_model() from public;
 revoke all on function public.lab_lr2_constraint_tests() from public;
 grant execute on function public.lab_lr2_model() to anon, authenticated;
 grant execute on function public.lab_lr2_constraint_tests() to anon, authenticated;
-comment on function public.lab_lr2_model() is 'ЛР2: каталог фізичної моделі (схема stemik_lr2) для сайту';
+comment on function public.lab_lr2_model() is 'ЛР2: каталог фізичної моделі (схема stemik_model) для сайту';
 comment on function public.lab_lr2_constraint_tests() is 'ЛР2: перевірка обмежень цілісності з відкатом усіх змін';
 
 notify pgrst, 'reload schema';
